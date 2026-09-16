@@ -54,9 +54,9 @@ export class Stage0 {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x060913, 1.0);
 
-    // 2. Escena y Niebla Tisular
+    // 2. Escena y Niebla Tisular Suave
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x060913, 0.025);
+    this.scene.fog = new THREE.Fog(0x060913, 45, 110);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;
@@ -71,7 +71,7 @@ export class Stage0 {
     this.camera.position.set(0, 0, 50);
     this.camera.lookAt(0, 0, 0);
 
-    // 4. Iluminación Biológica
+    // 4. Iluminación Biológica de Alto Contraste
     this.setupLighting();
 
     // 5. Entorno: Glóbulos Rojos y Partículas de Nutrientes
@@ -125,45 +125,45 @@ export class Stage0 {
   }
 
   private createBacterialCell(): void {
-    // Membrana Externa Lipídica (Verde Esmeralda Translúcido y Bioluminiscente)
+    // Membrana Externa Lipídica (Verde Esmeralda de Alto Contraste)
     const membraneGeo = new THREE.CapsuleGeometry(1.2, 2.4, 16, 32);
     const membraneMat = new THREE.MeshStandardMaterial({
-      color: 0x10b981,
+      color: 0x00ff88,
       emissive: 0x059669,
-      emissiveIntensity: 0.7,
-      roughness: 0.3,
+      emissiveIntensity: 1.0,
+      roughness: 0.1,
       metalness: 0.1,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.9,
     });
     const membrane = new THREE.Mesh(membraneGeo, membraneMat);
     membrane.rotation.z = Math.PI / 2;
     this.cellGroup.add(membrane);
 
-    // Citoplasma Interno y Núcleo Bioluminiscente
+    // Citoplasma Interno y Núcleo (Cian Eléctrico Brillante)
     const coreGeo = new THREE.SphereGeometry(0.8, 16, 16);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
+      color: 0x00ffff,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.95,
     });
     const core = new THREE.Mesh(coreGeo, coreMat);
     this.cellGroup.add(core);
 
-    // Orgánulos / Vacuolas de ATP internas
+    // Orgánulos / Vacuolas de ATP internas (Oro Puro Brillante)
     for (let i = 0; i < 4; i++) {
       const vacGeo = new THREE.SphereGeometry(0.3, 12, 12);
       const vacMat = new THREE.MeshBasicMaterial({
-        color: 0xfbbf24,
+        color: 0xffd700,
         transparent: true,
-        opacity: 0.9,
+        opacity: 1.0,
       });
       const vac = new THREE.Mesh(vacGeo, vacMat);
       vac.position.set((Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 0.8, 0.2);
       this.cellGroup.add(vac);
     }
 
-    // Flagelos Sinusoidales Ondulantes
+    // Flagelos Sinusoidales Ondulantes (Cian Neón de Alta Visibilidad)
     for (let i = -1; i <= 1; i++) {
       const curvePoints: THREE.Vector3[] = [];
       for (let j = 0; j < 25; j++) {
@@ -171,10 +171,10 @@ export class Stage0 {
       }
       const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
       const lineMat = new THREE.LineBasicMaterial({
-        color: i === 0 ? 0x34d399 : 0x06b6d4,
-        linewidth: 2,
+        color: i === 0 ? 0x00ffcc : 0x00e5ff,
+        linewidth: 3,
         transparent: true,
-        opacity: 0.7,
+        opacity: 1.0,
       });
       const flagellum = new THREE.Line(lineGeo, lineMat);
       this.flagellaCurves.push(flagellum);
@@ -183,14 +183,16 @@ export class Stage0 {
   }
 
   private createBackgroundElements(): void {
-    // 1. Glóbulos Rojos (Eritrocitos) Desenfocados en el Fondo
+    // 1. Glóbulos Rojos (Eritrocitos) Claramente Visibles en el Fondo
     const rbcGeo = new THREE.TorusGeometry(1.6, 0.7, 12, 24);
     const rbcMat = new THREE.MeshStandardMaterial({
-      color: 0x991b1b,
-      roughness: 0.4,
+      color: 0xd32f2f,
+      emissive: 0x660000,
+      emissiveIntensity: 0.5,
+      roughness: 0.3,
       metalness: 0.1,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.65,
     });
 
     for (let i = 0; i < 35; i++) {
@@ -198,19 +200,19 @@ export class Stage0 {
       rbc.position.set(
         (Math.random() - 0.5) * 80,
         (Math.random() - 0.5) * 60,
-        -15 - Math.random() * 20
+        -5 - Math.random() * 12
       );
       rbc.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
       this.erythrocyteGroup.add(rbc);
     }
 
-    // 2. Gránulos de Glucógeno y Nutrientes Flotantes
+    // 2. Gránulos de Glucógeno y Nutrientes (Gemas Doradas de Alto Brillo)
     const nutGeo = new THREE.DodecahedronGeometry(0.35);
     const nutMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
-      emissive: 0xd97706,
-      emissiveIntensity: 0.8,
-      roughness: 0.3,
+      color: 0xffc107,
+      emissive: 0xff9800,
+      emissiveIntensity: 1.5,
+      roughness: 0.1,
     });
 
     for (let i = 0; i < 60; i++) {
