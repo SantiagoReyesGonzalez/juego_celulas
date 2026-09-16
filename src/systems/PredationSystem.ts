@@ -5,19 +5,64 @@ import { Microorganism, MicroorganismType } from '../entities/Microorganism';
 import { Adipocyte, AtpOrb } from '../entities/Resources';
 import { VacuoleManager } from './VacuoleManager';
 
+/**
+ * Gránulo de Nutriente / Glucógeno comestible (estilo puntos de Agar.io)
+ */
+export class NutrientPellet {
+  public position: THREE.Vector2;
+  public mesh: THREE.Mesh;
+  public radius = 0.4;
+  public atpValue = 1.0;
+  public massGain = 0.08;
+  public isCollected = false;
+  private floatOffset = Math.random() * Math.PI * 2;
+  private floatSpeed = 1.3 + Math.random() * 0.8;
+
+  constructor(
+    scene: THREE.Scene,
+    x: number,
+    y: number,
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material
+  ) {
+    this.position = new THREE.Vector2(x, y);
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.position.set(x, y, 0);
+    scene.add(this.mesh);
+  }
+
+  public update(dt: number, time: number): void {
+    if (this.isCollected) return;
+    this.mesh.position.x = this.position.x + Math.sin(time * this.floatSpeed + this.floatOffset) * 0.12;
+    this.mesh.position.y = this.position.y + Math.cos(time * this.floatSpeed + this.floatOffset) * 0.12;
+    this.mesh.rotation.y += dt * 2.0;
+  }
+
+  public dispose(scene: THREE.Scene): void {
+    this.isCollected = true;
+    scene.remove(this.mesh);
+  }
+}
+
 export class PredationSystem {
   private physicsWorld: PhysicsWorld;
   private scene: THREE.Scene;
   private player: Player;
   private vacuoleManager: VacuoleManager;
 
+  public nutrients: NutrientPellet[] = [];
   public microorganisms: Microorganism[] = [];
   public adipocytes: Adipocyte[] = [];
   public atpOrbs: AtpOrb[] = [];
 
-  private maxMicroorganisms = 24;
+  private maxNutrients = 110;
+  private maxMicroorganisms = 35;
   private maxAdipocytes = 8;
   private worldBounds = { minX: -60, maxX: 60, minY: -50, maxY: 50 };
+
+  // Recursos compartidos para los gránulos de nutrientes
+  private nutGeo: THREE.BufferGeometry;
+  private nutMat: THREE.Material;
 
   constructor(
     physicsWorld: PhysicsWorld,
@@ -30,6 +75,15 @@ export class PredationSystem {
     this.player = player;
     this.vacuoleManager = vacuoleManager;
 
+    // Geometría dorada brillante compartida para optimizar el rendimiento
+    this.nutGeo = new THREE.DodecahedronGeometry(0.38);
+    this.nutMat = new THREE.MeshStandardMaterial({
+      color: 0xffc107,
+      emissive: 0xff9800,
+      emissiveIntensity: 1.6,
+      roughness: 0.15,
+    });
+
     this.vacuoleManager.onAtpLeak = (amount) => {
       this.spawnAtpLeak(amount);
     };
@@ -39,15 +93,46 @@ export class PredationSystem {
   }
 
   private populateEcosystem(): void {
-    // 1. Células y presas vivas
-    for (let i = 0; i < this.maxMicroorganisms; i++) {
+    // 1. Gránulos de Glucógeno / Nutrientes (Agar.io Dots)
+    // Agrupar 35 gránulos cerca del jugador para alimentación inmediata desde el segundo 0
+    for (let i = 0; i < 35; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 3.5 + Math.random() * 20.0;
+      this.spawnNutrient(Math.cos(angle) * dist, Math.sin(angle) * dist);
+    }
+    // El resto distribuidos por todo el mapa
+    while (this.nutrients.length < this.maxNutrients) {
+      this.spawnRandomNutrient();
+    }
+
+    // 2. Microorganismos (Cocos, Bacilos, Desechos)
+    // Generar 6 organismos débiles cerca para que cazar sea accesible de inmediato
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 8.0 + Math.random() * 14.0;
+      const type = Math.random() < 0.6 ? MicroorganismType.CELLULAR_DEBRIS : MicroorganismType.TINY_COCCUS;
+      const micro = new Microorganism(this.physicsWorld, this.scene, Math.cos(angle) * dist, Math.sin(angle) * dist, type);
+      this.microorganisms.push(micro);
+    }
+    while (this.microorganisms.length < this.maxMicroorganisms) {
       this.spawnRandomMicroorganism();
     }
 
-    // 2. Depósitos lipídicos (Adipocitos) para digestión por contacto
+    // 3. Depósitos lipídicos (Adipocitos) para digestión por contacto
     for (let i = 0; i < this.maxAdipocytes; i++) {
       this.spawnRandomAdipocyte();
     }
+  }
+
+  private spawnNutrient(x: number, y: number): void {
+    const nut = new NutrientPellet(this.scene, x, y, this.nutGeo, this.nutMat);
+    this.nutrients.push(nut);
+  }
+
+  private spawnRandomNutrient(): void {
+    const x = (Math.random() - 0.5) * (this.worldBounds.maxX - this.worldBounds.minX);
+    const y = (Math.random() - 0.5) * (this.worldBounds.maxY - this.worldBounds.minY);
+    this.spawnNutrient(x, y);
   }
 
   private spawnRandomMicroorganism(): void {
@@ -56,7 +141,7 @@ export class PredationSystem {
 
     const rand = Math.random();
     let type = MicroorganismType.TINY_COCCUS;
-    if (rand < 0.25) {
+    if (rand < 0.35) {
       type = MicroorganismType.CELLULAR_DEBRIS;
     } else if (rand > 0.8) {
       type = MicroorganismType.SMALL_BACILLUS;
@@ -84,12 +169,46 @@ export class PredationSystem {
 
   public update(dt: number, time: number): void {
     const playerPos = this.player.body.translation();
-    const playerRadius = 1.3 * this.player.currentScale;
+    const playerRadius = this.player.baseRadius * this.player.currentScale;
     const playerMass = this.player.currentMass;
     const chemoLevel = this.vacuoleManager.upgrades.chemotaxis?.level || 0;
-    const chemoRadius = 8.5 + chemoLevel * 2.5;
+    const chemoRadius = 9.0 + chemoLevel * 2.8;
 
-    // 1. Depredación y Fagocitosis de Microorganismos (Regla de Masa estilo Agar.io)
+    // ================= 1. CONSUMO DE GRÁNULOS DE NUTRIENTES (Agar.io) =================
+    for (let i = this.nutrients.length - 1; i >= 0; i--) {
+      const nut = this.nutrients[i];
+      nut.update(dt, time);
+
+      const dx = playerPos.x - nut.position.x;
+      const dy = playerPos.y - nut.position.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Succión quimiotáctica magnética al aproximarse
+      if (dist <= chemoRadius * 0.7) {
+        const pullSpeed = 16.0 + (chemoRadius - dist) * 2.5;
+        nut.position.x += (dx / (dist || 1)) * pullSpeed * dt;
+        nut.position.y += (dy / (dist || 1)) * pullSpeed * dt;
+        nut.mesh.position.set(nut.position.x, nut.position.y, 0);
+      }
+
+      // Absorción celular directa por membrana
+      if (dist <= playerRadius + nut.radius) {
+        this.vacuoleManager.addAtp(nut.atpValue);
+        this.player.grow(nut.massGain);
+        this.player.feedBounce(1.08);
+
+        nut.dispose(this.scene);
+        this.nutrients.splice(i, 1);
+
+        setTimeout(() => {
+          if (this.nutrients.length < this.maxNutrients) {
+            this.spawnRandomNutrient();
+          }
+        }, 2200);
+      }
+    }
+
+    // ================= 2. DEPREDACIÓN DE MICROORGANISMOS =================
     for (let i = this.microorganisms.length - 1; i >= 0; i--) {
       const micro = this.microorganisms[i];
       micro.update(dt, time, playerPos, playerMass);
@@ -99,10 +218,13 @@ export class PredationSystem {
 
       // Contacto de membranas
       if (dist <= playerRadius + micro.radius) {
-        if (playerMass >= micro.mass * 1.15) {
-          // ENGULLIMIENTO / FAGOCITOSIS
+        if (playerMass >= micro.mass * 1.12) {
+          // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
           this.vacuoleManager.addAtp(micro.atpValue);
-          this.player.grow(micro.mass * 0.22);
+          // Aumento sustancial de biomasa
+          const massGain = Math.max(0.35, micro.mass * 0.75);
+          this.player.grow(massGain);
+          this.player.feedBounce(1.22);
 
           micro.isDead = true;
           micro.dispose(this.scene, this.physicsWorld);
@@ -122,7 +244,7 @@ export class PredationSystem {
       }
     }
 
-    // 2. Digestión por Contacto con Adipocitos
+    // ================= 3. DIGESTIÓN POR CONTACTO CON ADIPOCITOS =================
     for (let i = this.adipocytes.length - 1; i >= 0; i--) {
       const ad = this.adipocytes[i];
       ad.update(dt, time);
@@ -132,9 +254,9 @@ export class PredationSystem {
 
       if (dist <= playerRadius + ad.radius) {
         const speed = this.player.getSpeed();
-        if (speed > 5.0) {
-          // Erosión por contacto: desprende orbes de biomasa/ATP
-          const damage = 1.0 + (speed - 5.0) * 0.25;
+        if (speed > 4.5) {
+          // Erosión por fricción y enzimas de membrana
+          const damage = 1.0 + (speed - 4.5) * 0.3;
           const isLysed = ad.hit(damage);
 
           // Desprender orbes al erosionar
@@ -167,7 +289,7 @@ export class PredationSystem {
       }
     }
 
-    // 3. Atracción Quimiotáctica de Orbes de ATP
+    // ================= 4. RECOLECCIÓN Y CRECIMIENTO POR ORBES DE ATP =================
     for (let i = this.atpOrbs.length - 1; i >= 0; i--) {
       const orb = this.atpOrbs[i];
       orb.update(dt, time);
@@ -187,8 +309,12 @@ export class PredationSystem {
         orb.isAttracted = false;
       }
 
-      if (dist <= playerRadius * 0.9) {
+      if (dist <= playerRadius * 0.95) {
         this.vacuoleManager.addAtp(orb.atpValue);
+        // Cada orbe nutre y acrecienta la célula
+        this.player.grow(0.18);
+        this.player.feedBounce(1.10);
+
         orb.isCollected = true;
         orb.dispose(this.scene);
         this.atpOrbs.splice(i, 1);

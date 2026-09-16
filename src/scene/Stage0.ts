@@ -15,6 +15,7 @@ export interface TelemetryData {
   mouseWorld: THREE.Vector2;
   cellSpeed: number;
   cellMass: number;
+  cellScale: number;
 }
 
 export class Stage0 {
@@ -191,25 +192,6 @@ export class Stage0 {
       rbc.scale.set(scale, scale, scale);
       this.erythrocyteGroup.add(rbc);
     }
-
-    // 2. Gránulos de Glucógeno y Nutrientes (Gemas Doradas Brillantes)
-    const nutGeo = new THREE.DodecahedronGeometry(0.35);
-    const nutMat = new THREE.MeshStandardMaterial({
-      color: 0xffc107,
-      emissive: 0xff9800,
-      emissiveIntensity: 1.5,
-      roughness: 0.1,
-    });
-
-    for (let i = 0; i < 60; i++) {
-      const nutrient = new THREE.Mesh(nutGeo, nutMat);
-      nutrient.position.set(
-        (Math.random() - 0.5) * 60,
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 5
-      );
-      this.particlesGroup.add(nutrient);
-    }
   }
 
   /**
@@ -306,22 +288,24 @@ export class Stage0 {
       // 4. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
       this.player.visualUpdate(dt, time);
 
-      // 5. Seguimiento Suave de la Cámara al Jugador (Smooth Follow)
+      // 5. Seguimiento Suave de la Cámara al Jugador y Zoom Orgánico (Agar.io)
       const playerPos = this.player.body.translation();
-      this.camera.position.x += (playerPos.x - this.camera.position.x) * Math.min(dt * 3.0, 1.0);
-      this.camera.position.y += (playerPos.y - this.camera.position.y) * Math.min(dt * 3.0, 1.0);
+      this.camera.position.x += (playerPos.x - this.camera.position.x) * Math.min(dt * 3.5, 1.0);
+      this.camera.position.y += (playerPos.y - this.camera.position.y) * Math.min(dt * 3.5, 1.0);
+
+      // Zoom dinámico suave al crecer la bacteria
+      const targetFrustum = 42.0 * Math.pow(this.player.currentScale, 0.28);
+      if (Math.abs(this.frustumSize - targetFrustum) > 0.05) {
+        this.frustumSize += (targetFrustum - this.frustumSize) * Math.min(dt * 2.5, 1.0);
+        this.onResize();
+      }
     }
 
-    // 4. Deriva Suave de Glóbulos Rojos y Nutrientes
+    // 4. Deriva Suave de Glóbulos Rojos de Fondo
     this.erythrocyteGroup.children.forEach((rbc, idx) => {
       rbc.position.x += Math.sin(time * 0.4 + idx) * 0.015;
       rbc.rotation.x += 0.004;
       rbc.rotation.y += 0.006;
-    });
-
-    this.particlesGroup.children.forEach((nutrient, idx) => {
-      nutrient.rotation.y += 0.03;
-      nutrient.position.y += Math.sin(time * 1.5 + idx) * 0.01;
     });
 
     // 5. Telemetría y Estadísticas
@@ -334,12 +318,14 @@ export class Stage0 {
       if (this.onTelemetryUpdate) {
         const speed = this.player ? this.player.getSpeed() : 0;
         const mass = this.player ? this.player.currentMass : 1.0;
+        const scale = this.player ? this.player.currentScale : 1.0;
         this.onTelemetryUpdate({
           fps: this.currentFps,
           wasmReady: this.isWasmReady,
           mouseWorld: this.mouseWorld.clone(),
           cellSpeed: Math.round(speed * 10) / 10,
-          cellMass: Math.round(mass * 10) / 10,
+          cellMass: Math.round(mass * 100) / 100,
+          cellScale: Math.round(scale * 100) / 100,
         });
       }
     }

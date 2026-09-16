@@ -14,6 +14,7 @@ function init(): void {
   const coordsEl = document.getElementById('coords-val');
   const speedEl = document.getElementById('speed-val');
   const massEl = document.getElementById('mass-val');
+  const scaleEl = document.getElementById('scale-val');
 
   try {
     const stage = new Stage0(canvas);
@@ -31,7 +32,10 @@ function init(): void {
         speedEl.textContent = `${data.cellSpeed.toFixed(1)} u/s`;
       }
       if (massEl && data.cellMass !== undefined) {
-        massEl.textContent = `${data.cellMass.toFixed(1)} M`;
+        massEl.textContent = `${data.cellMass.toFixed(2)} μg`;
+      }
+      if (scaleEl && data.cellScale !== undefined) {
+        scaleEl.textContent = `${data.cellScale.toFixed(2)}x`;
       }
     };
 

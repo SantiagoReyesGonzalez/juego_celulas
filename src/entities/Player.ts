@@ -21,6 +21,10 @@ export class Player {
   public baseMass: number;
   public currentScale = 1.0;
   public targetScale = 1.0;
+  public baseRadius = 1.4;
+  public baseLength = 1.4;
+  public lastColliderScale = 1.0;
+  public feedPulse = 1.0;
 
   // Visuales Three.js
   public group: THREE.Group;
@@ -140,6 +144,10 @@ export class Player {
     }
 
     // 2. Parámetros Físicos de la Especie
+    this.baseRadius = bodyRadius;
+    this.baseLength = bodyLength;
+    this.lastColliderScale = 1.0;
+    this.feedPulse = 1.0;
     this.body.setAdditionalMass(this.currentMass * 2.2, true);
     this.thrustForce = species.acceleration * 1.8;
     this.rotationSpeed = species.turnRate * 2.5;
@@ -279,9 +287,33 @@ export class Player {
    */
   public grow(massGain: number): void {
     this.currentMass += massGain;
-    // La escala crece con la raíz cuadrada de la masa
-    this.targetScale = Math.min(2.4, Math.sqrt(this.currentMass / this.baseMass));
-    this.body.setAdditionalMass(this.currentMass * 2.2, true);
+    // Escala continua y evidente: raíz cuadrada del ratio de masa
+    const massRatio = Math.max(1.0, this.currentMass / this.baseMass);
+    this.targetScale = Math.min(3.6, Math.pow(massRatio, 0.45));
+    this.body.setAdditionalMass(this.currentMass * 2.0, true);
+    this.feedPulse = 1.15; // Pulso elástico inmediato al engullir
+  }
+
+  public feedBounce(intensity = 1.12): void {
+    this.feedPulse = intensity;
+  }
+
+  public updateColliderScale(): void {
+    if (!this.collider) return;
+    if (Math.abs(this.currentScale - this.lastColliderScale) < 0.03) return;
+    this.lastColliderScale = this.currentScale;
+
+    const scaledRadius = this.baseRadius * this.currentScale;
+    try {
+      if (this.currentSpecies.morphology === CellMorphology.COCCUS) {
+        this.collider.setShape(new RAPIER.Ball(scaledRadius));
+      } else {
+        const scaledHalfLength = (this.baseLength * 0.4) * this.currentScale;
+        this.collider.setShape(new RAPIER.Capsule(scaledHalfLength, scaledRadius));
+      }
+    } catch {
+      // Manejo seguro ante cualquier estado transitorio de Rapier
+    }
   }
 
   /**
@@ -374,16 +406,20 @@ export class Player {
     this.group.rotation.z = rot;
 
     // Crecimiento suave hacia la escala objetivo
-    this.currentScale += (this.targetScale - this.currentScale) * Math.min(dt * 3.0, 1.0);
+    this.currentScale += (this.targetScale - this.currentScale) * Math.min(dt * 4.5, 1.0);
+
+    // Recuperación elástica tras comer (feedPulse)
+    this.feedPulse += (1.0 - this.feedPulse) * Math.min(dt * 8.0, 1.0);
 
     // Recuperación elástica tras sprint
     this.sprintStretch += (1.0 - this.sprintStretch) * Math.min(dt * 6.0, 1.0);
 
-    this.group.scale.set(
-      this.currentScale * this.sprintStretch,
-      this.currentScale * (2.0 - this.sprintStretch),
-      this.currentScale
-    );
+    const sx = this.currentScale * this.sprintStretch * this.feedPulse;
+    const sy = this.currentScale * (2.0 - this.sprintStretch) * this.feedPulse;
+    const sz = this.currentScale * this.feedPulse;
+
+    this.group.scale.set(sx, sy, sz);
+    this.updateColliderScale();
 
     // Ondulación de los flagelos
     const vel = this.body.linvel();
