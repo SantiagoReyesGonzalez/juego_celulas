@@ -54,6 +54,10 @@ export class Player {
   public isControlsLocked = false;
   public mouseWorld = new THREE.Vector2(0, 0);
 
+  // Ciclo de Vida y Muerte Celular
+  public isDead = false;
+  public invulnerabilityTimer = 0;
+
   constructor(physicsWorld: PhysicsWorld, scene: THREE.Scene, initialSpeciesId = 'micrococcus') {
     this.currentSpecies = SPECIES_CATALOG[initialSpeciesId] || SPECIES_CATALOG.micrococcus;
     this.baseMass = this.currentSpecies.mass;
@@ -401,6 +405,8 @@ export class Player {
     hydro: HydrodynamicsSystem,
     vacuoleManager: VacuoleManager
   ): void {
+    if (this.isDead) return;
+
     const pos = this.body.translation();
     const currentRot = this.body.rotation();
 
@@ -464,6 +470,8 @@ export class Player {
   }
 
   public visualUpdate(dt: number, time: number): void {
+    if (this.isDead) return;
+
     const pos = this.body.translation();
     const rot = this.body.rotation();
     this.group.position.set(pos.x, pos.y, 0);
@@ -506,6 +514,15 @@ export class Player {
     const vel = this.body.linvel();
     const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
     OrganelleFactory.animateFlagella(this.flagellaMeshes, time, speed, this.isThrusting);
+
+    // Parpadeo de invulnerabilidad post-reaparición
+    if (this.invulnerabilityTimer > 0) {
+      this.invulnerabilityTimer = Math.max(0, this.invulnerabilityTimer - dt);
+      const blink = Math.floor(time * 14.0) % 2 === 0;
+      this.group.visible = blink;
+    } else if (!this.isDead) {
+      this.group.visible = true;
+    }
   }
 
   public getSpeed(): number {
@@ -542,5 +559,88 @@ export class Player {
     const distY = py - closestY;
 
     return (distX * distX + distY * distY) <= (radius * radius);
+  }
+
+  /**
+   * Ejecuta la animación y partículas de lisis celular al morir la bacteria
+   */
+  public triggerLysis(scene: THREE.Scene, onComplete?: () => void): void {
+    if (this.isDead) return;
+    this.isDead = true;
+    this.isControlsLocked = true;
+    this.isThrusting = false;
+    this.isBraking = false;
+    this.isSprintRequested = false;
+
+    this.body.setLinvel({ x: 0, y: 0 }, true);
+    this.body.setAngvel(0, true);
+
+    const pos = this.body.translation();
+    const count = 35;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const velocities: Array<{ vx: number; vy: number }> = [];
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = pos.x;
+      positions[i * 3 + 1] = pos.y;
+      positions[i * 3 + 2] = 0.2;
+
+      const ang = Math.random() * Math.PI * 2;
+      const speed = 4.0 + Math.random() * 9.0;
+      velocities.push({
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+      });
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xef4444,
+      size: 0.75,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+    this.group.visible = false;
+
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      elapsed += 0.03;
+      const posAttr = geo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < count; i++) {
+        const px = posAttr.getX(i) + velocities[i].vx * 0.03;
+        const py = posAttr.getY(i) + velocities[i].vy * 0.03;
+        posAttr.setXY(i, px, py);
+      }
+      posAttr.needsUpdate = true;
+      mat.opacity = Math.max(0, 1.0 - elapsed / 1.0);
+
+      if (elapsed >= 1.0) {
+        clearInterval(interval);
+        scene.remove(particles);
+        geo.dispose();
+        mat.dispose();
+        if (onComplete) onComplete();
+      }
+    }, 30);
+  }
+
+  public respawn(x = 0, y = 0): void {
+    this.isDead = false;
+    this.group.visible = true;
+    this.isControlsLocked = false;
+    this.invulnerabilityTimer = 3.0; // 3 segundos de invulnerabilidad
+
+    this.body.setTranslation({ x, y }, true);
+    this.body.setLinvel({ x: 0, y: 0 }, true);
+    this.group.position.set(x, y, 0);
+
+    this.currentMass = this.baseMass;
+    this.currentScale = 1.0;
+    this.targetScale = 1.0;
   }
 }

@@ -90,4 +90,19 @@ export class EvolutionSystem {
   public getAvailableEvolutions(): BacteriaSpecies[] {
     return MutationTree.getAvailableEvolutions(this.player.currentSpecies.id);
   }
+
+  public resetToBaseSpecies(): void {
+    const base = MutationTree.getSpecies('micrococcus');
+    if (base) {
+      this.player.setSpecies(base, this.physicsWorld);
+      this.vacuoleManager.maxMembraneIntegrity = base.hp;
+      this.vacuoleManager.membraneIntegrity = base.hp;
+      this.vacuoleManager.maxOsmoticPressure = base.shield;
+      this.vacuoleManager.osmoticPressure = base.shield;
+      this.vacuoleManager.atpCapacity = base.vacuoleCapacity;
+      this.vacuoleManager.atp = 15;
+      this.vacuoleManager.notifyStats();
+      this.player.applyUpgrades(this.vacuoleManager.upgrades);
+    }
+  }
 }

@@ -95,6 +95,8 @@ export class VacuoleManager {
   public onAtpLeak?: (lostAmount: number) => void;
   public onMitosisAvailable?: () => void;
   public onUpgradePurchased?: (upgradeId: string, upgrade: BioUpgrade) => void;
+  public onDeath?: (cause: string) => void;
+  public isDead = false;
 
   private statsListeners: Array<(stats: CellStats) => void> = [];
   private atpLeakListeners: Array<(lost: number) => void> = [];
@@ -213,11 +215,15 @@ export class VacuoleManager {
     return true;
   }
 
+  public isInvulnerable = false;
+
   /**
    * Aplica daño a la bacteria: primero consume presión osmótica (escudo),
    * luego integridad de membrana. Si el impacto es severo, produce derrame de ATP (ATPLeak).
    */
-  public takeDamage(amount: number): void {
+  public takeDamage(amount: number, cause = 'Daño Biológico'): void {
+    if (this.isDead || this.isInvulnerable) return;
+
     let remaining = amount;
 
     // 1. Absorber con Presión Osmótica
@@ -228,7 +234,7 @@ export class VacuoleManager {
     }
 
     // 2. Daño a la Integridad de Membrana
-    if (remaining > 0) {
+    if (remaining > 0 && !this.isDead) {
       this.membraneIntegrity = Math.max(0, this.membraneIntegrity - remaining);
 
       // Penalización ATPLeak si se daña la membrana y se tiene ATP almacenado
@@ -242,8 +248,25 @@ export class VacuoleManager {
           fn(leak);
         }
       }
+
+      // LISIS CELULAR: Si la membrana llega a 0, la célula muere
+      if (this.membraneIntegrity <= 0) {
+        this.isDead = true;
+        if (this.onDeath) {
+          this.onDeath(cause);
+        }
+      }
     }
 
+    this.notifyStats();
+  }
+
+  public resetForRespawn(): void {
+    this.membraneIntegrity = this.maxMembraneIntegrity;
+    this.osmoticPressure = this.maxOsmoticPressure;
+    this.atp = 15;
+    this.isDead = false;
+    this.mitosisNotified = false;
     this.notifyStats();
   }
 

@@ -218,7 +218,7 @@ export class BiofilmHub {
 
     // Cada golpe le hace daño de retroceso al jugador
     const recoilDamage = 7.5;
-    vacuoleManager.takeDamage(recoilDamage);
+    vacuoleManager.takeDamage(recoilDamage, 'Retroceso por Impacto en Núcleo');
 
     this.flashHit();
     this.updateHealthBar();
@@ -380,7 +380,7 @@ export class BiofilmHub {
     this.isPlayerInField = dist <= this.fieldRadius;
     if (this.isPlayerInField) {
       const passiveDmg = 5.0 * dt; // ~5.0 HP/s de daño por erosión ácida (3x más desafiante)
-      vacuoleManager.takeDamage(passiveDmg);
+      vacuoleManager.takeDamage(passiveDmg, 'Erosión Ácida de Campo Cáustico');
     }
 
     // Contacto perimetral con el núcleo central

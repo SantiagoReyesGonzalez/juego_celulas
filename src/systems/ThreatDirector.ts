@@ -175,7 +175,7 @@ export class ThreatDirector {
         } else if (!isPlayerInSanctuary) {
           // El neutrófilo ataca / erosiona la membrana solo si la bacteria está fuera del nido
           const damage = 14.0 * dt;
-          vacuoleManager.takeDamage(damage);
+          vacuoleManager.takeDamage(damage, 'Fagocitosis por Leucocito Neutrófilo');
 
           // Ralentización por moco/redes adhesivas (NETs)
           const pVel = playerBody.linvel();
@@ -223,7 +223,7 @@ export class ThreatDirector {
             }
           } else if (!isPlayerInSanctuary) {
             // El macrófago causa daño severo por fagocitosis solo fuera del nido
-            vacuoleManager.takeDamage(28.0 * dt);
+            vacuoleManager.takeDamage(28.0 * dt, 'Ataque Letal de Macrófago Titán');
           }
         }
       }

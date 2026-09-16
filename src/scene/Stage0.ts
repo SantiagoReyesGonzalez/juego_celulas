@@ -11,6 +11,8 @@ import { ThreatDirector } from '../systems/ThreatDirector';
 import { Minimap } from '../ui/Minimap';
 import { BiofilmHub } from '../entities/BiofilmHub';
 import { BiofilmChunk } from '../entities/BiofilmChunk';
+import { GameOverModal } from '../ui/GameOverModal';
+import { AtpOrb } from '../entities/Resources';
 import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/WorldTopology';
 
 export interface TelemetryData {
@@ -42,8 +44,11 @@ export class Stage0 {
   public mitosisModal!: MitosisModal;
   public threatDirector!: ThreatDirector;
   public minimap!: Minimap;
+  public gameOverModal!: GameOverModal;
   public biofilmHubs: BiofilmHub[] = [];
   public biofilmChunks: BiofilmChunk[] = [];
+  private sessionStartTime = performance.now();
+  private peakMass = 1.0;
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -201,6 +206,15 @@ export class Stage0 {
         new BiofilmHub(this.physicsWorld, this.scene, -210, -160, 18.0, 'Nódulo Caústico Gamma (60 Golpes)'),
       ];
 
+      // 7. Modal de Game Over y Lisis Celular
+      this.gameOverModal = new GameOverModal();
+      this.gameOverModal.onRespawnClick = () => {
+        this.handlePlayerRespawn();
+      };
+      this.vacuoleManager.onDeath = (cause) => {
+        this.handlePlayerDeath(cause);
+      };
+
       this.isWasmReady = true;
       console.log('✅ Rapier2D WASM, Hidrodinámica, Sistema Inmune, Evolución y Mini-Mapa inicializados');
     } catch (err) {
@@ -311,6 +325,11 @@ export class Stage0 {
 
     // 1. Simulación Física Determinista Rapier2D a 60 Hz con Hidrodinámica
     if (this.isWasmReady && this.physicsWorld && this.player) {
+      this.vacuoleManager.isInvulnerable = this.player.invulnerabilityTimer > 0;
+      if (this.player.currentMass > this.peakMass) {
+        this.peakMass = this.player.currentMass;
+      }
+
       this.physicsWorld.step(dt, (fixedDt) => {
         this.player.physicsUpdate(fixedDt, this.hydroSystem, this.vacuoleManager);
       });
@@ -378,7 +397,7 @@ export class Stage0 {
               }
             } else {
               // Contacto pasivo sin sprint: las espículas cáusticas erosionan severamente la membrana
-              this.vacuoleManager.takeDamage(9.0 * dt);
+              this.vacuoleManager.takeDamage(9.0 * dt, 'Espículas Cáusticas de Núcleo');
               const angle = Math.atan2(dy, dx);
               this.player.body.applyImpulse({ x: -Math.cos(angle) * 12.0 * dt, y: -Math.sin(angle) * 12.0 * dt }, true);
             }
@@ -566,5 +585,60 @@ export class Stage0 {
 
     // 6. Renderizado de la Escena
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private handlePlayerDeath(cause: string): void {
+    if (!this.player || this.gameOverModal.isOpen()) return;
+
+    // 1. Calcular duración de supervivencia en la sesión
+    const elapsedSec = Math.floor((performance.now() - this.sessionStartTime) / 1000);
+    const mins = Math.floor(elapsedSec / 60).toString().padStart(2, '0');
+    const secs = (elapsedSec % 60).toString().padStart(2, '0');
+    const survivalTime = `${mins}:${secs}`;
+
+    // 2. Dispersión y derrame de ATP por lisis bacteriana
+    if (this.predationSystem && this.vacuoleManager.atp > 0) {
+      const dropCount = Math.min(18, Math.max(3, Math.floor(this.vacuoleManager.atp / 2.5)));
+      const pPos = this.player.body.translation();
+      for (let i = 0; i < dropCount; i++) {
+        const angle = (i / dropCount) * Math.PI * 2 + Math.random() * 0.4;
+        const speed = 3.5 + Math.random() * 5.0;
+        const orb = new AtpOrb(
+          this.scene,
+          pPos.x + Math.cos(angle) * 1.5,
+          pPos.y + Math.sin(angle) * 1.5,
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed,
+          4
+        );
+        this.predationSystem.atpOrbs.push(orb);
+      }
+    }
+
+    const species = this.player.currentSpecies;
+    const finalMass = Math.max(this.peakMass, this.player.currentMass);
+    const atpRemaining = this.vacuoleManager.atp;
+
+    // 3. Ejecutar animación de lisis celular y despliegue del modal de Game Over
+    this.player.triggerLysis(this.scene, () => {
+      this.gameOverModal.open({
+        speciesName: species.name,
+        speciesRole: species.role,
+        peakMass: Math.round(finalMass * 100) / 100,
+        atp: Math.round(atpRemaining),
+        survivalTime,
+        cause,
+      });
+    });
+  }
+
+  private handlePlayerRespawn(): void {
+    this.player.respawn(0, 0);
+    this.vacuoleManager.resetForRespawn();
+    this.evolutionSystem.resetToBaseSpecies();
+    this.sessionStartTime = performance.now();
+    this.peakMass = 1.0;
+    this.camera.position.set(0, 0, 50);
+    this.hud.showCustomPopup('🛡️ ESPORA GERMINADA: 3s DE INMUNIDAD', '#10b981');
   }
 }

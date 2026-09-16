@@ -248,7 +248,7 @@ export class PredationSystem {
           }, 1800);
           continue;
         } else if (playerMass < micro.mass * 0.75) {
-          this.vacuoleManager.takeDamage(10 * dt);
+          this.vacuoleManager.takeDamage(10 * dt, 'Depredación por Microorganismo Gigante');
         }
       }
     }
