@@ -59,7 +59,8 @@ export class Microorganism {
 
     const colliderDesc = RAPIER.ColliderDesc.ball(this.radius)
       .setRestitution(0.5)
-      .setFriction(0.2);
+      .setFriction(0.2)
+      .setSensor(true);
     this.collider = physicsWorld.rawWorld.createCollider(colliderDesc, this.body);
 
     // 2. Malla 3D Three.js
@@ -68,6 +69,18 @@ export class Microorganism {
 
     this.buildVisuals();
     scene.add(this.mesh);
+  }
+
+  public get displayName(): string {
+    switch (this.type) {
+      case MicroorganismType.CELLULAR_DEBRIS:
+        return 'Detrito Celular';
+      case MicroorganismType.SMALL_BACILLUS:
+        return 'Bacilo Celular';
+      case MicroorganismType.TINY_COCCUS:
+      default:
+        return 'Micrococo';
+    }
   }
 
   private buildVisuals(): void {

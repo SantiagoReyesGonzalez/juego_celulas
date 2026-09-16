@@ -154,10 +154,10 @@ export class ThreatDirector {
       const { dist } = getToroidalDelta(nPos.x, nPos.y, playerPos.x, playerPos.y);
       const touchDist = playerRadius + neutro.radius;
 
-      if (dist < touchDist) {
+      if (dist <= touchDist + 0.45) {
         // DINÁMICA BIDIRECCIONAL BASADA EN MASA Y SPRINT
-        const isSprinting = player.getSpeed() > 14.0;
-        const canEatNeutrophil = playerMass >= neutro.mass * 1.15 || isSprinting;
+        const isSprinting = player.isSprinting || player.getSpeed() > 10.0;
+        const canEatNeutrophil = playerMass >= neutro.mass * 1.05 || isSprinting;
 
         if (canEatNeutrophil) {
           // La bacteria es un depredador más grande: LISA Y ASIMILA AL NEUTRÓFILO

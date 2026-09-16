@@ -191,7 +191,8 @@ export class PredationSystem {
       const nut = this.nutrients[i];
       nut.update(dt, time);
 
-      if (this.player.containsPoint(nut.position.x, nut.position.y, 1.0)) {
+      const { dist: nutDist } = getToroidalDelta(playerPos.x, playerPos.y, nut.position.x, nut.position.y);
+      if (nutDist <= playerRadius + nut.radius + 0.35) {
         this.vacuoleManager.addAtp(nut.atpValue * atpBonus);
         this.player.grow(nut.massGain * biomassBonus);
         this.player.feedBounce(1.08);
@@ -217,17 +218,20 @@ export class PredationSystem {
       micro.update(dt, time, playerPos, playerMass);
 
       const microPos = micro.body.translation();
+      const { dist: microDist } = getToroidalDelta(playerPos.x, playerPos.y, microPos.x, microPos.y);
+      const contactDist = playerRadius + micro.radius;
 
-      // Depredación al hacer contacto y pasar por encima de la presa
-      if (this.player.containsPoint(microPos.x, microPos.y, 1.05)) {
-        const canEngulf = (playerMass >= micro.mass * 0.98) || (this.player.isSprinting && playerMass >= micro.mass * 0.80);
+      // Contacto físico inmediato (elimina el bloqueo de rigid body)
+      if (microDist <= contactDist + 0.45) {
+        // El jugador es mayor que los detritos (0.25), cocos (0.45) y bacilos (0.85) desde el nivel inicial
+        const canEngulf = (playerMass >= micro.mass * 0.80) || this.player.isSprinting;
         if (canEngulf) {
           // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
-          this.vacuoleManager.addAtp(micro.atpValue * atpBonus);
-          // Aumento sustancial de biomasa
-          const massGain = Math.max(0.40, micro.mass * 0.85) * biomassBonus;
+          const atpGained = Math.round(micro.atpValue * atpBonus);
+          this.vacuoleManager.addAtp(atpGained);
+          const massGain = Math.max(0.35, micro.mass * 0.85) * biomassBonus;
           this.player.grow(massGain);
-          this.player.feedBounce(1.25);
+          this.player.feedBounce(1.22);
 
           micro.isDead = true;
           micro.dispose(this.scene, this.physicsWorld);
@@ -237,7 +241,6 @@ export class PredationSystem {
             this.onPredationActivity('microorganism');
           }
 
-          // Reaparición dinámica en la lejanía
           setTimeout(() => {
             if (this.microorganisms.length < this.maxMicroorganisms) {
               this.spawnRandomMicroorganism();
@@ -245,14 +248,13 @@ export class PredationSystem {
           }, 1800);
           continue;
         } else if (playerMass < micro.mass * 0.75) {
-          // La otra célula es notablemente mayor: daña a la bacteria del jugador
-          this.vacuoleManager.takeDamage(8);
+          this.vacuoleManager.takeDamage(10 * dt);
         }
       }
     }
 
     // ================= 3. DIGESTIÓN Y RUPTURA DE ADIPOCITOS POR SPRINT =================
-    // Solo se puede comer o romper con salticos del clic (Sprint). Independiente del tamaño siempre es vulnerable.
+    // Se rompe con salticos del clic (Sprint) o embestida veloz.
     for (let i = this.adipocytes.length - 1; i >= 0; i--) {
       const ad = this.adipocytes[i];
       ad.update(dt, time);
@@ -269,9 +271,9 @@ export class PredationSystem {
       const { dx, dy, dist } = getToroidalDelta(playerPos.x, playerPos.y, adPos.x, adPos.y);
 
       // Contacto físico
-      if (dist <= playerRadius + ad.radius * 1.05) {
-        // SOLO SE DAÑA CON EL SPRINT DE CLIC IZQUIERDO
-        if (this.player.isSprinting && (time - ad.lastHitTime > 0.35)) {
+      if (dist <= playerRadius + ad.radius + 0.45) {
+        const isRamming = this.player.isSprinting || this.player.getSpeed() > 11.0;
+        if (isRamming && (time - ad.lastHitTime > 0.30)) {
           ad.lastHitTime = time;
 
           // Impulso físico de reacción usando el vector toroidal
