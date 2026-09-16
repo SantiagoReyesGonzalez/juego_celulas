@@ -20,6 +20,7 @@ export interface MinimapData {
   macrophage?: MinimapEntity | null;
   nutrients?: MinimapEntity[];
   biofilmHubs?: MinimapEntity[];
+  biofilmChunks?: MinimapEntity[];
 }
 
 export class Minimap {
@@ -286,39 +287,48 @@ export class Minimap {
       });
     }
 
-    // 7.5. Nidos de Biopelícula (Santuarios de Regeneración y Escudo)
+    // 7.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas: Campo + Núcleo)
     if (data.biofilmHubs && data.biofilmHubs.length > 0) {
       data.biofilmHubs.forEach((hub) => {
         const { dx, dy, dist } = getToroidalDelta(px, py, hub.x, hub.y);
-        const hubWorldRadius = hub.radius || 16.0;
+        const fieldWorldR = hub.radius || 19.0;
+        const coreWorldR = 3.6;
 
-        if (dist <= this.radarRange + hubWorldRadius) {
-          // Dentro o en el umbral del radar: dibujar domo protector y anillo cian brillante
+        if (dist <= this.radarRange + fieldWorldR) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
-          const screenHubR = Math.max(5.0, (hubWorldRadius / this.radarRange) * radarRadius);
+          const screenFieldR = Math.max(5.0, (fieldWorldR / this.radarRange) * radarRadius);
+          const screenCoreR = Math.max(2.5, (coreWorldR / this.radarRange) * radarRadius);
 
-          // Domo bioluminiscente interior
-          ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+          // 1. Campo cáustico exterior (Domo translúcido verde ácido)
+          ctx.fillStyle = 'rgba(6, 78, 59, 0.28)';
           ctx.beginPath();
-          ctx.arc(rx, ry, screenHubR, 0, Math.PI * 2);
+          ctx.arc(rx, ry, screenFieldR, 0, Math.PI * 2);
           ctx.fill();
 
-          // Anillo perimétrico pulsante
-          const pulse = 1.0 + Math.sin(time * 3.5) * 0.06;
-          ctx.strokeStyle = '#2dd4bf';
-          ctx.lineWidth = 2.0;
+          // Anillo perimétrico exterior punteado (Peligro de erosión)
+          ctx.setLineDash([3, 4]);
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.arc(rx, ry, screenHubR * pulse, 0, Math.PI * 2);
+          ctx.arc(rx, ry, screenFieldR, 0, Math.PI * 2);
           ctx.stroke();
+          ctx.setLineDash([]);
 
-          // Núcleo simbiótico central
-          ctx.fillStyle = '#10b981';
+          // 2. Núcleo central blindado (20 impactos a romper)
+          const corePulse = 1.0 + Math.sin(time * 4.0) * 0.1;
+          ctx.fillStyle = '#f59e0b';
           ctx.beginPath();
-          ctx.arc(rx, ry, 3.2, 0, Math.PI * 2);
+          ctx.arc(rx, ry, screenCoreR * corePulse, 0, Math.PI * 2);
           ctx.fill();
+
+          ctx.strokeStyle = '#fef08a';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.arc(rx, ry, screenCoreR * corePulse, 0, Math.PI * 2);
+          ctx.stroke();
         } else {
-          // Fuera del alcance del radar: Baliza direccional de Santuario en el borde
+          // Fuera de radar: Baliza direccional de Mega-Nódulo en el borde
           const angle = Math.atan2(-dy, dx);
           const edgeX = centerX + Math.cos(angle) * (radarRadius - 5);
           const edgeY = centerY + Math.sin(angle) * (radarRadius - 5);
@@ -326,7 +336,7 @@ export class Minimap {
           ctx.save();
           ctx.translate(edgeX, edgeY);
           ctx.rotate(angle);
-          ctx.fillStyle = '#2dd4bf';
+          ctx.fillStyle = '#10b981';
           ctx.beginPath();
           ctx.moveTo(4.0, 0);
           ctx.lineTo(0, 2.5);
@@ -335,6 +345,21 @@ export class Minimap {
           ctx.closePath();
           ctx.fill();
           ctx.restore();
+        }
+      });
+    }
+
+    // 7.6. Fragmentos Comestibles de Biopelícula (Biofilm Chunks Flotantes)
+    if (data.biofilmChunks && data.biofilmChunks.length > 0) {
+      ctx.fillStyle = '#2dd4bf';
+      data.biofilmChunks.forEach((chunk) => {
+        const { dx, dy, dist } = getToroidalDelta(px, py, chunk.x, chunk.y);
+        if (dist <= this.radarRange) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          ctx.beginPath();
+          ctx.arc(rx, ry, 2.2, 0, Math.PI * 2);
+          ctx.fill();
         }
       });
     }

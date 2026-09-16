@@ -401,12 +401,12 @@ export class Hud {
     }, 3800);
   }
 
-  public setSanctuaryStatus(inside: boolean, hubName?: string): void {
+  public setSanctuaryStatus(inside: boolean, hubName?: string, health = 20, maxHealth = 20): void {
     if (inside) {
       this.sanctuaryBanner.classList.remove('hidden');
       if (hubName) {
-        this.sanctuaryTitle.textContent = `🛡️ ZONA SEGURA: ${hubName.toUpperCase()}`;
-        this.sanctuaryDesc.textContent = 'Regeneración activa (+HP / +ATP / +ESCUDO) | Escudo repulsor activo';
+        this.sanctuaryTitle.textContent = `☣️ CAMPO CÁUSTICO: ${hubName.toUpperCase()}`;
+        this.sanctuaryDesc.textContent = `Erosión tisular (-3.2 HP/s) | Golpea el Núcleo: ${health} / ${maxHealth} impactos`;
       }
     } else {
       this.sanctuaryBanner.classList.add('hidden');

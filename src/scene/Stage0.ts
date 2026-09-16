@@ -10,6 +10,7 @@ import { MitosisModal } from '../ui/MitosisModal';
 import { ThreatDirector } from '../systems/ThreatDirector';
 import { Minimap } from '../ui/Minimap';
 import { BiofilmHub } from '../entities/BiofilmHub';
+import { BiofilmChunk } from '../entities/BiofilmChunk';
 import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/WorldTopology';
 
 export interface TelemetryData {
@@ -42,6 +43,7 @@ export class Stage0 {
   public threatDirector!: ThreatDirector;
   public minimap!: Minimap;
   public biofilmHubs: BiofilmHub[] = [];
+  public biofilmChunks: BiofilmChunk[] = [];
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -192,11 +194,11 @@ export class Stage0 {
       // 5. Inicialización del Mini-Mapa Radar Biológico (Estilo Starblast.io)
       this.minimap = new Minimap();
 
-      // 6. Santuarios de Biopelícula (Zonas Seguras con Regeneración y Escudo Osmótico)
+      // 6. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas: 20 Impactos y Campo Ácido)
       this.biofilmHubs = [
-        new BiofilmHub(this.physicsWorld, this.scene, 0, 0, 18.0, 'Nido de Biopelícula Alfa (Central)'),
-        new BiofilmHub(this.physicsWorld, this.scene, 190, 150, 14.0, 'Nido de Biopelícula Beta'),
-        new BiofilmHub(this.physicsWorld, this.scene, -190, -150, 14.0, 'Nido de Biopelícula Gamma'),
+        new BiofilmHub(this.physicsWorld, this.scene, 0, 0, 20.0, 'Nódulo Caústico Alfa (Central)'),
+        new BiofilmHub(this.physicsWorld, this.scene, 210, 160, 18.0, 'Nódulo Caústico Beta'),
+        new BiofilmHub(this.physicsWorld, this.scene, -210, -160, 18.0, 'Nódulo Caústico Gamma'),
       ];
 
       this.isWasmReady = true;
@@ -329,22 +331,84 @@ export class Stage0 {
         this.evolutionSystem.update(dt);
       }
 
-      // 3.5. Santuarios de Biopelícula (Regeneración y Barrera Osmótica Repulsora)
+      // 3.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 20 Impactos)
       const curPlayerPos = this.player.body.translation();
-      let isPlayerInSanctuary = false;
-      let sanctuaryName = '';
+      const playerRadius = this.player.baseRadius * this.player.currentScale;
+      let isPlayerInCausticField = false;
+      let activeHubName = '';
+      let activeHubHealth = 20;
+      let activeHubMaxHealth = 20;
+
       for (const hub of this.biofilmHubs) {
-        const inside = hub.update(dt, time, curPlayerPos, this.vacuoleManager);
-        if (inside) {
-          isPlayerInSanctuary = true;
-          sanctuaryName = hub.name;
+        const res = hub.update(dt, time, curPlayerPos, this.vacuoleManager);
+        if (res.inField) {
+          isPlayerInCausticField = true;
+          activeHubName = res.name;
+          activeHubHealth = res.health;
+          activeHubMaxHealth = res.maxHealth;
         }
-        if (this.threatDirector) {
-          hub.repelEnemies(this.threatDirector.neutrophils, this.threatDirector.macrophage, dt);
+
+        // Contacto físico con el núcleo central blindado (20 impactos)
+        if (!hub.isDestroyed && this.predationSystem) {
+          const { dx, dy, dist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, hub.position.x, hub.position.y);
+          if (dist <= playerRadius + hub.coreRadius + 0.45) {
+            const isRamming = this.player.isSprinting || this.player.getSpeed() > 10.5;
+            if (isRamming) {
+              const hitRes = hub.hitCore(
+                time,
+                this.scene,
+                this.physicsWorld,
+                this.predationSystem.atpOrbs,
+                this.biofilmChunks,
+                this.player,
+                this.vacuoleManager
+              );
+
+              if (hitRes.recoilDamage > 0) {
+                // Impulso de retroceso elástico al jugador
+                const angle = Math.atan2(dy, dx);
+                this.player.body.applyImpulse({ x: -Math.cos(angle) * 45.0, y: -Math.sin(angle) * 45.0 }, true);
+                this.player.feedBounce(1.22);
+                this.hud.showCustomPopup(`💥 -6 HP (Retroceso Cáustico) | Núcleo: ${hub.health}/20`, '#ef4444');
+
+                if (hitRes.destroyed) {
+                  this.hud.showCustomPopup('🌟 ¡MEGA-NÓDULO DESTRUIDO! FESTÍN COLOSAL', '#10b981');
+                }
+              }
+            } else {
+              // Contacto pasivo sin sprint: las espículas cáusticas erosionan la membrana
+              this.vacuoleManager.takeDamage(7.0 * dt);
+            }
+          }
         }
       }
+
       if (this.hud) {
-        this.hud.setSanctuaryStatus(isPlayerInSanctuary, sanctuaryName);
+        this.hud.setSanctuaryStatus(isPlayerInCausticField, activeHubName, activeHubHealth, activeHubMaxHealth);
+      }
+
+      // 3.6. Actualización y Engullimiento de Trozos de Biopelícula (BiofilmChunks)
+      for (let i = this.biofilmChunks.length - 1; i >= 0; i--) {
+        const chunk = this.biofilmChunks[i];
+        chunk.update(dt, time);
+
+        let cPos = chunk.body.translation();
+        if (isOutsideBounds(cPos.x, cPos.y)) {
+          const wrapped = wrapPosition(cPos.x, cPos.y);
+          chunk.body.setTranslation(wrapped, true);
+          cPos = chunk.body.translation();
+        }
+
+        const { dist: cDist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, cPos.x, cPos.y);
+        if (cDist <= playerRadius + chunk.radius + 0.35) {
+          chunk.isConsumed = true;
+          this.player.grow(chunk.massValue);
+          this.vacuoleManager.addAtp(chunk.atpValue);
+          this.player.feedBounce(1.15);
+          this.hud.showCustomPopup(`+${chunk.massValue} µg (Trozo Biopelícula)`, '#14b8a6');
+          chunk.dispose(this.scene, this.physicsWorld);
+          this.biofilmChunks.splice(i, 1);
+        }
       }
 
       // 4. Sistema Inmunológico y Depredación Hostil (Etapa 5)
@@ -358,7 +422,7 @@ export class Stage0 {
           (text, _x, _y, color) => {
             this.hud.showCustomPopup(text, color);
           },
-          isPlayerInSanctuary
+          false
         );
       }
 
@@ -458,6 +522,11 @@ export class Stage0 {
         type: 'biofilm',
       }));
 
+      const chunkBlips = this.biofilmChunks.map((c) => {
+        const pos = c.body.translation();
+        return { x: pos.x, y: pos.y };
+      });
+
       this.minimap.update(time, {
         player: { x: pPos.x, y: pPos.y, rotation: pRot },
         adipocytes: adBlips,
@@ -466,6 +535,7 @@ export class Stage0 {
         macrophage: macroBlip,
         nutrients: nutBlips,
         biofilmHubs: hubBlips,
+        biofilmChunks: chunkBlips,
       });
     }
 
