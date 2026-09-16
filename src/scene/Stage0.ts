@@ -5,6 +5,9 @@ import { Player } from '../entities/Player';
 import { MiningSystem } from '../systems/MiningSystem';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { Hud } from '../ui/Hud';
+import { BiofilmHub } from '../entities/BiofilmHub';
+import { EvolutionSystem } from '../systems/EvolutionSystem';
+import { MitosisModal } from '../ui/MitosisModal';
 
 export interface TelemetryData {
   fps: number;
@@ -25,10 +28,13 @@ export class Stage0 {
   private player!: Player;
   private isWasmReady = false;
 
-  // Economía Celular y UI
+  // Economía Celular, Evolución y UI
   public vacuoleManager!: VacuoleManager;
   public miningSystem!: MiningSystem;
   public hud!: Hud;
+  public biofilmHub!: BiofilmHub;
+  public evolutionSystem!: EvolutionSystem;
+  public mitosisModal!: MitosisModal;
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -133,13 +139,22 @@ export class Stage0 {
       this.hud = new Hud(this.vacuoleManager);
       this.miningSystem = new MiningSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
 
+      // Inicialización de Evolución y Nido de Biopelícula (Etapa 3)
+      this.biofilmHub = new BiofilmHub(this.physicsWorld, this.scene, -14, -10, 10.0);
+      this.evolutionSystem = new EvolutionSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
+      this.mitosisModal = new MitosisModal(this.evolutionSystem, this.player);
+
+      this.hud.onMitosisClick = () => {
+        this.mitosisModal.open();
+      };
+
       this.vacuoleManager.onStatsChanged = () => {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
       };
       this.player.applyUpgrades(this.vacuoleManager.upgrades);
 
       this.isWasmReady = true;
-      console.log('✅ Rapier2D WASM, Hidrodinámica y Economía Celular inicializados a 60 Hz');
+      console.log('✅ Rapier2D WASM, Hidrodinámica, Economía Celular y Evolución inicializados a 60 Hz');
     } catch (err) {
       console.error('Error inicializando Rapier2D / Player:', err);
     }
@@ -279,10 +294,18 @@ export class Stage0 {
         this.miningSystem.update(dt, time);
       }
 
-      // 3. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
+      // 3. Actualización de Evolución Celular y Nido de Biopelícula
+      if (this.evolutionSystem) {
+        this.evolutionSystem.update(dt);
+      }
+      if (this.biofilmHub) {
+        this.biofilmHub.update(dt, time, this.player.body.translation(), this.vacuoleManager);
+      }
+
+      // 4. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
       this.player.visualUpdate(dt, time);
 
-      // 4. Seguimiento Suave de la Cámara al Jugador (Smooth Follow)
+      // 5. Seguimiento Suave de la Cámara al Jugador (Smooth Follow)
       const playerPos = this.player.body.translation();
       this.camera.position.x += (playerPos.x - this.camera.position.x) * Math.min(dt * 3.0, 1.0);
       this.camera.position.y += (playerPos.y - this.camera.position.y) * Math.min(dt * 3.0, 1.0);

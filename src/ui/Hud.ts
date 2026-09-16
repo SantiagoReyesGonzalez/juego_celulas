@@ -109,7 +109,17 @@ export class Hud {
     this.renderUpgrades();
   }
 
+  // Evento de clic en banner de mitosis
+  public onMitosisClick?: () => void;
+
   private bindEvents(): void {
+    // Clic en el banner de mitosis
+    this.mitosisBanner.addEventListener('click', () => {
+      if (this.onMitosisClick) {
+        this.onMitosisClick();
+      }
+    });
+
     // Escuchar cambios de estadísticas desde VacuoleManager
     this.vacuoleManager.onStatsChanged = (stats) => {
       this.updateStats(stats);
