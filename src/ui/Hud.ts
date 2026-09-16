@@ -57,6 +57,11 @@ export class Hud {
   // Banner de Mitosis
   private mitosisBanner!: HTMLDivElement;
 
+  // Banner de Zona Segura / Biopelícula
+  private sanctuaryBanner!: HTMLDivElement;
+  private sanctuaryTitle!: HTMLElement;
+  private sanctuaryDesc!: HTMLSpanElement;
+
   // Contenedor de Bio-Upgrades
   private upgradesList!: HTMLDivElement;
 
@@ -154,6 +159,15 @@ export class Hud {
         </div>
       </div>
 
+      <!-- 3.5. Banner de Zona Segura / Nido de Biopelícula -->
+      <div id="sanctuary-banner" class="sanctuary-banner hidden">
+        <span class="sanctuary-icon">🛡️</span>
+        <div class="sanctuary-text">
+          <b id="sanctuary-title">ZONA SEGURA: NIDO DE BIOPELÍCULA</b>
+          <span id="sanctuary-desc">Regeneración celular activa (+HP / +ATP / +ESCUDO) | Escudo repulsor activo</span>
+        </div>
+      </div>
+
       <!-- 4. Dock Inferior de Bio-Mejoras (5 Niveles Máximos) -->
       <div id="bio-upgrades-dock">
         <div class="dock-header">
@@ -182,6 +196,9 @@ export class Hud {
     this.threatAlertBanner = document.getElementById('threat-alert') as HTMLDivElement;
     this.threatAlertTitle = document.getElementById('threat-alert-title') as HTMLElement;
     this.threatAlertDesc = document.getElementById('threat-alert-desc') as HTMLSpanElement;
+    this.sanctuaryBanner = document.getElementById('sanctuary-banner') as HTMLDivElement;
+    this.sanctuaryTitle = document.getElementById('sanctuary-title') as HTMLElement;
+    this.sanctuaryDesc = document.getElementById('sanctuary-desc') as HTMLSpanElement;
     this.mitosisBanner = document.getElementById('mitosis-alert') as HTMLDivElement;
     this.upgradesList = document.getElementById('upgrades-dock-list') as HTMLDivElement;
     this.popupsContainer = document.getElementById('floating-popups') as HTMLDivElement;
@@ -382,5 +399,17 @@ export class Hud {
     this.alertTimeout = setTimeout(() => {
       this.threatAlertBanner.classList.add('hidden');
     }, 3800);
+  }
+
+  public setSanctuaryStatus(inside: boolean, hubName?: string): void {
+    if (inside) {
+      this.sanctuaryBanner.classList.remove('hidden');
+      if (hubName) {
+        this.sanctuaryTitle.textContent = `🛡️ ZONA SEGURA: ${hubName.toUpperCase()}`;
+        this.sanctuaryDesc.textContent = 'Regeneración activa (+HP / +ATP / +ESCUDO) | Escudo repulsor activo';
+      }
+    } else {
+      this.sanctuaryBanner.classList.add('hidden');
+    }
   }
 }

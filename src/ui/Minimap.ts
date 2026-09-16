@@ -19,6 +19,7 @@ export interface MinimapData {
   neutrophils: MinimapEntity[];
   macrophage?: MinimapEntity | null;
   nutrients?: MinimapEntity[];
+  biofilmHubs?: MinimapEntity[];
 }
 
 export class Minimap {
@@ -281,6 +282,59 @@ export class Minimap {
           ctx.beginPath();
           ctx.arc(rx, ry, r, 0, Math.PI * 2);
           ctx.fill();
+        }
+      });
+    }
+
+    // 7.5. Nidos de Biopelícula (Santuarios de Regeneración y Escudo)
+    if (data.biofilmHubs && data.biofilmHubs.length > 0) {
+      data.biofilmHubs.forEach((hub) => {
+        const { dx, dy, dist } = getToroidalDelta(px, py, hub.x, hub.y);
+        const hubWorldRadius = hub.radius || 16.0;
+
+        if (dist <= this.radarRange + hubWorldRadius) {
+          // Dentro o en el umbral del radar: dibujar domo protector y anillo cian brillante
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          const screenHubR = Math.max(5.0, (hubWorldRadius / this.radarRange) * radarRadius);
+
+          // Domo bioluminiscente interior
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+          ctx.beginPath();
+          ctx.arc(rx, ry, screenHubR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Anillo perimétrico pulsante
+          const pulse = 1.0 + Math.sin(time * 3.5) * 0.06;
+          ctx.strokeStyle = '#2dd4bf';
+          ctx.lineWidth = 2.0;
+          ctx.beginPath();
+          ctx.arc(rx, ry, screenHubR * pulse, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Núcleo simbiótico central
+          ctx.fillStyle = '#10b981';
+          ctx.beginPath();
+          ctx.arc(rx, ry, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Fuera del alcance del radar: Baliza direccional de Santuario en el borde
+          const angle = Math.atan2(-dy, dx);
+          const edgeX = centerX + Math.cos(angle) * (radarRadius - 5);
+          const edgeY = centerY + Math.sin(angle) * (radarRadius - 5);
+
+          ctx.save();
+          ctx.translate(edgeX, edgeY);
+          ctx.rotate(angle);
+          ctx.fillStyle = '#2dd4bf';
+          ctx.beginPath();
+          ctx.moveTo(4.0, 0);
+          ctx.lineTo(0, 2.5);
+          ctx.lineTo(-4.0, 0);
+          ctx.lineTo(0, -2.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
       });
     }

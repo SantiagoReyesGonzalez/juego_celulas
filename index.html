@@ -208,6 +208,52 @@
         to { transform: translateX(-50%) scale(1.04); }
       }
 
+      /* Banner de Zona Segura / Nido de Biopelícula */
+      .sanctuary-banner {
+        position: absolute;
+        top: 76px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(4, 47, 46, 0.95);
+        border: 2px solid #2dd4bf;
+        border-radius: 30px;
+        padding: 8px 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #ffffff;
+        font-size: 13px;
+        box-shadow: 0 0 25px rgba(45, 212, 191, 0.7);
+        animation: pulseSanctuary 2.0s infinite alternate;
+        z-index: 98;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      .sanctuary-banner.hidden {
+        display: none;
+      }
+      .sanctuary-icon {
+        font-size: 18px;
+        filter: drop-shadow(0 0 6px #2dd4bf);
+      }
+      .sanctuary-text {
+        display: flex;
+        flex-direction: column;
+      }
+      .sanctuary-text b {
+        color: #5eead4;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+      }
+      .sanctuary-text span {
+        font-size: 11px;
+        color: #ccfbf1;
+      }
+      @keyframes pulseSanctuary {
+        from { transform: translateX(-50%) scale(1); box-shadow: 0 0 16px rgba(45, 212, 191, 0.45); }
+        to { transform: translateX(-50%) scale(1.03); box-shadow: 0 0 30px rgba(45, 212, 191, 0.9); }
+      }
+
       /* Modal de Mitosis Celular: Árbol Evolutivo Estilo Starblast.io */
       .modal-overlay {
         position: fixed;
@@ -1179,8 +1225,9 @@
       <b>W / Clic Der:</b> Nado &nbsp;|&nbsp; 
       <b>Clic Izq / Espacio:</b> Sprint Caza (ATP) &nbsp;|&nbsp; 
       <b>Contacto:</b> Engullir &nbsp;|&nbsp; 
+      <b>🛡️ Nido:</b> Santuario (Regeneración) &nbsp;|&nbsp; 
       <b>[1-6]:</b> Bio-Mejoras &nbsp;|&nbsp; 
-      <b>TAB / N:</b> Radar &nbsp;|&nbsp; 
+      <b>TAB / N / Z:</b> Radar &nbsp;|&nbsp; 
       <b>M:</b> Mitosis
     </div>
 

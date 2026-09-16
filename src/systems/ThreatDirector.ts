@@ -111,7 +111,8 @@ export class ThreatDirector {
     player: Player,
     vacuoleManager: VacuoleManager,
     atpList: AtpOrb[],
-    onPopup?: (text: string, x: number, y: number, color?: string) => void
+    onPopup?: (text: string, x: number, y: number, color?: string) => void,
+    isPlayerInSanctuary = false
   ): void {
     // 1. Decaimiento pasivo de inflamación si la bacteria no causa estragos
     this.globalInflammation = Math.max(0.02, this.globalInflammation - this.decayRate * dt);
@@ -171,8 +172,8 @@ export class ThreatDirector {
           if (onPopup) {
             onPopup('+1.35 µg (Leucocito Lisado)', nPos.x, nPos.y, '#38bdf8');
           }
-        } else {
-          // El neutrófilo ataca / erosiona la membrana de la bacteria pequeña
+        } else if (!isPlayerInSanctuary) {
+          // El neutrófilo ataca / erosiona la membrana solo si la bacteria está fuera del nido
           const damage = 14.0 * dt;
           vacuoleManager.takeDamage(damage);
 
@@ -220,8 +221,8 @@ export class ThreatDirector {
                 onPopup('¡MACRÓFAGO TITÁN ASIMILADO! (+4.20 µg)', mPos.x, mPos.y, '#f43f5e');
               }
             }
-          } else {
-            // El macrófago causa daño severo por fagocitosis si la bacteria es pequeña
+          } else if (!isPlayerInSanctuary) {
+            // El macrófago causa daño severo por fagocitosis solo fuera del nido
             vacuoleManager.takeDamage(28.0 * dt);
           }
         }

@@ -9,6 +9,7 @@ import { EvolutionSystem } from '../systems/EvolutionSystem';
 import { MitosisModal } from '../ui/MitosisModal';
 import { ThreatDirector } from '../systems/ThreatDirector';
 import { Minimap } from '../ui/Minimap';
+import { BiofilmHub } from '../entities/BiofilmHub';
 import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/WorldTopology';
 
 export interface TelemetryData {
@@ -40,6 +41,7 @@ export class Stage0 {
   public mitosisModal!: MitosisModal;
   public threatDirector!: ThreatDirector;
   public minimap!: Minimap;
+  public biofilmHubs: BiofilmHub[] = [];
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -190,6 +192,13 @@ export class Stage0 {
       // 5. Inicialización del Mini-Mapa Radar Biológico (Estilo Starblast.io)
       this.minimap = new Minimap();
 
+      // 6. Santuarios de Biopelícula (Zonas Seguras con Regeneración y Escudo Osmótico)
+      this.biofilmHubs = [
+        new BiofilmHub(this.physicsWorld, this.scene, 0, 0, 18.0, 'Nido de Biopelícula Alfa (Central)'),
+        new BiofilmHub(this.physicsWorld, this.scene, 190, 150, 14.0, 'Nido de Biopelícula Beta'),
+        new BiofilmHub(this.physicsWorld, this.scene, -190, -150, 14.0, 'Nido de Biopelícula Gamma'),
+      ];
+
       this.isWasmReady = true;
       console.log('✅ Rapier2D WASM, Hidrodinámica, Sistema Inmune, Evolución y Mini-Mapa inicializados');
     } catch (err) {
@@ -320,6 +329,24 @@ export class Stage0 {
         this.evolutionSystem.update(dt);
       }
 
+      // 3.5. Santuarios de Biopelícula (Regeneración y Barrera Osmótica Repulsora)
+      const curPlayerPos = this.player.body.translation();
+      let isPlayerInSanctuary = false;
+      let sanctuaryName = '';
+      for (const hub of this.biofilmHubs) {
+        const inside = hub.update(dt, time, curPlayerPos, this.vacuoleManager);
+        if (inside) {
+          isPlayerInSanctuary = true;
+          sanctuaryName = hub.name;
+        }
+        if (this.threatDirector) {
+          hub.repelEnemies(this.threatDirector.neutrophils, this.threatDirector.macrophage, dt);
+        }
+      }
+      if (this.hud) {
+        this.hud.setSanctuaryStatus(isPlayerInSanctuary, sanctuaryName);
+      }
+
       // 4. Sistema Inmunológico y Depredación Hostil (Etapa 5)
       if (this.threatDirector) {
         this.threatDirector.update(
@@ -330,7 +357,8 @@ export class Stage0 {
           this.predationSystem.atpOrbs,
           (text, _x, _y, color) => {
             this.hud.showCustomPopup(text, color);
-          }
+          },
+          isPlayerInSanctuary
         );
       }
 
@@ -423,6 +451,13 @@ export class Stage0 {
           }))
         : [];
 
+      const hubBlips = this.biofilmHubs.map((h) => ({
+        x: h.position.x,
+        y: h.position.y,
+        radius: h.radius,
+        type: 'biofilm',
+      }));
+
       this.minimap.update(time, {
         player: { x: pPos.x, y: pPos.y, rotation: pRot },
         adipocytes: adBlips,
@@ -430,6 +465,7 @@ export class Stage0 {
         neutrophils: neutroBlips,
         macrophage: macroBlip,
         nutrients: nutBlips,
+        biofilmHubs: hubBlips,
       });
     }
 
