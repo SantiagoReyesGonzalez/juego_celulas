@@ -194,11 +194,11 @@ export class Stage0 {
       // 5. Inicialización del Mini-Mapa Radar Biológico (Estilo Starblast.io)
       this.minimap = new Minimap();
 
-      // 6. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas: 20 Impactos y Campo Ácido)
+      // 6. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas: 60 Impactos y Campo Ácido)
       this.biofilmHubs = [
-        new BiofilmHub(this.physicsWorld, this.scene, 0, 0, 20.0, 'Nódulo Caústico Alfa (Central)'),
-        new BiofilmHub(this.physicsWorld, this.scene, 210, 160, 18.0, 'Nódulo Caústico Beta'),
-        new BiofilmHub(this.physicsWorld, this.scene, -210, -160, 18.0, 'Nódulo Caústico Gamma'),
+        new BiofilmHub(this.physicsWorld, this.scene, 0, 0, 20.0, 'Nódulo Caústico Alfa (Central - 60 Golpes)'),
+        new BiofilmHub(this.physicsWorld, this.scene, 210, 160, 18.0, 'Nódulo Caústico Beta (60 Golpes)'),
+        new BiofilmHub(this.physicsWorld, this.scene, -210, -160, 18.0, 'Nódulo Caústico Gamma (60 Golpes)'),
       ];
 
       this.isWasmReady = true;
@@ -331,13 +331,13 @@ export class Stage0 {
         this.evolutionSystem.update(dt);
       }
 
-      // 3.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 20 Impactos)
+      // 3.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 60 Impactos - 3x Dificultad)
       const curPlayerPos = this.player.body.translation();
       const playerRadius = this.player.baseRadius * this.player.currentScale;
       let isPlayerInCausticField = false;
       let activeHubName = '';
-      let activeHubHealth = 20;
-      let activeHubMaxHealth = 20;
+      let activeHubHealth = 60;
+      let activeHubMaxHealth = 60;
 
       for (const hub of this.biofilmHubs) {
         const res = hub.update(dt, time, curPlayerPos, this.vacuoleManager);
@@ -348,11 +348,12 @@ export class Stage0 {
           activeHubMaxHealth = res.maxHealth;
         }
 
-        // Contacto físico con el núcleo central blindado (20 impactos)
+        // Contacto físico con el núcleo central blindado (60 impactos)
         if (!hub.isDestroyed && this.predationSystem) {
           const { dx, dy, dist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, hub.position.x, hub.position.y);
           if (dist <= playerRadius + hub.coreRadius + 0.45) {
-            const isRamming = this.player.isSprinting || this.player.getSpeed() > 10.5;
+            // Requiere Sprint real a alta velocidad para romper la coraza mineralizada
+            const isRamming = this.player.isSprinting && (this.player.getSpeed() > 11.2 || this.player.currentMass >= 1.35);
             if (isRamming) {
               const hitRes = hub.hitCore(
                 time,
@@ -367,17 +368,19 @@ export class Stage0 {
               if (hitRes.recoilDamage > 0) {
                 // Impulso de retroceso elástico al jugador
                 const angle = Math.atan2(dy, dx);
-                this.player.body.applyImpulse({ x: -Math.cos(angle) * 45.0, y: -Math.sin(angle) * 45.0 }, true);
+                this.player.body.applyImpulse({ x: -Math.cos(angle) * 48.0, y: -Math.sin(angle) * 48.0 }, true);
                 this.player.feedBounce(1.22);
-                this.hud.showCustomPopup(`💥 -6 HP (Retroceso Cáustico) | Núcleo: ${hub.health}/20`, '#ef4444');
+                this.hud.showCustomPopup(`💥 -7.5 HP (Retroceso Cáustico) | Núcleo: ${hub.health}/60`, '#ef4444');
 
                 if (hitRes.destroyed) {
-                  this.hud.showCustomPopup('🌟 ¡MEGA-NÓDULO DESTRUIDO! FESTÍN COLOSAL', '#10b981');
+                  this.hud.showCustomPopup('🌟 ¡MEGA-NÓDULO DESTRUIDO TRAS 60 GOLPES! FESTÍN COLOSAL', '#10b981');
                 }
               }
             } else {
-              // Contacto pasivo sin sprint: las espículas cáusticas erosionan la membrana
-              this.vacuoleManager.takeDamage(7.0 * dt);
+              // Contacto pasivo sin sprint: las espículas cáusticas erosionan severamente la membrana
+              this.vacuoleManager.takeDamage(9.0 * dt);
+              const angle = Math.atan2(dy, dx);
+              this.player.body.applyImpulse({ x: -Math.cos(angle) * 12.0 * dt, y: -Math.sin(angle) * 12.0 * dt }, true);
             }
           }
         }

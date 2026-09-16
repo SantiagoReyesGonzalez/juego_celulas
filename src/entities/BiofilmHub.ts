@@ -29,9 +29,9 @@ export class BiofilmHub {
   public group: THREE.Group;
   public get radius(): number { return this.fieldRadius; }
 
-  // Salud del Núcleo (20 impactos)
-  public maxHealth = 20;
-  public health = 20;
+  // Salud del Núcleo (60 impactos - 3 veces más difícil)
+  public maxHealth = 60;
+  public health = 60;
   public isDestroyed = false;
   public respawnTimer = 0;
   public lastHitTime = 0;
@@ -217,7 +217,7 @@ export class BiofilmHub {
     this.health = Math.max(0, this.health - 1);
 
     // Cada golpe le hace daño de retroceso al jugador
-    const recoilDamage = 6.0;
+    const recoilDamage = 7.5;
     vacuoleManager.takeDamage(recoilDamage);
 
     this.flashHit();
@@ -233,8 +233,8 @@ export class BiofilmHub {
       scene,
       this.position.x + Math.cos(angle) * (this.coreRadius + 1.2),
       this.position.y + Math.sin(angle) * (this.coreRadius + 1.2),
-      Math.cos(angle) * 8.0,
-      Math.sin(angle) * 8.0,
+      Math.cos(angle) * 8.5,
+      Math.sin(angle) * 8.5,
       1.15
     );
     chunkList.push(chunk);
@@ -245,12 +245,12 @@ export class BiofilmHub {
       this.position.y + Math.sin(angle + 0.5) * (this.coreRadius + 0.8),
       Math.cos(angle + 0.5) * 6.5,
       Math.sin(angle + 0.5) * 6.5,
-      12
+      14
     );
     atpList.push(orb);
 
     if (this.health <= 0) {
-      // Lisis total tras 20 golpes: festín colosal
+      // Lisis total tras 60 golpes: festín colosal 3x más grande
       this.shatter(scene, physicsWorld, atpList, chunkList);
       return { destroyed: true, recoilDamage };
     }
@@ -280,26 +280,26 @@ export class BiofilmHub {
     chunkList: BiofilmChunk[]
   ): void {
     this.isDestroyed = true;
-    this.respawnTimer = 85.0; // 85 segundos para regenerarse
+    this.respawnTimer = 95.0; // 95 segundos para regenerarse
 
-    // Explosión masiva: 14 orbes de ATP + 6 fragmentos grandes
-    for (let i = 0; i < 14; i++) {
-      const ang = (i * Math.PI * 2) / 14 + (Math.random() - 0.5) * 0.3;
-      const speed = 7.0 + Math.random() * 8.0;
+    // Explosión masiva 3x: 26 orbes de ATP + 12 fragmentos grandes de biomasa
+    for (let i = 0; i < 26; i++) {
+      const ang = (i * Math.PI * 2) / 26 + (Math.random() - 0.5) * 0.3;
+      const speed = 7.0 + Math.random() * 9.5;
       const orb = new AtpOrb(
         scene,
         this.position.x + Math.cos(ang) * 1.5,
         this.position.y + Math.sin(ang) * 1.5,
         Math.cos(ang) * speed,
         Math.sin(ang) * speed,
-        18
+        20
       );
       atpList.push(orb);
     }
 
-    for (let i = 0; i < 6; i++) {
-      const ang = (i * Math.PI * 2) / 6 + (Math.random() - 0.5) * 0.4;
-      const speed = 5.0 + Math.random() * 6.0;
+    for (let i = 0; i < 12; i++) {
+      const ang = (i * Math.PI * 2) / 12 + (Math.random() - 0.5) * 0.4;
+      const speed = 5.0 + Math.random() * 7.5;
       const chunk = new BiofilmChunk(
         physicsWorld,
         scene,
@@ -376,10 +376,10 @@ export class BiofilmHub {
     // 2. Detección Toroidal respecto al Jugador
     const { dist } = getToroidalDelta(this.position.x, this.position.y, playerPos.x, playerPos.y);
 
-    // Círculo externo: Daño pasivo bajo y continuo mientras esté dentro
+    // Círculo externo: Daño pasivo continuo mientras esté dentro
     this.isPlayerInField = dist <= this.fieldRadius;
     if (this.isPlayerInField) {
-      const passiveDmg = 3.2 * dt; // ~3.2 HP/s de daño por erosión ácida
+      const passiveDmg = 5.0 * dt; // ~5.0 HP/s de daño por erosión ácida (3x más desafiante)
       vacuoleManager.takeDamage(passiveDmg);
     }
 
