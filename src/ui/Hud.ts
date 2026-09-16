@@ -30,6 +30,15 @@ export class Hud {
   // Contenedor de notificaciones flotantes
   private popupsContainer!: HTMLDivElement;
 
+  // Valores cacheados para optimizar actualización DOM
+  private lastHp = -1;
+  private lastMaxHp = -1;
+  private lastShield = -1;
+  private lastMaxShield = -1;
+  private lastAtp = -1;
+  private lastAtpCap = -1;
+  private lastMitosis = false;
+
   constructor(vacuoleManager: VacuoleManager) {
     this.vacuoleManager = vacuoleManager;
 
@@ -155,11 +164,11 @@ export class Hud {
       }
     });
 
-    // Escuchar cambios de estadísticas desde VacuoleManager
-    this.vacuoleManager.onStatsChanged = (stats) => {
+    // Escuchar cambios de estadísticas desde VacuoleManager mediante multi-listener
+    this.vacuoleManager.addStatsListener((stats) => {
       this.updateStats(stats);
       this.renderUpgrades();
-    };
+    });
 
     // Notificaciones de ATP recolectado
     this.vacuoleManager.onAtpCollected = (amount) => {
@@ -171,33 +180,48 @@ export class Hud {
       this.showAtpPopup(`-${Math.round(spent)} ATP (${reason})`, '#f97316');
     };
 
-    // Notificación de derrame de ATP por daño
-    this.vacuoleManager.onAtpLeak = (lost) => {
+    // Notificación de derrame de ATP por daño mediante multi-listener
+    this.vacuoleManager.addAtpLeakListener((lost) => {
       this.showAtpPopup(`-${lost} ATP Fuga!`, '#ef4444');
-    };
+    });
   }
 
   public updateStats(stats: CellStats): void {
     // Membrana (HP)
-    const hpPct = Math.max(0, Math.min(100, (stats.membraneIntegrity / stats.maxMembraneIntegrity) * 100));
-    this.hpBarFill.style.width = `${hpPct}%`;
-    this.hpText.textContent = `${stats.membraneIntegrity} / ${stats.maxMembraneIntegrity}`;
+    if (stats.membraneIntegrity !== this.lastHp || stats.maxMembraneIntegrity !== this.lastMaxHp) {
+      this.lastHp = stats.membraneIntegrity;
+      this.lastMaxHp = stats.maxMembraneIntegrity;
+      const hpPct = Math.max(0, Math.min(100, (stats.membraneIntegrity / stats.maxMembraneIntegrity) * 100));
+      this.hpBarFill.style.width = `${hpPct}%`;
+      this.hpText.textContent = `${stats.membraneIntegrity} / ${stats.maxMembraneIntegrity}`;
+    }
 
     // Presión Osmótica (Escudo)
-    const shieldPct = Math.max(0, Math.min(100, (stats.osmoticPressure / stats.maxOsmoticPressure) * 100));
-    this.shieldBarFill.style.width = `${shieldPct}%`;
-    this.shieldText.textContent = `${stats.osmoticPressure} / ${stats.maxOsmoticPressure}`;
+    if (stats.osmoticPressure !== this.lastShield || stats.maxOsmoticPressure !== this.lastMaxShield) {
+      this.lastShield = stats.osmoticPressure;
+      this.lastMaxShield = stats.maxOsmoticPressure;
+      const shieldPct = Math.max(0, Math.min(100, (stats.osmoticPressure / stats.maxOsmoticPressure) * 100));
+      this.shieldBarFill.style.width = `${shieldPct}%`;
+      this.shieldText.textContent = `${stats.osmoticPressure} / ${stats.maxOsmoticPressure}`;
+    }
 
     // Vacuola ATP
-    const atpPct = Math.max(0, Math.min(100, (stats.atp / stats.atpCapacity) * 100));
-    this.atpBarFill.style.width = `${atpPct}%`;
-    this.atpText.textContent = `${stats.atp} / ${stats.atpCapacity} (${Math.round(atpPct)}%)`;
+    if (stats.atp !== this.lastAtp || stats.atpCapacity !== this.lastAtpCap) {
+      this.lastAtp = stats.atp;
+      this.lastAtpCap = stats.atpCapacity;
+      const atpPct = Math.max(0, Math.min(100, (stats.atp / stats.atpCapacity) * 100));
+      this.atpBarFill.style.width = `${atpPct}%`;
+      this.atpText.textContent = `${stats.atp} / ${stats.atpCapacity} (${Math.round(atpPct)}%)`;
+    }
 
     // Estado de Mitosis
-    if (stats.isMitosisReady) {
-      this.mitosisBanner.classList.remove('hidden');
-    } else {
-      this.mitosisBanner.classList.add('hidden');
+    if (stats.isMitosisReady !== this.lastMitosis) {
+      this.lastMitosis = stats.isMitosisReady;
+      if (stats.isMitosisReady) {
+        this.mitosisBanner.classList.remove('hidden');
+      } else {
+        this.mitosisBanner.classList.add('hidden');
+      }
     }
   }
 

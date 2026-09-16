@@ -88,12 +88,23 @@ export class VacuoleManager {
     },
   };
 
-  // Eventos y callbacks
+  // Eventos y callbacks (compatibilidad directa y soporte multilisterner)
   public onStatsChanged?: (stats: CellStats) => void;
   public onAtpCollected?: (amount: number, total: number) => void;
   public onAtpSpent?: (spentAmount: number, reason: string) => void;
   public onAtpLeak?: (lostAmount: number) => void;
   public onMitosisAvailable?: () => void;
+
+  private statsListeners: Array<(stats: CellStats) => void> = [];
+  private atpLeakListeners: Array<(lost: number) => void> = [];
+
+  public addStatsListener(fn: (stats: CellStats) => void): void {
+    this.statsListeners.push(fn);
+  }
+
+  public addAtpLeakListener(fn: (lost: number) => void): void {
+    this.atpLeakListeners.push(fn);
+  }
 
   private mitosisNotified = false;
 
@@ -214,6 +225,9 @@ export class VacuoleManager {
         if (this.onAtpLeak) {
           this.onAtpLeak(leak);
         }
+        for (const fn of this.atpLeakListeners) {
+          fn(leak);
+        }
       }
     }
 
@@ -233,8 +247,12 @@ export class VacuoleManager {
   }
 
   public notifyStats(): void {
+    const stats = this.getStats();
     if (this.onStatsChanged) {
-      this.onStatsChanged(this.getStats());
+      this.onStatsChanged(stats);
+    }
+    for (const fn of this.statsListeners) {
+      fn(stats);
     }
   }
 }

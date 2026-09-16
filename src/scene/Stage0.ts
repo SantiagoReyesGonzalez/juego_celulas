@@ -169,9 +169,9 @@ export class Stage0 {
         this.mitosisModal.open();
       };
 
-      this.vacuoleManager.onStatsChanged = () => {
+      this.vacuoleManager.addStatsListener(() => {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
-      };
+      });
       this.player.applyUpgrades(this.vacuoleManager.upgrades);
 
       this.isWasmReady = true;
@@ -291,6 +291,9 @@ export class Stage0 {
       // 2. Actualización de Economía Celular y Depredación (Agar.io + Spore)
       if (this.vacuoleManager) {
         this.vacuoleManager.update(dt);
+        if (this.hud) {
+          this.hud.updateStats(this.vacuoleManager.getStats());
+        }
       }
       if (this.predationSystem) {
         this.predationSystem.update(dt, time);

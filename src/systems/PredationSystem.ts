@@ -86,9 +86,9 @@ export class PredationSystem {
       roughness: 0.15,
     });
 
-    this.vacuoleManager.onAtpLeak = (amount) => {
+    this.vacuoleManager.addAtpLeakListener((amount) => {
       this.spawnAtpLeak(amount);
-    };
+    });
 
     // Población inicial del caldo tisular
     this.populateEcosystem();
