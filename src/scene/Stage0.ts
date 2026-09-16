@@ -134,7 +134,9 @@ export class Stage0 {
           'vacuoleCapacity',
         ];
         const upId = upgradeKeys[keyNum - 1];
-        if (this.vacuoleManager.buyUpgrade(upId)) {
+        if (this.hud) {
+          this.hud.handleUpgradeClick(upId);
+        } else if (this.vacuoleManager.buyUpgrade(upId)) {
           this.player.applyUpgrades(this.vacuoleManager.upgrades);
         }
       }
@@ -206,7 +208,6 @@ export class Stage0 {
       };
 
       this.vacuoleManager.addStatsListener((stats) => {
-        this.player.applyUpgrades(this.vacuoleManager.upgrades);
         this.player.syncSizeWithAtp(stats.atp, stats.atpCapacity);
       });
       this.vacuoleManager.addUpgradePurchasedListener((upId, up) => {

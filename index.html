@@ -1043,6 +1043,24 @@
         font-size: 8px;
       }
 
+      /* ================= RAÍZ DEL HUD BIOLÓGICO ================= */
+      #bio-hud-root {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 50;
+      }
+      #cellular-meters,
+      #bio-upgrades-dock,
+      .mitosis-alert,
+      .threat-alert,
+      .sanctuary-banner {
+        pointer-events: auto;
+      }
+
       /* ================= DOCK INFERIOR DE 8 BIO-MEJORAS ================= */
       #bio-upgrades-dock {
         position: absolute;
@@ -1061,6 +1079,7 @@
         flex-direction: column;
         align-items: center;
         gap: 5px;
+        pointer-events: auto;
       }
 
       .dock-header {
@@ -1123,13 +1142,24 @@
         flex-direction: column;
         align-items: center;
         gap: 3px;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        cursor: default;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: pointer;
         position: relative;
+        pointer-events: auto;
+      }
+
+      .dock-upgrade-card:active {
+        transform: scale(0.95);
       }
 
       .dock-upgrade-card.pending {
         opacity: 0.65;
+      }
+
+      .dock-upgrade-card.pending:hover {
+        opacity: 0.85;
+        border-color: rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.05);
       }
 
       .dock-upgrade-card.affordable {
@@ -1149,6 +1179,7 @@
 
       .dock-upgrade-card.maxed {
         opacity: 0.95;
+        cursor: default;
         border-color: rgba(251, 191, 36, 0.6);
         background: rgba(251, 191, 36, 0.06);
         box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);

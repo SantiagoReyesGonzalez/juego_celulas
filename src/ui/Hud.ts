@@ -52,6 +52,16 @@ const UPGRADE_META: Record<string, { icon: string; shortName: string; fullName: 
   },
 };
 
+interface UpgradeCardRef {
+  card: HTMLDivElement;
+  lvlBadge: HTMLSpanElement;
+  pips: HTMLSpanElement[];
+  costBtn: HTMLDivElement;
+  tooltipLvl: HTMLSpanElement;
+  tooltipCost: HTMLSpanElement;
+  key: string;
+}
+
 export class Hud {
   private vacuoleManager: VacuoleManager;
   private container: HTMLDivElement;
@@ -83,6 +93,9 @@ export class Hud {
 
   // Contenedor de Bio-Upgrades (8 Ranuras Canónicas)
   private upgradesList!: HTMLDivElement;
+  private upgradeCards: Map<string, UpgradeCardRef> = new Map();
+  private lastRenderedAtp = -1;
+  private lastRenderedLevels: Record<string, number> = {};
 
   // Contenedor de notificaciones flotantes
   private popupsContainer!: HTMLDivElement;
@@ -237,7 +250,7 @@ export class Hud {
     this.upgradesList = document.getElementById('upgrades-dock-list') as HTMLDivElement;
     this.popupsContainer = document.getElementById('floating-popups') as HTMLDivElement;
 
-    this.renderUpgrades();
+    this.initUpgradeCards();
   }
 
   // Evento de clic en banner de mitosis
@@ -255,6 +268,11 @@ export class Hud {
     this.vacuoleManager.addStatsListener((stats) => {
       this.updateStats(stats);
       this.renderUpgrades();
+    });
+
+    // Actualizar visual de cartas inmediatamente al comprar cualquier mejora
+    this.vacuoleManager.addUpgradePurchasedListener(() => {
+      this.renderUpgrades(true);
     });
 
     // Notificaciones de ATP recolectado
@@ -312,11 +330,16 @@ export class Hud {
     }
   }
 
-  public renderUpgrades(): void {
+  /**
+   * Construye los elementos DOM de las 8 Bio-Mejoras UNA SOLA VEZ para evitar
+   * destrucción del DOM y pérdida de eventos de clic por actualizaciones de 60 FPS.
+   */
+  private initUpgradeCards(): void {
     const keys = ['1', '2', '3', '4', '5', '6', '7', '8'];
     const ups = Object.values(this.vacuoleManager.upgrades);
 
     this.upgradesList.innerHTML = '';
+    this.upgradeCards.clear();
 
     ups.forEach((up, idx) => {
       const key = keys[idx] || `${idx + 1}`;
@@ -326,54 +349,180 @@ export class Hud {
         fullName: up.name,
         benefit: up.description,
       };
-      const cost = this.vacuoleManager.getUpgradeCost(up.id);
-      const isMax = up.level >= up.maxLevel;
-      const canAfford = !isMax && this.vacuoleManager.atp >= cost;
-
-      // Exactamente 5 pips de nivel con feedback cromático y animado
-      let pipsHtml = '';
-      for (let i = 0; i < up.maxLevel; i++) {
-        const isFilled = i < up.level;
-        pipsHtml += `<span class="dock-pip ${isFilled ? 'active' : ''} ${isMax ? 'maxed' : ''}"></span>`;
-      }
 
       const card = document.createElement('div');
-      card.className = `dock-upgrade-card ${canAfford ? 'affordable' : ''} ${isMax ? 'maxed' : 'pending'}`;
+      card.className = 'dock-upgrade-card pending';
       card.setAttribute('data-upgrade-id', up.id);
 
-      card.innerHTML = `
-        <div class="dock-card-top">
-          <span class="dock-key-badge">[${key}]</span>
-          <span class="dock-lvl-badge ${isMax ? 'gold' : ''}">${isMax ? 'MAX' : `${up.level}/5`}</span>
-        </div>
-        <div class="dock-icon-wrapper">
-          <span class="dock-icon">${meta.icon}</span>
-        </div>
-        <span class="dock-name">${meta.shortName}</span>
-        <div class="dock-pips-container">${pipsHtml}</div>
-        <div class="dock-cost-btn ${canAfford ? 'can-buy' : ''} ${isMax ? 'is-max' : ''}">
-          ${isMax ? '★ MAX' : `⚡ ${cost}`}
-        </div>
-        <!-- Tooltip Flotante Arcade al pasar el cursor -->
-        <div class="dock-tooltip">
-          <div class="tooltip-title">${meta.icon} ${meta.fullName}</div>
-          <div class="tooltip-desc">${meta.benefit}</div>
-          <div class="tooltip-footer">
-            <span>${isMax ? 'Nivel Máximo (5/5)' : `Nivel ${up.level}/${up.maxLevel}`}</span>
-            <span class="tooltip-cost">${isMax ? '★ COMPLETO' : `Coste: ${cost} ATP [${key}]`}</span>
-          </div>
-        </div>
-      `;
+      // Fila superior: Tecla de atajo y Nivel
+      const top = document.createElement('div');
+      top.className = 'dock-card-top';
+      const keyBadge = document.createElement('span');
+      keyBadge.className = 'dock-key-badge';
+      keyBadge.textContent = `[${key}]`;
+      const lvlBadge = document.createElement('span');
+      lvlBadge.className = 'dock-lvl-badge';
+      lvlBadge.textContent = `${up.level}/5`;
+      top.appendChild(keyBadge);
+      top.appendChild(lvlBadge);
+      card.appendChild(top);
 
-      // Clic para comprar con ratón (con detención de propagación para no accionar controles de juego)
+      // Icono
+      const iconWrap = document.createElement('div');
+      iconWrap.className = 'dock-icon-wrapper';
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'dock-icon';
+      iconSpan.textContent = meta.icon;
+      iconWrap.appendChild(iconSpan);
+      card.appendChild(iconWrap);
+
+      // Nombre corto
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'dock-name';
+      nameSpan.textContent = meta.shortName;
+      card.appendChild(nameSpan);
+
+      // 5 Pips de nivel
+      const pipsContainer = document.createElement('div');
+      pipsContainer.className = 'dock-pips-container';
+      const pips: HTMLSpanElement[] = [];
+      for (let i = 0; i < up.maxLevel; i++) {
+        const pip = document.createElement('span');
+        pip.className = 'dock-pip';
+        pipsContainer.appendChild(pip);
+        pips.push(pip);
+      }
+      card.appendChild(pipsContainer);
+
+      // Botón de coste / estado
+      const costBtn = document.createElement('div');
+      costBtn.className = 'dock-cost-btn';
+      costBtn.textContent = `⚡ ${up.baseCost}`;
+      card.appendChild(costBtn);
+
+      // Tooltip informativo
+      const tooltip = document.createElement('div');
+      tooltip.className = 'dock-tooltip';
+      tooltip.innerHTML = `
+        <div class="tooltip-title">${meta.icon} ${meta.fullName}</div>
+        <div class="tooltip-desc">${meta.benefit}</div>
+      `;
+      const tooltipFooter = document.createElement('div');
+      tooltipFooter.className = 'tooltip-footer';
+      const tooltipLvl = document.createElement('span');
+      tooltipLvl.textContent = `Nivel ${up.level}/${up.maxLevel}`;
+      const tooltipCost = document.createElement('span');
+      tooltipCost.className = 'tooltip-cost';
+      tooltipCost.textContent = `Coste: ${up.baseCost} ATP [${key}]`;
+      tooltipFooter.appendChild(tooltipLvl);
+      tooltipFooter.appendChild(tooltipCost);
+      tooltip.appendChild(tooltipFooter);
+      card.appendChild(tooltip);
+
+      // Aislamiento de eventos de ratón para que no activen mecánicas de juego en canvas
+      card.addEventListener('pointerdown', (e) => e.stopPropagation());
+      card.addEventListener('mousedown', (e) => e.stopPropagation());
+      card.addEventListener('mouseup', (e) => e.stopPropagation());
       card.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        this.vacuoleManager.buyUpgrade(up.id);
+        this.handleUpgradeClick(up.id);
       });
 
       this.upgradesList.appendChild(card);
+      this.upgradeCards.set(up.id, {
+        card,
+        lvlBadge,
+        pips,
+        costBtn,
+        tooltipLvl,
+        tooltipCost,
+        key,
+      });
     });
+
+    this.renderUpgrades(true);
+  }
+
+  /**
+   * Intenta comprar una mejora con ratón o teclado, ofreciendo retroalimentación inmediata
+   * clara y sonora/visual al jugador en pantalla.
+   */
+  public handleUpgradeClick(upgradeId: string): boolean {
+    const up = this.vacuoleManager.upgrades[upgradeId];
+    if (!up) return false;
+
+    if (up.level >= up.maxLevel) {
+      this.showCustomPopup(`★ ${up.name} al Nivel Máximo (5/5)`, '#fbbf24');
+      return false;
+    }
+
+    const cost = this.vacuoleManager.getUpgradeCost(upgradeId);
+    if (this.vacuoleManager.atp < cost) {
+      const falta = cost - Math.floor(this.vacuoleManager.atp);
+      this.showCustomPopup(`⚡ Necesitas ${cost} ATP (Faltan ${falta})`, '#f87171');
+      return false;
+    }
+
+    const success = this.vacuoleManager.buyUpgrade(upgradeId);
+    if (success) {
+      this.renderUpgrades(true);
+    }
+    return success;
+  }
+
+  /**
+   * Actualiza el estado visual de las 8 cartas in-situ SIN reconstruir el DOM,
+   * manteniendo intactos los listeners y la fluidez del navegador.
+   */
+  public renderUpgrades(force = false): void {
+    const currentAtp = Math.floor(this.vacuoleManager.atp);
+
+    // Detección de cambios: si el ATP entero y los niveles no han cambiado, omitir actualización
+    let changed = force || currentAtp !== this.lastRenderedAtp;
+    if (!changed) {
+      for (const [id, up] of Object.entries(this.vacuoleManager.upgrades)) {
+        if (this.lastRenderedLevels[id] !== up.level) {
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    if (!changed) return;
+
+    this.lastRenderedAtp = currentAtp;
+
+    for (const [id, up] of Object.entries(this.vacuoleManager.upgrades)) {
+      this.lastRenderedLevels[id] = up.level;
+      const ref = this.upgradeCards.get(id);
+      if (!ref) continue;
+
+      const cost = this.vacuoleManager.getUpgradeCost(id);
+      const isMax = up.level >= up.maxLevel;
+      const canAfford = !isMax && this.vacuoleManager.atp >= cost;
+
+      // Clase de la tarjeta contenedora
+      ref.card.className = `dock-upgrade-card ${canAfford ? 'affordable' : ''} ${isMax ? 'maxed' : 'pending'}`;
+
+      // Etiqueta de nivel
+      ref.lvlBadge.className = `dock-lvl-badge ${isMax ? 'gold' : ''}`;
+      ref.lvlBadge.textContent = isMax ? 'MAX' : `${up.level}/5`;
+
+      // Actualizar los 5 pips de nivel
+      for (let i = 0; i < up.maxLevel; i++) {
+        const isFilled = i < up.level;
+        ref.pips[i].className = `dock-pip ${isFilled ? 'active' : ''} ${isMax ? 'maxed' : ''}`;
+      }
+
+      // Botón de coste
+      ref.costBtn.className = `dock-cost-btn ${canAfford ? 'can-buy' : ''} ${isMax ? 'is-max' : ''}`;
+      ref.costBtn.textContent = isMax ? '★ MAX' : `⚡ ${cost}`;
+
+      // Pie del tooltip
+      ref.tooltipLvl.textContent = isMax ? 'Nivel Máximo (5/5)' : `Nivel ${up.level}/${up.maxLevel}`;
+      ref.tooltipCost.textContent = isMax ? '★ COMPLETO' : `Coste: ${cost} ATP [${ref.key}]`;
+    }
   }
 
   public showAtpPopup(text: string, color: string, screenX?: number, screenY?: number): void {
