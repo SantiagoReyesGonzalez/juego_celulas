@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { HydrodynamicsSystem, Morphology, HydrodynamicProperties } from '../systems/HydrodynamicsSystem';
-import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology } from '../data/MutationTree';
+import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology, CellRole } from '../data/MutationTree';
 import { OrganelleSocket, OrganelleFactory, OrganelleType } from './Organelles';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
@@ -215,6 +215,20 @@ export class Player {
         break;
       }
 
+      case CellMorphology.STREPTOCOCCUS: {
+        const rS = radius * 0.85;
+        const offsets = [-0.95, 0, 0.95];
+        offsets.forEach((ox) => {
+          const sphere = new THREE.Mesh(new THREE.SphereGeometry(rS, 18, 18), membraneMat);
+          sphere.position.set(ox, 0, 0);
+          this.group.add(sphere);
+          const core = new THREE.Mesh(new THREE.SphereGeometry(rS * 0.45, 12, 12), coreMat);
+          core.position.set(ox, 0, 0);
+          this.group.add(core);
+        });
+        break;
+      }
+
       case CellMorphology.BACILLUS:
       default: {
         const capGeo = new THREE.CapsuleGeometry(radius, length * 0.8, 16, 24);
@@ -225,6 +239,20 @@ export class Player {
         this.group.add(core);
         break;
       }
+    }
+
+    // Si es una Super Macro Célula (Tier 5 Titán), añadir halo corona bioluminiscente
+    if (species.role === CellRole.APEX_TITAN) {
+      const haloGeo = new THREE.RingGeometry(radius * 1.55, radius * 1.75, 32);
+      const haloMat = new THREE.MeshBasicMaterial({
+        color: species.color,
+        transparent: true,
+        opacity: 0.65,
+        side: THREE.DoubleSide,
+      });
+      const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+      haloMesh.position.set(0, 0, -0.1);
+      this.group.add(haloMesh);
     }
 
     // Vacuolas internas de nutrientes

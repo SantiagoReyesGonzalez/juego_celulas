@@ -208,15 +208,15 @@
         to { transform: translateX(-50%) scale(1.04); }
       }
 
-      /* Modal de Mitosis Celular y Selección Taxonómica */
+      /* Modal de Mitosis Celular: Árbol Evolutivo Estilo Starblast.io */
       .modal-overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(3, 7, 18, 0.85);
-        backdrop-filter: blur(12px);
+        background: rgba(3, 6, 16, 0.88);
+        backdrop-filter: blur(14px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -230,98 +230,361 @@
         from { opacity: 0; }
         to { opacity: 1; }
       }
-      .modal-box {
-        background: #090e1c;
-        border: 1px solid rgba(250, 204, 21, 0.4);
-        border-radius: 14px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(250, 204, 21, 0.2);
-        width: 90%;
-        max-width: 800px;
-        padding: 24px;
+
+      /* Ventana Panorámica del Árbol */
+      .tree-modal-window {
+        background: #060b19;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(16, 185, 129, 0.15);
+        width: 95vw;
+        max-width: 1380px;
+        height: 88vh;
+        max-height: 860px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         color: #f1f5f9;
       }
-      .modal-header {
+
+      /* Encabezado */
+      .tree-header {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        align-items: center;
+        padding: 12px 24px;
+        background: rgba(4, 7, 16, 0.95);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.10);
       }
-      .modal-title {
-        font-size: 18px;
+      .tree-title-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .tree-title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .tree-main-title {
+        font-size: 16px;
         font-weight: 800;
         color: #fbbf24;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.6px;
       }
-      .modal-subtitle {
-        font-size: 13px;
+      .starblast-badge {
+        font-size: 10px;
+        font-weight: 700;
+        background: rgba(251, 191, 36, 0.15);
+        border: 1px solid rgba(251, 191, 36, 0.4);
+        color: #fef08a;
+        padding: 2px 8px;
+        border-radius: 12px;
+      }
+      .tree-status-sub {
+        font-size: 12px;
         color: #94a3b8;
-        margin-top: 4px;
       }
-      .modal-close-btn {
+      .mitosis-ready-pill {
+        color: #10b981;
+        font-weight: 800;
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        padding: 2px 8px;
+        border-radius: 10px;
+      }
+      .mitosis-locked-pill {
+        color: #f59e0b;
+        font-size: 11px;
+      }
+      .tree-close-btn {
         background: transparent;
         border: none;
         color: #94a3b8;
-        font-size: 24px;
+        font-size: 28px;
         cursor: pointer;
         line-height: 1;
         transition: color 0.15s;
       }
-      .modal-close-btn:hover {
+      .tree-close-btn:hover {
         color: #ef4444;
       }
-      .mutations-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 18px;
+
+      /* Cuerpo del Árbol */
+      .tree-body-layout {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
       }
-      .mutation-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 10px;
-        padding: 16px;
+      .tree-scroll-container {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+        padding: 20px 24px;
+        background: radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.04), transparent 70%);
+      }
+      .tree-svg-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        z-index: 1;
+      }
+      .tree-columns-grid {
+        display: flex;
+        gap: 48px;
+        min-width: 980px;
+        position: relative;
+        z-index: 2;
+        padding-bottom: 20px;
+      }
+      .tree-tier-column {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        transition: all 0.2s ease;
+        width: 160px;
+        flex-shrink: 0;
       }
-      .mutation-card:hover {
-        border-color: #fbbf24;
-        background: rgba(250, 204, 21, 0.05);
-        transform: translateY(-2px);
-      }
-      .mutation-badge {
-        font-size: 11px;
-        font-weight: 700;
-        color: #38bdf8;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 6px;
-      }
-      .mutation-name {
-        font-size: 17px;
-        font-weight: 700;
-        color: #ffffff;
-        margin-bottom: 6px;
-      }
-      .mutation-desc {
-        font-size: 12px;
-        line-height: 1.5;
-        color: #94a3b8;
+      .tier-column-header {
+        text-align: center;
         margin-bottom: 14px;
       }
-      .mutation-stats {
-        background: rgba(0, 0, 0, 0.3);
+      .tier-num-pill {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 800;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 2px 10px;
+        color: #38bdf8;
+        margin-bottom: 4px;
+      }
+      .tier-subtitle {
+        display: block;
+        font-size: 10px;
+        color: #64748b;
+      }
+      .tier-nodes-stack {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        flex: 1;
+        gap: 12px;
+      }
+
+      /* Nodos del Árbol */
+      .tree-node {
+        background: rgba(10, 16, 32, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        padding: 8px 10px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        user-select: none;
+      }
+      .tree-node:hover {
+        transform: translateY(-2px) scale(1.02);
+        border-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      }
+      .node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 3px;
+      }
+      .node-role-icon {
+        font-size: 14px;
+      }
+      .node-tier-badge {
+        font-size: 9px;
+        font-weight: 700;
+        padding: 1px 5px;
         border-radius: 6px;
-        padding: 10px 12px;
-        margin-bottom: 16px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #94a3b8;
+      }
+      .node-name {
         font-size: 12px;
+        font-weight: 800;
+        color: #ffffff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .node-archetype {
+        font-size: 9.5px;
+        color: #94a3b8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .node-action-glow {
+        margin-top: 5px;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 800;
+        color: #ffffff;
+        background: linear-gradient(135deg, #059669, #10b981);
+        border-radius: 4px;
+        padding: 2px 0;
+        animation: pulseActionGlow 1.2s infinite alternate;
+      }
+      @keyframes pulseActionGlow {
+        from { opacity: 0.85; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1.02); }
+      }
+
+      /* Estados de los Nodos */
+      .tree-node.node-current {
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.15);
+        box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+      }
+      .tree-node.node-current .node-tier-badge {
+        background: #10b981;
+        color: #ffffff;
+        font-weight: 800;
+      }
+      .tree-node.node-available {
+        border-color: #fbbf24;
+        background: rgba(251, 191, 36, 0.15);
+        box-shadow: 0 0 18px rgba(251, 191, 36, 0.45);
+        animation: pulseAvailableNode 1.5s infinite alternate;
+      }
+      .tree-node.node-available .node-tier-badge {
+        background: #fbbf24;
+        color: #000000;
+        font-weight: 800;
+      }
+      @keyframes pulseAvailableNode {
+        from { box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); }
+        to { box-shadow: 0 0 22px rgba(251, 191, 36, 0.7); }
+      }
+      .tree-node.node-unlocked-pending {
+        border-color: rgba(56, 189, 248, 0.4);
+        background: rgba(56, 189, 248, 0.06);
+      }
+      .tree-node.node-selected {
+        outline: 2px solid #38bdf8;
+        outline-offset: 2px;
+      }
+      .tree-node.node-locked {
+        opacity: 0.55;
+      }
+      .tree-node.node-locked:hover {
+        opacity: 0.85;
+      }
+
+      /* Tematización de Roles */
+      .tree-node.role-interceptor .node-role-icon { color: #38bdf8; }
+      .tree-node.role-tank .node-role-icon { color: #3b82f6; }
+      .tree-node.role-predator .node-role-icon { color: #ef4444; }
+      .tree-node.role-harvester .node-role-icon { color: #f59e0b; }
+      .tree-node.role-titan {
+        border-color: rgba(251, 191, 36, 0.5);
+        background: radial-gradient(circle, rgba(251, 191, 36, 0.08), rgba(10, 16, 32, 0.95));
+      }
+      .tree-node.role-titan .node-name {
+        color: #fef08a;
+      }
+
+      /* Conexiones SVG */
+      .tree-wire {
+        fill: none;
+        transition: all 0.3s ease;
+      }
+      .tree-wire.tree-wire-inactive {
+        stroke: rgba(255, 255, 255, 0.12);
+        stroke-width: 1.5;
+        stroke-dasharray: 4 4;
+      }
+      .tree-wire.tree-wire-ancestor {
+        stroke: #10b981;
+        stroke-width: 2.5;
+        stroke-dasharray: none;
+        filter: drop-shadow(0 0 4px #10b981);
+      }
+      .tree-wire.tree-wire-available {
+        stroke: #fbbf24;
+        stroke-width: 3.0;
+        stroke-dasharray: none;
+        filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8));
+      }
+
+      /* Panel de Inspección Lateral */
+      .tree-inspector-panel {
+        width: 330px;
+        flex-shrink: 0;
+        background: rgba(4, 7, 18, 0.92);
+        border-left: 1px solid rgba(255, 255, 255, 0.10);
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+      .inspector-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .inspector-role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        padding: 3px 8px;
+        margin-bottom: 8px;
+        color: #38bdf8;
+      }
+      .inspector-role-badge.role-titan {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.4);
+      }
+      .inspector-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 0 0 4px 0;
+      }
+      .inspector-archetype {
+        font-size: 12px;
+        color: #fbbf24;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .inspector-desc {
+        font-size: 12px;
+        line-height: 1.55;
+        color: #94a3b8;
+        margin-bottom: 16px;
+      }
+      .inspector-stats-table {
+        background: rgba(0, 0, 0, 0.35);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .stat-heading {
+        font-size: 11px;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 8px;
       }
       .stat-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 4px;
+        margin-bottom: 5px;
+        font-size: 12px;
       }
       .stat-val.good {
         color: #10b981;
@@ -331,23 +594,68 @@
         color: #f59e0b;
         font-weight: 700;
       }
-      .evolve-btn {
+      .inspector-footer {
+        margin-top: auto;
+      }
+      .inspector-evolve-btn {
         width: 100%;
-        background: linear-gradient(135deg, #d97706, #f59e0b);
+        padding: 12px;
         border: none;
         border-radius: 8px;
-        padding: 10px;
-        color: #ffffff;
-        font-weight: 700;
         font-size: 13px;
+        font-weight: 800;
         cursor: pointer;
-        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
-        transition: all 0.15s ease;
+        transition: all 0.2s ease;
       }
-      .evolve-btn:hover {
+      .inspector-evolve-btn.ready {
+        background: linear-gradient(135deg, #d97706, #fbbf24);
+        color: #000000;
+        box-shadow: 0 4px 20px rgba(251, 191, 36, 0.5);
+      }
+      .inspector-evolve-btn.ready:hover {
         background: linear-gradient(135deg, #b45309, #d97706);
-        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.7);
-        transform: translateY(-1px);
+        color: #ffffff;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(251, 191, 36, 0.8);
+      }
+      .inspector-status-badge {
+        text-align: center;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .current-status {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #10b981;
+      }
+      .locked-status {
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: #f59e0b;
+      }
+      .future-status {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #64748b;
+      }
+      .tree-footer-legend {
+        display: flex;
+        justify-content: space-around;
+        padding: 10px 24px;
+        background: rgba(4, 7, 16, 0.96);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .legend-item b {
+        color: #f1f5f9;
       }
 
       /* Barra de Instrucciones Superior al Dock */
