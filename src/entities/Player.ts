@@ -50,6 +50,7 @@ export class Player {
   public isThrusting = false;
   public isBraking = false;
   public isSprintRequested = false;
+  public isControlsLocked = false;
   public mouseWorld = new THREE.Vector2(0, 0);
 
   constructor(physicsWorld: PhysicsWorld, scene: THREE.Scene, initialSpeciesId = 'micrococcus') {
@@ -259,6 +260,7 @@ export class Player {
 
   private setupInputs(): void {
     window.addEventListener('keydown', (e) => {
+      if (this.isControlsLocked) return;
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isThrusting = true;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.isBraking = true;
       if (e.code === 'Space') this.isSprintRequested = true;
@@ -271,6 +273,12 @@ export class Player {
     });
 
     window.addEventListener('mousedown', (e) => {
+      // Ignorar clics sobre modales, botones, HUD y cualquier elemento de interfaz
+      const target = e.target as HTMLElement | null;
+      if (target && target.tagName !== 'CANVAS') {
+        return;
+      }
+      if (this.isControlsLocked) return;
       if (e.button === 2) this.isThrusting = true;
       if (e.button === 0) this.isSprintRequested = true; // Clic izquierdo = Sprint de Caza
     });
@@ -284,13 +292,25 @@ export class Player {
   }
 
   /**
+   * Sincroniza el tamaño y la masa de la célula directamente con la cantidad de ATP en la vacuola (estilo Agar.io / Spore).
+   * Al ganar ATP la célula crece; al gastar ATP en sprint o perderlo, la célula disminuye su volumen de inmediato.
+   */
+  public syncSizeWithAtp(atp: number, capacity: number): void {
+    const atpRatio = Math.max(0, Math.min(1.0, atp / Math.max(1, capacity)));
+    // Masa celular biológica: escala desde 1.0x hasta 2.8x baseMass según el ATP acumulado
+    this.currentMass = this.baseMass * (1.0 + atpRatio * 1.8);
+    // Escala dimensional Three.js: desde 1.0x (vacía) hasta 2.25x (100% llena)
+    this.targetScale = 1.0 + atpRatio * 1.25;
+    this.body.setAdditionalMass(this.currentMass * 2.0, true);
+  }
+
+  /**
    * Crecimiento por depredación y asimilación de biomasa (estilo Agar.io)
    */
   public grow(massGain: number): void {
     this.currentMass += massGain;
-    // Escala continua y evidente: raíz cuadrada del ratio de masa
     const massRatio = Math.max(1.0, this.currentMass / this.baseMass);
-    this.targetScale = Math.min(3.6, Math.pow(massRatio, 0.45));
+    this.targetScale = Math.min(3.2, Math.pow(massRatio, 0.45));
     this.body.setAdditionalMass(this.currentMass * 2.0, true);
     this.feedPulse = 1.15; // Pulso elástico inmediato al engullir
   }
@@ -318,9 +338,10 @@ export class Player {
   }
 
   /**
-   * Ejecuta el Sprint Celular de Caza (Dash / Jet) gastando ATP
+   * Ejecuta el Sprint Celular de Caza (Dash / Jet) gastando ATP y disminuyendo tamaño
    */
   public triggerSprint(vacuoleManager: VacuoleManager, timeNow: number): boolean {
+    if (this.isControlsLocked) return false;
     if (timeNow - this.lastSprintTime < this.sprintCooldown) return false;
     if (vacuoleManager.atp < this.sprintAtpCost) return false;
 
@@ -331,6 +352,10 @@ export class Player {
     this.lastSprintTime = timeNow;
     this.isSprinting = true;
 
+    // Reducción inmediata de tamaño y masa celular por el gasto de ATP
+    this.syncSizeWithAtp(vacuoleManager.atp, vacuoleManager.atpCapacity);
+    this.feedPulse = 0.88; // Contracción elástica inmediata visible al eyectar ATP/masa
+
     // Vector de empuje frontal instantáneo
     const currentRot = this.body.rotation();
     const fx = Math.cos(currentRot) * this.sprintForce;
@@ -338,7 +363,7 @@ export class Player {
     this.body.applyImpulse({ x: fx, y: fy }, true);
 
     // Deformación elástica de membrana por inercia
-    this.sprintStretch = 1.4;
+    this.sprintStretch = 1.35;
     return true;
   }
 
@@ -349,6 +374,12 @@ export class Player {
   ): void {
     const pos = this.body.translation();
     const currentRot = this.body.rotation();
+
+    if (this.isControlsLocked) {
+      this.isThrusting = false;
+      this.isSprintRequested = false;
+      this.isBraking = false;
+    }
 
     // 1. Orientación hacia el cursor
     const toMouseX = this.mouseWorld.x - pos.x;

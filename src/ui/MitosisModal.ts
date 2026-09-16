@@ -18,6 +18,11 @@ export class MitosisModal {
     this.modalContainer.className = 'modal-overlay hidden';
     document.body.appendChild(this.modalContainer);
 
+    // Evitar que los clics dentro del modal se propaguen al canvas o activen controles de la bacteria
+    this.modalContainer.addEventListener('mousedown', (e) => e.stopPropagation());
+    this.modalContainer.addEventListener('mouseup', (e) => e.stopPropagation());
+    this.modalContainer.addEventListener('click', (e) => e.stopPropagation());
+
     // Cerrar con tecla Escape, abrir con tecla M únicamente al alcanzar el 100% de Vacuola ATP
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isOpen) {
@@ -47,12 +52,18 @@ export class MitosisModal {
     }
 
     this.isOpen = true;
+    this.player.isControlsLocked = true;
+    this.player.isThrusting = false;
+    this.player.isSprintRequested = false;
     this.modalContainer.classList.remove('hidden');
     this.render(options);
   }
 
   public close(): void {
     this.isOpen = false;
+    this.player.isControlsLocked = false;
+    this.player.isThrusting = false;
+    this.player.isSprintRequested = false;
     this.modalContainer.classList.add('hidden');
   }
 
@@ -122,11 +133,15 @@ export class MitosisModal {
     const evolveBtns = this.modalContainer.querySelectorAll('.evolve-btn');
     evolveBtns.forEach((btn) => {
       btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         const targetId = (e.currentTarget as HTMLElement).getAttribute('data-target-id');
         const targetSpecies = options.find((o) => o.id === targetId);
         if (targetSpecies) {
-          this.evolutionSystem.evolve(targetSpecies);
-          this.close();
+          const success = this.evolutionSystem.evolve(targetSpecies);
+          if (success) {
+            this.close();
+          }
         }
       });
     });
