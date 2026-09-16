@@ -61,12 +61,12 @@ export class VacuoleManager {
     },
     chemotaxis: {
       id: 'chemotaxis',
-      name: 'Radio de Quimiotaxis',
+      name: 'Receptores de Membrana',
       level: 0,
       maxLevel: 5,
       baseCost: 12,
       costMultiplier: 1.4,
-      description: '+2.5u Rango de Atracción Magnética',
+      description: '+20% ATP Obtenido por Alimento Absorbido',
     },
     turgor: {
       id: 'turgor',

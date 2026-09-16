@@ -443,4 +443,36 @@ export class Player {
     const vel = this.body.linvel();
     return Math.sqrt(vel.x * vel.x + vel.y * vel.y);
   }
+
+  /**
+   * Verifica si unas coordenadas (x, y) están físicamente cubiertas por el cuerpo celular de la bacteria
+   */
+  public containsPoint(x: number, y: number, tolerance = 0.95): boolean {
+    const pos = this.body.translation();
+    const radius = this.baseRadius * this.currentScale * tolerance;
+
+    if (this.currentSpecies.morphology === CellMorphology.COCCUS) {
+      const dx = x - pos.x;
+      const dy = y - pos.y;
+      return (dx * dx + dy * dy) <= (radius * radius);
+    }
+
+    // Para morfologías alargadas (Bacilo, Diplococo, etc.): distancia al eje longitudinal
+    const rot = this.body.rotation();
+    const halfLen = (this.baseLength * 0.4) * this.currentScale;
+    const dirX = Math.cos(rot);
+    const dirY = Math.sin(rot);
+
+    const px = x - pos.x;
+    const py = y - pos.y;
+
+    const proj = Math.max(-halfLen, Math.min(halfLen, px * dirX + py * dirY));
+    const closestX = dirX * proj;
+    const closestY = dirY * proj;
+
+    const distX = px - closestX;
+    const distY = py - closestY;
+
+    return (distX * distX + distY * distY) <= (radius * radius);
+  }
 }

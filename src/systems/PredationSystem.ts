@@ -172,28 +172,16 @@ export class PredationSystem {
     const playerRadius = this.player.baseRadius * this.player.currentScale;
     const playerMass = this.player.currentMass;
     const chemoLevel = this.vacuoleManager.upgrades.chemotaxis?.level || 0;
-    const chemoRadius = 9.0 + chemoLevel * 2.8;
+    const atpBonus = 1.0 + chemoLevel * 0.2;
 
     // ================= 1. CONSUMO DE GRÁNULOS DE NUTRIENTES (Agar.io) =================
+    // La bacteria SOLO se alimenta cuando el cuerpo celular pasa exactamente por encima (sin efecto imán)
     for (let i = this.nutrients.length - 1; i >= 0; i--) {
       const nut = this.nutrients[i];
       nut.update(dt, time);
 
-      const dx = playerPos.x - nut.position.x;
-      const dy = playerPos.y - nut.position.y;
-      const dist = Math.hypot(dx, dy);
-
-      // Succión quimiotáctica magnética al aproximarse
-      if (dist <= chemoRadius * 0.7) {
-        const pullSpeed = 16.0 + (chemoRadius - dist) * 2.5;
-        nut.position.x += (dx / (dist || 1)) * pullSpeed * dt;
-        nut.position.y += (dy / (dist || 1)) * pullSpeed * dt;
-        nut.mesh.position.set(nut.position.x, nut.position.y, 0);
-      }
-
-      // Absorción celular directa por membrana
-      if (dist <= playerRadius + nut.radius) {
-        this.vacuoleManager.addAtp(nut.atpValue);
+      if (this.player.containsPoint(nut.position.x, nut.position.y, 1.0)) {
+        this.vacuoleManager.addAtp(nut.atpValue * atpBonus);
         this.player.grow(nut.massGain);
         this.player.feedBounce(1.08);
 
@@ -214,13 +202,12 @@ export class PredationSystem {
       micro.update(dt, time, playerPos, playerMass);
 
       const microPos = micro.body.translation();
-      const dist = Math.hypot(playerPos.x - microPos.x, playerPos.y - microPos.y);
 
-      // Contacto de membranas
-      if (dist <= playerRadius + micro.radius) {
+      // Depredación al hacer contacto y pasar por encima de la presa
+      if (this.player.containsPoint(microPos.x, microPos.y, 1.05)) {
         if (playerMass >= micro.mass * 1.12) {
           // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
-          this.vacuoleManager.addAtp(micro.atpValue);
+          this.vacuoleManager.addAtp(micro.atpValue * atpBonus);
           // Aumento sustancial de biomasa
           const massGain = Math.max(0.35, micro.mass * 0.75);
           this.player.grow(massGain);
@@ -290,27 +277,13 @@ export class PredationSystem {
     }
 
     // ================= 4. RECOLECCIÓN Y CRECIMIENTO POR ORBES DE ATP =================
+    // Solo se recolectan cuando la bacteria pasa físicamente por encima (sin imán)
     for (let i = this.atpOrbs.length - 1; i >= 0; i--) {
       const orb = this.atpOrbs[i];
       orb.update(dt, time);
 
-      const dx = playerPos.x - orb.position.x;
-      const dy = playerPos.y - orb.position.y;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist <= chemoRadius) {
-        orb.isAttracted = true;
-        const normX = dx / (dist || 1);
-        const normY = dy / (dist || 1);
-        const pullSpeed = 16.0 + (chemoRadius - dist) * 2.5;
-        orb.velocity.x += (normX * pullSpeed - orb.velocity.x) * Math.min(dt * 8.0, 1.0);
-        orb.velocity.y += (normY * pullSpeed - orb.velocity.y) * Math.min(dt * 8.0, 1.0);
-      } else {
-        orb.isAttracted = false;
-      }
-
-      if (dist <= playerRadius * 0.95) {
-        this.vacuoleManager.addAtp(orb.atpValue);
+      if (this.player.containsPoint(orb.position.x, orb.position.y, 1.0)) {
+        this.vacuoleManager.addAtp(orb.atpValue * atpBonus);
         // Cada orbe nutre y acrecienta la célula
         this.player.grow(0.18);
         this.player.feedBounce(1.10);
