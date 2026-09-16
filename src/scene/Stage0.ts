@@ -8,10 +8,6 @@ import { Hud } from '../ui/Hud';
 import { BiofilmHub } from '../entities/BiofilmHub';
 import { EvolutionSystem } from '../systems/EvolutionSystem';
 import { MitosisModal } from '../ui/MitosisModal';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 export interface TelemetryData {
   fps: number;
@@ -27,8 +23,6 @@ export class Stage0 {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
-  private composer!: EffectComposer;
-  private bloomPass!: UnrealBloomPass;
   
   // Módulos de Física, Economía e Hidrodinámica
   private physicsWorld!: PhysicsWorld;
@@ -103,10 +97,7 @@ export class Stage0 {
     // 6. Inicialización de Física e Hidrodinámica
     this.initPhysics();
 
-    // 7. Post-Procesado Bioluminiscente (Microscopio Confocal)
-    this.setupPostProcessing();
-
-    // 8. Eventos de Ventana, Ratón y Teclado
+    // 7. Eventos de Ventana, Ratón y Teclado
     window.addEventListener('resize', this.onResize.bind(this));
     window.addEventListener('mousemove', this.onMouseMove.bind(this));
     window.addEventListener('keydown', (e) => {
@@ -244,26 +235,6 @@ export class Stage0 {
     return this.erythrocyteGroup.visible;
   }
 
-  private setupPostProcessing(): void {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    this.composer = new EffectComposer(this.renderer);
-
-    // 1. Pase de renderizado de la escena base
-    const renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
-
-    // 2. Halo de microscopía confocal bioluminiscente (UnrealBloomPass)
-    const bloomRes = new THREE.Vector2(width, height);
-    this.bloomPass = new UnrealBloomPass(bloomRes, 0.70, 0.45, 0.38);
-    this.composer.addPass(this.bloomPass);
-
-    // 3. Mapeo tonal y corrección de color sRGB
-    const outputPass = new OutputPass();
-    this.composer.addPass(outputPass);
-  }
-
   private onResize(): void {
     const aspect = window.innerWidth / window.innerHeight;
     this.camera.left = (-this.frustumSize * aspect) / 2;
@@ -272,9 +243,6 @@ export class Stage0 {
     this.camera.bottom = -this.frustumSize / 2;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    if (this.composer) {
-      this.composer.setSize(window.innerWidth, window.innerHeight);
-    }
   }
 
   private onMouseMove(e: MouseEvent): void {
@@ -362,11 +330,7 @@ export class Stage0 {
       }
     }
 
-    // 6. Renderizado de la Escena con Post-Procesado Bioluminiscente
-    if (this.composer) {
-      this.composer.render();
-    } else {
-      this.renderer.render(this.scene, this.camera);
-    }
+    // 6. Renderizado de la Escena
+    this.renderer.render(this.scene, this.camera);
   }
 }

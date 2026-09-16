@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
-import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
 
 export enum MicroorganismType {
   TINY_COCCUS = 'TINY_COCCUS',
@@ -13,7 +12,6 @@ export class Microorganism {
   public body: RAPIER.RigidBody;
   public collider: RAPIER.Collider;
   public mesh: THREE.Group;
-  private membraneMat?: THREE.ShaderMaterial;
 
   public type: MicroorganismType;
   public mass: number;
@@ -83,10 +81,14 @@ export class Microorganism {
       emissive = 0xb45309;
     }
 
-    this.membraneMat = createMembraneShaderMaterial(color, emissive, 0.85);
-    this.membraneMat.uniforms.uNoiseFreq.value = 1.6;
-    this.membraneMat.uniforms.uNoiseAmp.value = 0.08;
-    const mat = this.membraneMat;
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive,
+      emissiveIntensity: 0.9,
+      roughness: 0.2,
+      transparent: true,
+      opacity: 0.85,
+    });
 
     if (this.type === MicroorganismType.SMALL_BACILLUS) {
       // Bacilo pequeño alargado
@@ -134,10 +136,6 @@ export class Microorganism {
     const rot = this.body.rotation();
     this.mesh.position.set(pos.x, pos.y, 0);
     this.mesh.rotation.z = rot;
-
-    if (this.membraneMat) {
-      this.membraneMat.uniforms.uTime.value = time;
-    }
 
     // Distancia al jugador
     const dx = playerPos.x - pos.x;
