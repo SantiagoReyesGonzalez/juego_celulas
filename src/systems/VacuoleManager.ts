@@ -22,6 +22,7 @@ export class VacuoleManager {
   // 1. Los 3 Medidores Celulares Canónicos
   public membraneIntegrity = 100;
   public maxMembraneIntegrity = 100;
+  public membraneRegenRate = 0.0; // Puntos de vida por segundo (reparación pasiva continua)
 
   public osmoticPressure = 50;
   public maxOsmoticPressure = 50;
@@ -30,7 +31,7 @@ export class VacuoleManager {
   public atp = 25;
   public atpCapacity = 80;
 
-  // 2. Upgrades Celulares estilo Starblast.io (8 estadísticas / 6 niveles)
+  // 2. Upgrades Celulares estilo Starblast.io (8 bio-mejoras / 5 niveles máximos)
   public upgrades: Record<string, BioUpgrade> = {
     propulsion: {
       id: 'propulsion',
@@ -50,6 +51,33 @@ export class VacuoleManager {
       costMultiplier: 1.5,
       description: '+20% Aceleración de Sprint y -15% Coste de ATP',
     },
+    membraneHardening: {
+      id: 'membraneHardening',
+      name: 'Refuerzo de Membrana',
+      level: 0,
+      maxLevel: 5,
+      baseCost: 20,
+      costMultiplier: 1.5,
+      description: '+25 HP Máximo e Inmediata Recuperación',
+    },
+    cellularRegen: {
+      id: 'cellularRegen',
+      name: 'Regeneración Tisular',
+      level: 0,
+      maxLevel: 5,
+      baseCost: 22,
+      costMultiplier: 1.5,
+      description: '+1.5 HP/s de Reparación Pasiva Continua',
+    },
+    turgor: {
+      id: 'turgor',
+      name: 'Turgencia Osmótica',
+      level: 0,
+      maxLevel: 5,
+      baseCost: 22,
+      costMultiplier: 1.5,
+      description: '+15 Presión Osmótica (Escudo) y +50% Regeneración',
+    },
     digestiveEfficiency: {
       id: 'digestiveEfficiency',
       name: 'Eficiencia Enzimática',
@@ -68,15 +96,6 @@ export class VacuoleManager {
       costMultiplier: 1.4,
       description: '+20% ATP Obtenido por Alimento Absorbido',
     },
-    turgor: {
-      id: 'turgor',
-      name: 'Turgencia Osmótica',
-      level: 0,
-      maxLevel: 5,
-      baseCost: 22,
-      costMultiplier: 1.5,
-      description: '+15 Presión Osmótica (Escudo) y +50% Regeneración',
-    },
     vacuoleCapacity: {
       id: 'vacuoleCapacity',
       name: 'Capacidad de Vacuola',
@@ -84,7 +103,7 @@ export class VacuoleManager {
       maxLevel: 5,
       baseCost: 25,
       costMultiplier: 1.7,
-      description: '+40 Capacidad de Almacenamiento de ATP',
+      description: '+45 Capacidad de Almacenamiento de ATP',
     },
   };
 
@@ -119,14 +138,30 @@ export class VacuoleManager {
   constructor() {}
 
   /**
-   * Regeneración pasiva de turgencia osmótica y sincronización periódica
+   * Regeneración pasiva de turgencia osmótica y reparación continua de membrana
    */
   public update(dt: number): void {
+    let statsChanged = false;
+
+    // 1. Regeneración pasiva de Presión Osmótica (Escudo)
     if (this.osmoticPressure < this.maxOsmoticPressure) {
       this.osmoticPressure = Math.min(
         this.maxOsmoticPressure,
         this.osmoticPressure + this.osmoticRegenRate * dt
       );
+      statsChanged = true;
+    }
+
+    // 2. Regeneración pasiva de Membrana Celular (Vida)
+    if (this.membraneRegenRate > 0 && this.membraneIntegrity < this.maxMembraneIntegrity && !this.isDead) {
+      this.membraneIntegrity = Math.min(
+        this.maxMembraneIntegrity,
+        this.membraneIntegrity + this.membraneRegenRate * dt
+      );
+      statsChanged = true;
+    }
+
+    if (statsChanged) {
       this.notifyStats();
     }
   }
@@ -195,7 +230,12 @@ export class VacuoleManager {
     up.level++;
 
     // Aplicar efectos inmediatos en estadísticas base
-    if (upgradeId === 'turgor') {
+    if (upgradeId === 'membraneHardening') {
+      this.maxMembraneIntegrity += 25;
+      this.membraneIntegrity = Math.min(this.maxMembraneIntegrity, this.membraneIntegrity + 25);
+    } else if (upgradeId === 'cellularRegen') {
+      this.membraneRegenRate += 1.5;
+    } else if (upgradeId === 'turgor') {
       this.maxOsmoticPressure += 15;
       this.osmoticPressure += 15;
       this.osmoticRegenRate *= 1.25;

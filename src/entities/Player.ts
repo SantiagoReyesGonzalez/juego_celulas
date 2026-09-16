@@ -643,4 +643,120 @@ export class Player {
     this.currentScale = 1.0;
     this.targetScale = 1.0;
   }
+
+  /**
+   * Pulso visual y partículas esmeralda al activar Bio-Reparación de Emergencia
+   */
+  public triggerHealPulse(scene: THREE.Scene): void {
+    this.feedPulse = 1.28;
+    const pos = this.body.translation();
+    const count = 20;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const velocities: Array<{ vx: number; vy: number }> = [];
+
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const startDist = this.baseRadius * this.currentScale + 0.4 + Math.random() * 1.5;
+      positions[i * 3] = pos.x + Math.cos(ang) * startDist;
+      positions[i * 3 + 1] = pos.y + Math.sin(ang) * startDist;
+      positions[i * 3 + 2] = 0.3;
+
+      const speed = 2.5 + Math.random() * 3.5;
+      velocities.push({
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+      });
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0x10b981,
+      size: 0.65,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      elapsed += 0.03;
+      const posAttr = geo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < count; i++) {
+        const px = posAttr.getX(i) + velocities[i].vx * 0.03;
+        const py = posAttr.getY(i) + velocities[i].vy * 0.03;
+        posAttr.setXY(i, px, py);
+      }
+      posAttr.needsUpdate = true;
+      mat.opacity = Math.max(0, 1.0 - elapsed / 0.6);
+
+      if (elapsed >= 0.6) {
+        clearInterval(interval);
+        scene.remove(particles);
+        geo.dispose();
+        mat.dispose();
+      }
+    }, 30);
+  }
+
+  /**
+   * Resplandor y onda cian al sobrecargar la turgencia osmótica
+   */
+  public triggerShieldPulse(scene: THREE.Scene): void {
+    this.sprintStretch = 1.25;
+    const pos = this.body.translation();
+    const count = 16;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const velocities: Array<{ vx: number; vy: number }> = [];
+
+    for (let i = 0; i < count; i++) {
+      const ang = (i * Math.PI * 2) / count;
+      const startDist = this.baseRadius * this.currentScale * 1.1;
+      positions[i * 3] = pos.x + Math.cos(ang) * startDist;
+      positions[i * 3 + 1] = pos.y + Math.sin(ang) * startDist;
+      positions[i * 3 + 2] = 0.3;
+
+      const speed = 4.0;
+      velocities.push({
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+      });
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0x38bdf8,
+      size: 0.7,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      elapsed += 0.03;
+      const posAttr = geo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < count; i++) {
+        const px = posAttr.getX(i) + velocities[i].vx * 0.03;
+        const py = posAttr.getY(i) + velocities[i].vy * 0.03;
+        posAttr.setXY(i, px, py);
+      }
+      posAttr.needsUpdate = true;
+      mat.opacity = Math.max(0, 1.0 - elapsed / 0.5);
+
+      if (elapsed >= 0.5) {
+        clearInterval(interval);
+        scene.remove(particles);
+        geo.dispose();
+        mat.dispose();
+      }
+    }, 30);
+  }
 }

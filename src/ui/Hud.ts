@@ -12,6 +12,21 @@ const UPGRADE_META: Record<string, { icon: string; shortName: string; benefit: s
     shortName: 'Sprint Caza',
     benefit: '+20% Fuerza / -Coste ATP',
   },
+  membraneHardening: {
+    icon: '❤️',
+    shortName: 'Vida (Pared)',
+    benefit: '+25 HP Máx / Cura Inmediata',
+  },
+  cellularRegen: {
+    icon: '🌱',
+    shortName: 'Regeneración',
+    benefit: '+1.5 HP/s Reparación Pasiva',
+  },
+  turgor: {
+    icon: '🛡️',
+    shortName: 'Turgencia',
+    benefit: '+15 Escudo / +Regen',
+  },
   digestiveEfficiency: {
     icon: '🧬',
     shortName: 'Digestión',
@@ -21,11 +36,6 @@ const UPGRADE_META: Record<string, { icon: string; shortName: string; benefit: s
     icon: '🧲',
     shortName: 'Receptores',
     benefit: '+20% ATP por Alimento',
-  },
-  turgor: {
-    icon: '🛡️',
-    shortName: 'Turgencia',
-    benefit: '+15 Escudo / +Regen',
   },
   vacuoleCapacity: {
     icon: '🔋',
@@ -62,7 +72,7 @@ export class Hud {
   private sanctuaryTitle!: HTMLElement;
   private sanctuaryDesc!: HTMLSpanElement;
 
-  // Contenedor de Bio-Upgrades
+  // Contenedor de Bio-Upgrades (8 Ranuras Canónicas)
   private upgradesList!: HTMLDivElement;
 
   // Contenedor de notificaciones flotantes
@@ -168,14 +178,14 @@ export class Hud {
         </div>
       </div>
 
-      <!-- 4. Dock Inferior de Bio-Mejoras (5 Niveles Máximos) -->
+      <!-- 4. Dock Inferior de 8 Bio-Mejoras (Estilo Starblast.io) -->
       <div id="bio-upgrades-dock">
         <div class="dock-header">
           <div class="dock-title-group">
             <span class="dock-title">🧬 BIO-MEJORAS</span>
             <span class="dock-badge">5 NIVELES MÁX</span>
           </div>
-          <span class="dock-hint">Teclas <b>[1 - 6]</b> o Clic para Mejorar</span>
+          <span class="dock-hint">Teclas <b>[1 - 8]</b> o Clic para Mejorar</span>
         </div>
         <div id="upgrades-dock-list"></div>
       </div>
@@ -200,6 +210,7 @@ export class Hud {
     this.sanctuaryTitle = document.getElementById('sanctuary-title') as HTMLElement;
     this.sanctuaryDesc = document.getElementById('sanctuary-desc') as HTMLSpanElement;
     this.mitosisBanner = document.getElementById('mitosis-alert') as HTMLDivElement;
+
     this.upgradesList = document.getElementById('upgrades-dock-list') as HTMLDivElement;
     this.popupsContainer = document.getElementById('floating-popups') as HTMLDivElement;
 
@@ -279,13 +290,13 @@ export class Hud {
   }
 
   public renderUpgrades(): void {
-    const keys = ['1', '2', '3', '4', '5', '6'];
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8'];
     const ups = Object.values(this.vacuoleManager.upgrades);
 
     this.upgradesList.innerHTML = '';
 
     ups.forEach((up, idx) => {
-      const key = keys[idx];
+      const key = keys[idx] || `${idx + 1}`;
       const meta = UPGRADE_META[up.id] || {
         icon: '✨',
         shortName: up.name,
@@ -335,6 +346,8 @@ export class Hud {
       this.upgradesList.appendChild(card);
     });
   }
+
+
 
   public showAtpPopup(text: string, color: string, screenX?: number, screenY?: number): void {
     const el = document.createElement('div');

@@ -117,10 +117,19 @@ export class Stage0 {
         this.toggleErythrocytes();
       }
 
-      // Teclas 1 - 6 para Bio-Mejoras biológicas
+      // Teclas 1 - 8 para Bio-Mejoras biológicas (estilo Starblast.io)
       const keyNum = parseInt(e.key, 10);
-      if (keyNum >= 1 && keyNum <= 6 && this.vacuoleManager) {
-        const upgradeKeys = ['propulsion', 'sprintPower', 'digestiveEfficiency', 'chemotaxis', 'turgor', 'vacuoleCapacity'];
+      if (keyNum >= 1 && keyNum <= 8 && this.vacuoleManager) {
+        const upgradeKeys = [
+          'propulsion',
+          'sprintPower',
+          'membraneHardening',
+          'cellularRegen',
+          'turgor',
+          'digestiveEfficiency',
+          'chemotaxis',
+          'vacuoleCapacity',
+        ];
         const upId = upgradeKeys[keyNum - 1];
         if (this.vacuoleManager.buyUpgrade(upId)) {
           this.player.applyUpgrades(this.vacuoleManager.upgrades);
@@ -189,8 +198,15 @@ export class Stage0 {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
         this.player.syncSizeWithAtp(stats.atp, stats.atpCapacity);
       });
-      this.vacuoleManager.addUpgradePurchasedListener((_upId, up) => {
+      this.vacuoleManager.addUpgradePurchasedListener((upId, up) => {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
+        if (upId === 'membraneHardening' || upId === 'cellularRegen') {
+          this.player.triggerHealPulse(this.scene);
+        } else if (upId === 'turgor') {
+          this.player.triggerShieldPulse(this.scene);
+        } else {
+          this.player.feedBounce(1.16);
+        }
         this.hud.showCustomPopup(`🧬 ${up.name} Niv. ${up.level}/5!`, '#10b981');
       });
       this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
