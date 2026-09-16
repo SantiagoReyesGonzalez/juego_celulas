@@ -33,7 +33,8 @@ export class Player {
   public projectiles: Projectile[] = [];
   public projectilesGroup: THREE.Group;
   private lastShootTime = 0;
-  private shootCooldown = 0.22; // Segundos entre disparos
+  public shootCooldown = 0.22; // Segundos entre disparos
+  public projectileBaseSpeed = 28.0;
 
   // Estado de Controles
   public isThrusting = false;
@@ -210,7 +211,7 @@ export class Player {
 
     // Velocidad del proyectil (velocidad de la célula + velocidad de eyección)
     const currentVel = this.body.linvel();
-    const projectileSpeed = 28.0;
+    const projectileSpeed = this.projectileBaseSpeed;
     const pVelX = currentVel.x + forwardX * projectileSpeed;
     const pVelY = currentVel.y + forwardY * projectileSpeed;
 
@@ -238,6 +239,21 @@ export class Player {
     const recoilX = -forwardX * this.recoilStrength;
     const recoilY = -forwardY * this.recoilStrength;
     this.body.applyImpulse({ x: recoilX, y: recoilY }, true);
+  }
+
+  /**
+   * Aplica los niveles de Bio-Mejoras desde VacuoleManager en tiempo real
+   */
+  public applyUpgrades(upgrades: Record<string, { level: number }>): void {
+    const propLevel = upgrades.propulsion?.level || 0;
+    this.thrustForce = 48.0 * (1.0 + propLevel * 0.15);
+    this.hydroProps.terminalVelocity = 18.0 * (1.0 + propLevel * 0.10);
+
+    const fireLevel = upgrades.fireRate?.level || 0;
+    this.shootCooldown = 0.22 * Math.max(0.35, 1.0 - fireLevel * 0.15);
+
+    const toxinLevel = upgrades.toxinPower?.level || 0;
+    this.projectileBaseSpeed = 28.0 * (1.0 + toxinLevel * 0.12);
   }
 
   /**

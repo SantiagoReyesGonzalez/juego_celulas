@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { PhysicsWorld } from '../physics/World';
 import { HydrodynamicsSystem } from '../systems/HydrodynamicsSystem';
 import { Player } from '../entities/Player';
+import { MiningSystem } from '../systems/MiningSystem';
+import { VacuoleManager } from '../systems/VacuoleManager';
+import { Hud } from '../ui/Hud';
 
 export interface TelemetryData {
   fps: number;
@@ -16,11 +19,16 @@ export class Stage0 {
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   
-  // Módulos de Física e Hidrodinámica
+  // Módulos de Física, Economía e Hidrodinámica
   private physicsWorld!: PhysicsWorld;
   private hydroSystem!: HydrodynamicsSystem;
   private player!: Player;
   private isWasmReady = false;
+
+  // Economía Celular y UI
+  public vacuoleManager!: VacuoleManager;
+  public miningSystem!: MiningSystem;
+  public hud!: Hud;
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -88,6 +96,16 @@ export class Stage0 {
       if (e.key === 'b' || e.key === 'B') {
         this.toggleErythrocytes();
       }
+
+      // Teclas 1 - 6 para Bio-Mejoras rápidas estilo Starblast
+      const keyNum = parseInt(e.key, 10);
+      if (keyNum >= 1 && keyNum <= 6 && this.vacuoleManager) {
+        const upgradeKeys = ['propulsion', 'toxinPower', 'fireRate', 'chemotaxis', 'turgor', 'vacuoleCapacity'];
+        const upId = upgradeKeys[keyNum - 1];
+        if (this.vacuoleManager.buyUpgrade(upId)) {
+          this.player.applyUpgrades(this.vacuoleManager.upgrades);
+        }
+      }
     });
   }
 
@@ -109,8 +127,19 @@ export class Stage0 {
       this.physicsWorld = new PhysicsWorld();
       this.hydroSystem = new HydrodynamicsSystem();
       this.player = new Player(this.physicsWorld, this.scene);
+
+      // Inicialización de Economía Celular (Etapa 2)
+      this.vacuoleManager = new VacuoleManager();
+      this.hud = new Hud(this.vacuoleManager);
+      this.miningSystem = new MiningSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
+
+      this.vacuoleManager.onStatsChanged = () => {
+        this.player.applyUpgrades(this.vacuoleManager.upgrades);
+      };
+      this.player.applyUpgrades(this.vacuoleManager.upgrades);
+
       this.isWasmReady = true;
-      console.log('✅ Rapier2D WASM e Hidrodinámica inicializados a 60 Hz');
+      console.log('✅ Rapier2D WASM, Hidrodinámica y Economía Celular inicializados a 60 Hz');
     } catch (err) {
       console.error('Error inicializando Rapier2D / Player:', err);
     }
@@ -242,10 +271,18 @@ export class Stage0 {
         this.player.physicsUpdate(fixedDt, this.hydroSystem);
       });
 
-      // 2. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
+      // 2. Actualización de Economía Celular, Lisis y Quimiotaxis de ATP
+      if (this.vacuoleManager) {
+        this.vacuoleManager.update(dt);
+      }
+      if (this.miningSystem) {
+        this.miningSystem.update(dt, time);
+      }
+
+      // 3. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
       this.player.visualUpdate(dt, time);
 
-      // 3. Seguimiento Suave de la Cámara al Jugador (Smooth Follow)
+      // 4. Seguimiento Suave de la Cámara al Jugador (Smooth Follow)
       const playerPos = this.player.body.translation();
       this.camera.position.x += (playerPos.x - this.camera.position.x) * Math.min(dt * 3.0, 1.0);
       this.camera.position.y += (playerPos.y - this.camera.position.y) * Math.min(dt * 3.0, 1.0);
