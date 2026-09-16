@@ -60,7 +60,7 @@ export const SPECIES_CATALOG: Record<string, BacteriaSpecies> = {
     vacuoleCapacity: 80,
     color: 0x00ff88,
     emissive: 0x059669,
-    sockets: [SocketType.FRONTAL, SocketType.POSTERIOR],
+    sockets: [SocketType.POSTERIOR],
     parentIds: [],
   },
 
@@ -69,8 +69,8 @@ export const SPECIES_CATALOG: Record<string, BacteriaSpecies> = {
     id: 'diplococcus',
     name: 'Diplococcus',
     tier: 2,
-    archetype: 'Combate Dual',
-    description: 'Estructura esférica gemela con doble socket frontal. Duplica la cadencia ofensiva a expensas de mayor inercia.',
+    archetype: 'Estructura Dual',
+    description: 'Estructura esférica gemela con doble flagelo posterior para propulsión simétrica en fluidos tisulares.',
     morphology: CellMorphology.DIPLOCOCCUS,
     mass: 1.8,
     hp: 180,
@@ -83,7 +83,7 @@ export const SPECIES_CATALOG: Record<string, BacteriaSpecies> = {
     vacuoleCapacity: 160,
     color: 0x06b6d4,
     emissive: 0x0891b2,
-    sockets: [SocketType.FRONTAL_LEFT, SocketType.FRONTAL_RIGHT, SocketType.POSTERIOR],
+    sockets: [SocketType.POSTERIOR_LEFT, SocketType.POSTERIOR_RIGHT],
     parentIds: ['micrococcus'],
   },
 
@@ -105,7 +105,7 @@ export const SPECIES_CATALOG: Record<string, BacteriaSpecies> = {
     vacuoleCapacity: 160,
     color: 0x10b981,
     emissive: 0x047857,
-    sockets: [SocketType.FRONTAL, SocketType.POSTERIOR_LEFT, SocketType.POSTERIOR_RIGHT],
+    sockets: [SocketType.POSTERIOR_LEFT, SocketType.POSTERIOR_RIGHT],
     parentIds: ['micrococcus'],
   },
 

@@ -30,7 +30,7 @@ export class Player {
 
   // Visuales Three.js
   public group: THREE.Group;
-  private flagellaCurves: THREE.Line[] = [];
+  private flagellaMeshes: THREE.Object3D[] = [];
 
   // Parámetros de Rendimiento Celular
   public thrustForce = 45.0;
@@ -170,7 +170,7 @@ export class Player {
         else mat.dispose();
       }
     }
-    this.flagellaCurves = [];
+    this.flagellaMeshes = [];
 
     this.membraneMaterial = createMembraneShaderMaterial(
       species.color,
@@ -236,21 +236,22 @@ export class Player {
     }
 
     // Sockets Modulares y Organelos
-    this.sockets = OrganelleFactory.generateSocketsForSpecies(species.sockets, radius, length);
+    this.sockets = OrganelleFactory.generateSocketsForSpecies(
+      species.sockets,
+      radius,
+      length,
+      species.morphology
+    );
 
     this.sockets.forEach((socket) => {
-      const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, 0x00ffcc);
+      const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, species.color);
       organelleMesh.position.set(socket.offset.x, socket.offset.y, 0);
       organelleMesh.rotation.z = socket.angle;
       this.group.add(organelleMesh);
       socket.mesh = organelleMesh;
 
       if (socket.equippedOrganelle === OrganelleType.FLAGELLUM) {
-        organelleMesh.children.forEach((c) => {
-          if (c instanceof THREE.Line) {
-            this.flagellaCurves.push(c);
-          }
-        });
+        this.flagellaMeshes.push(organelleMesh);
       }
     });
   }
@@ -437,22 +438,10 @@ export class Player {
         (targetFresnel - this.membraneMaterial.uniforms.uFresnelIntensity.value) * Math.min(dt * 6.0, 1.0);
     }
 
-    // Ondulación de los flagelos
+    // Ondulación hidrodinámica de los flagelos
     const vel = this.body.linvel();
     const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-    const waveFreq = 10.0 + speed * 1.8;
-    const waveAmp = this.isThrusting ? 0.35 : 0.22;
-
-    this.flagellaCurves.forEach((flagellum, idx) => {
-      const positions = flagellum.geometry.attributes.position as THREE.BufferAttribute;
-      const count = positions.count;
-      for (let j = 0; j < count; j++) {
-        const xDist = j * 0.15;
-        const wave = Math.sin(time * waveFreq - xDist * 2.5 + idx * 0.8) * (xDist * waveAmp);
-        positions.setY(j, wave);
-      }
-      positions.needsUpdate = true;
-    });
+    OrganelleFactory.animateFlagella(this.flagellaMeshes, time, speed, this.isThrusting);
   }
 
   public getSpeed(): number {
