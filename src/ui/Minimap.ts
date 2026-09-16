@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, HALF_WIDTH, HALF_HEIGHT, getSectorLabel } from '../physics/WorldTopology';
+import { getSectorLabel, getToroidalDelta } from '../physics/WorldTopology';
 
 export interface MinimapEntity {
   x: number;
@@ -27,15 +27,26 @@ export class Minimap {
   private ctx: CanvasRenderingContext2D;
   private coordsLabel: HTMLSpanElement;
   private sectorLabel: HTMLSpanElement;
+  private zoomBtn: HTMLButtonElement;
   private toggleBtn: HTMLButtonElement;
 
   private isExpanded = true;
   private isVisible = true;
   private radarAngle = 0;
 
-  // Dimensiones en píxeles CSS del lienzo
+  // Zoom del Radar: 2x (~70u) o 3x (~105u) respecto a la pantalla
+  private zoomLevels = [
+    { label: '2.0x', range: 72.0 },
+    { label: '3.0x', range: 108.0 },
+  ];
+  private currentZoomIndex = 0; // Por defecto 2.0x
+  public get radarRange(): number {
+    return this.zoomLevels[this.currentZoomIndex].range;
+  }
+
+  // Dimensiones del lienzo del radar circular
   private cssWidth = 190;
-  private cssHeight = 160;
+  private cssHeight = 190;
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
 
   constructor() {
@@ -51,6 +62,7 @@ export class Minimap {
         </div>
         <div class="radar-actions">
           <span id="minimap-sector" class="minimap-sector-pill">SEC: --</span>
+          <button id="minimap-zoom-btn" class="minimap-btn zoom-btn" title="Alternar Rango de Detección (2x / 3x)">2.0x</button>
           <button id="minimap-toggle-btn" class="minimap-btn" title="Minimizar / Expandir (Tecla TAB o N)">−</button>
         </div>
       </div>
@@ -59,7 +71,7 @@ export class Minimap {
       </div>
       <div class="minimap-footer">
         <span id="minimap-coords" class="radar-coords">X: 0.0 | Y: 0.0</span>
-        <span class="radar-topology-badge">TOROIDAL 260x220</span>
+        <span class="radar-topology-badge">CENTRO: JUGADOR</span>
       </div>
     `;
 
@@ -69,6 +81,7 @@ export class Minimap {
     this.ctx = this.canvas.getContext('2d', { alpha: true }) as CanvasRenderingContext2D;
     this.coordsLabel = this.container.querySelector('#minimap-coords') as HTMLSpanElement;
     this.sectorLabel = this.container.querySelector('#minimap-sector') as HTMLSpanElement;
+    this.zoomBtn = this.container.querySelector('#minimap-zoom-btn') as HTMLButtonElement;
     this.toggleBtn = this.container.querySelector('#minimap-toggle-btn') as HTMLButtonElement;
 
     this.setupCanvas();
@@ -88,29 +101,33 @@ export class Minimap {
       this.toggle();
     });
 
-    // Clic en la cabecera para alternar
-    const header = this.container.querySelector('.minimap-header') as HTMLElement;
-    if (header) {
-      header.addEventListener('click', () => this.toggle());
-    }
+    this.zoomBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.cycleZoom();
+    });
 
-    // Teclas TAB o N para alternar rápidamente durante la partida
+    // Teclas TAB o N para alternar colapso, Tecla Z para alternar zoom
     window.addEventListener('keydown', (e) => {
-      // Ignorar si el usuario está escribiendo en un input
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
 
       if (e.code === 'Tab' || e.code === 'KeyN') {
         e.preventDefault();
         this.toggle();
+      } else if (e.code === 'KeyZ') {
+        this.cycleZoom();
       }
     });
 
-    // Redimensión de ventana
     window.addEventListener('resize', () => {
       this.dpr = Math.min(window.devicePixelRatio || 1, 2);
       this.setupCanvas();
     });
+  }
+
+  public cycleZoom(): void {
+    this.currentZoomIndex = (this.currentZoomIndex + 1) % this.zoomLevels.length;
+    this.zoomBtn.textContent = this.zoomLevels[this.currentZoomIndex].label;
   }
 
   public toggle(): boolean {
@@ -131,230 +148,260 @@ export class Minimap {
   }
 
   /**
-   * Mapea una coordenada mundial (X, Y) a coordenadas del canvas (cx, cy)
-   */
-  private worldToCanvas(x: number, y: number, width: number, height: number): { cx: number; cy: number } {
-    // Normalizar de [-HALF_WIDTH, HALF_WIDTH] a [0, width]
-    const u = (x + HALF_WIDTH) / WORLD_WIDTH;
-    // En el eje Y, el sistema cartesiano Three.js (+Y arriba) se invierte para Canvas (+Y abajo)
-    const v = 1.0 - (y + HALF_HEIGHT) / WORLD_HEIGHT;
-
-    return {
-      cx: Math.max(0, Math.min(width, u * width)),
-      cy: Math.max(0, Math.min(height, v * height)),
-    };
-  }
-
-  /**
-   * Renderizado en tiempo real del radar
+   * Renderizado en tiempo real del radar de proximidad centrado en el jugador
    */
   public update(time: number, data: MinimapData): void {
+    const px = data.player.x;
+    const py = data.player.y;
+
     if (!this.isVisible || !this.isExpanded) {
-      // Si está colapsado, solo actualizamos el badge de coordenadas
-      this.coordsLabel.textContent = `X: ${data.player.x.toFixed(1)} | Y: ${data.player.y.toFixed(1)}`;
-      this.sectorLabel.textContent = `SEC: ${getSectorLabel(data.player.x, data.player.y)}`;
+      this.coordsLabel.textContent = `X: ${px.toFixed(1)} | Y: ${py.toFixed(1)}`;
+      this.sectorLabel.textContent = `SEC: ${getSectorLabel(px, py)}`;
       return;
     }
 
     const ctx = this.ctx;
-
     ctx.save();
     ctx.scale(this.dpr, this.dpr);
+
     const renderW = this.cssWidth;
     const renderH = this.cssHeight;
+    const centerX = renderW / 2;
+    const centerY = renderH / 2;
+    const radarRadius = Math.min(renderW, renderH) * 0.46; // ~87px
 
     // 1. Limpiar Lienzo
     ctx.clearRect(0, 0, renderW, renderH);
 
+    // 2. Máscara Circular del Radar
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radarRadius, 0, Math.PI * 2);
+    ctx.clip();
+
     // Fondo del radar con gradiente radial orgánico
-    const bgGrad = ctx.createRadialGradient(
-      renderW / 2,
-      renderH / 2,
-      10,
-      renderW / 2,
-      renderH / 2,
-      Math.max(renderW, renderH) * 0.7
-    );
-    bgGrad.addColorStop(0, 'rgba(10, 20, 36, 0.92)');
-    bgGrad.addColorStop(1, 'rgba(4, 7, 16, 0.98)');
+    const bgGrad = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, radarRadius);
+    bgGrad.addColorStop(0, 'rgba(8, 20, 36, 0.95)');
+    bgGrad.addColorStop(0.7, 'rgba(4, 10, 22, 0.96)');
+    bgGrad.addColorStop(1, 'rgba(2, 6, 16, 0.98)');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, renderW, renderH);
 
-    // 2. Retícula y Cuadrícula de Sectores
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+    // 3. Anillos Concéntricos de Alcance
+    // Anillo interior: Vista en Pantalla (1.0x pantalla ~32u)
+    const screenRingR = (32.0 / this.radarRange) * radarRadius;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
     ctx.lineWidth = 1;
-
-    // Eje vertical y horizontal central (X=0, Y=0)
+    ctx.setLineDash([3, 4]);
     ctx.beginPath();
-    ctx.moveTo(renderW / 2, 0);
-    ctx.lineTo(renderW / 2, renderH);
-    ctx.moveTo(0, renderH / 2);
-    ctx.lineTo(renderW, renderH / 2);
+    ctx.arc(centerX, centerY, screenRingR, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Líneas de cuadrantes intermedios
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.setLineDash([2, 4]);
+    // Anillo intermedio (~60u)
+    const midRingR = (60.0 / this.radarRange) * radarRadius;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
     ctx.beginPath();
-    ctx.moveTo(renderW * 0.25, 0);
-    ctx.lineTo(renderW * 0.25, renderH);
-    ctx.moveTo(renderW * 0.75, 0);
-    ctx.lineTo(renderW * 0.75, renderH);
-    ctx.moveTo(0, renderH * 0.25);
-    ctx.lineTo(renderW, renderH * 0.25);
-    ctx.moveTo(0, renderH * 0.75);
-    ctx.lineTo(renderW, renderH * 0.75);
+    ctx.arc(centerX, centerY, midRingR, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Etiquetas de sectores (A1, B2...)
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
-    ctx.font = '8px monospace';
-    ctx.fillText('A', 4, 12);
-    ctx.fillText('B', 4, renderH * 0.5 - 2);
-    ctx.fillText('C', 4, renderH * 0.5 + 10);
-    ctx.fillText('D', 4, renderH - 4);
+    // Retícula en cruz (Eje X / Eje Y centrados en el jugador)
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX - radarRadius, centerY);
+    ctx.lineTo(centerX + radarRadius, centerY);
+    ctx.moveTo(centerX, centerY - radarRadius);
+    ctx.lineTo(centerX, centerY + radarRadius);
+    ctx.stroke();
 
-    // 3. Haz Giratorio de Escáner Radar (Starblast style sweep)
-    this.radarAngle = (time * 1.8) % (Math.PI * 2);
-    const pPt = this.worldToCanvas(data.player.x, data.player.y, renderW, renderH);
-
+    // 4. Haz Giratorio de Escáner Radar (Sonar Sweep)
+    this.radarAngle = (time * 2.2) % (Math.PI * 2);
     ctx.save();
-    ctx.translate(pPt.cx, pPt.cy);
+    ctx.translate(centerX, centerY);
     ctx.rotate(-this.radarAngle);
-    const sweepGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 36);
-    sweepGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    const sweepGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, radarRadius);
+    sweepGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+    sweepGrad.addColorStop(0.8, 'rgba(56, 189, 248, 0.15)');
     sweepGrad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
     ctx.fillStyle = sweepGrad;
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.arc(0, 0, 36, -0.35, 0.35);
+    ctx.arc(0, 0, radarRadius, -0.35, 0.35);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
-    // 4. Gránulos de Nutrientes (Muestreo sutil estilo polvo biológico dorado)
+    // 5. Gránulos de Nutrientes Cercanos (pequeños destellos dorados)
     if (data.nutrients && data.nutrients.length > 0) {
-      ctx.fillStyle = 'rgba(251, 191, 36, 0.45)';
-      const step = Math.max(1, Math.floor(data.nutrients.length / 50));
-      for (let i = 0; i < data.nutrients.length; i += step) {
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.65)';
+      for (let i = 0; i < data.nutrients.length; i++) {
         const nut = data.nutrients[i];
-        const pt = this.worldToCanvas(nut.x, nut.y, renderW, renderH);
-        ctx.fillRect(pt.cx - 0.75, pt.cy - 0.75, 1.5, 1.5);
+        const { dx, dy, dist } = getToroidalDelta(px, py, nut.x, nut.y);
+        if (dist <= this.radarRange) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius; // Y invertido para pantalla
+          ctx.fillRect(rx - 0.75, ry - 0.75, 1.5, 1.5);
+        }
       }
     }
 
-    // 5. Adipocitos (Depósitos Lipídicos / Grandes Cosechas de ATP)
+    // 6. Microorganismos Cercanos (puntos esmeralda)
+    if (data.microorganisms) {
+      ctx.fillStyle = '#22c55e';
+      data.microorganisms.forEach((m) => {
+        const { dx, dy, dist } = getToroidalDelta(px, py, m.x, m.y);
+        if (dist <= this.radarRange) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          ctx.beginPath();
+          ctx.arc(rx, ry, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    // 7. Adipocitos (Grandes Reservas Lipídicas)
     if (data.adipocytes) {
       data.adipocytes.forEach((ad) => {
-        const pt = this.worldToCanvas(ad.x, ad.y, renderW, renderH);
-        const r = Math.max(2.2, ((ad.radius || 2.5) / WORLD_WIDTH) * renderW * 1.6);
+        const { dx, dy, dist } = getToroidalDelta(px, py, ad.x, ad.y);
+        if (dist <= this.radarRange) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          const r = Math.max(2.5, ((ad.radius || 2.5) / this.radarRange) * radarRadius * 1.5);
 
-        // Halo ámbar
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
-        ctx.beginPath();
-        ctx.arc(pt.cx, pt.cy, r + 2.0, 0, Math.PI * 2);
-        ctx.fill();
+          // Halo ámbar
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
+          ctx.beginPath();
+          ctx.arc(rx, ry, r + 2.5, 0, Math.PI * 2);
+          ctx.fill();
 
-        // Núcleo brillante
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.arc(pt.cx, pt.cy, r, 0, Math.PI * 2);
-        ctx.fill();
+          // Núcleo brillante
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath();
+          ctx.arc(rx, ry, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
       });
     }
 
-    // 6. Microorganismos (Células del Ecosistema)
-    if (data.microorganisms) {
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.85)';
-      data.microorganisms.forEach((m) => {
-        const pt = this.worldToCanvas(m.x, m.y, renderW, renderH);
-        ctx.beginPath();
-        ctx.arc(pt.cx, pt.cy, 1.6, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    }
-
-    // 7. Amenazas Inmunológicas: Neutrófilos y Macrófago (Marcadores Rojos)
+    // 8. Amenazas Inmunológicas: Neutrófilos (Puntos Rojos)
     if (data.neutrophils) {
       data.neutrophils.forEach((n) => {
-        const pt = this.worldToCanvas(n.x, n.y, renderW, renderH);
-        const pulse = 1.0 + Math.sin(time * 8.0) * 0.25;
+        const { dx, dy, dist } = getToroidalDelta(px, py, n.x, n.y);
+        if (dist <= this.radarRange) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          const pulse = 1.0 + Math.sin(time * 8.0) * 0.3;
 
-        // Halo de amenaza roja pulsante
-        ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
-        ctx.beginPath();
-        ctx.arc(pt.cx, pt.cy, 3.5 * pulse, 0, Math.PI * 2);
-        ctx.fill();
+          // Halo de peligro rojo
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+          ctx.beginPath();
+          ctx.arc(rx, ry, 4.0 * pulse, 0, Math.PI * 2);
+          ctx.fill();
 
-        // Punto de contacto
-        ctx.fillStyle = '#f43f5e';
-        ctx.beginPath();
-        ctx.arc(pt.cx, pt.cy, 2.0, 0, Math.PI * 2);
-        ctx.fill();
+          ctx.fillStyle = '#f43f5e';
+          ctx.beginPath();
+          ctx.arc(rx, ry, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (dist <= this.radarRange * 1.35) {
+          // Indicador de amenaza acercándose en el perímetro del radar (Off-screen Warning)
+          const angle = Math.atan2(-dy, dx);
+          const edgeX = centerX + Math.cos(angle) * (radarRadius - 4);
+          const edgeY = centerY + Math.sin(angle) * (radarRadius - 4);
+
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+          ctx.beginPath();
+          ctx.arc(edgeX, edgeY, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       });
     }
 
     // Macrófago Boss (Alerta Crítica)
     if (data.macrophage) {
-      const pt = this.worldToCanvas(data.macrophage.x, data.macrophage.y, renderW, renderH);
-      const pingRadius = (time * 18.0) % 18;
-      const pingAlpha = Math.max(0, 1.0 - pingRadius / 18);
+      const { dx, dy, dist } = getToroidalDelta(px, py, data.macrophage.x, data.macrophage.y);
+      if (dist <= this.radarRange) {
+        const rx = centerX + (dx / this.radarRange) * radarRadius;
+        const ry = centerY - (dy / this.radarRange) * radarRadius;
+        const pingRadius = (time * 16.0) % 18;
+        const pingAlpha = Math.max(0, 1.0 - pingRadius / 18);
 
-      // Onda de alerta expansiva
-      ctx.strokeStyle = `rgba(225, 29, 72, ${pingAlpha})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(pt.cx, pt.cy, pingRadius, 0, Math.PI * 2);
-      ctx.stroke();
+        ctx.strokeStyle = `rgba(225, 29, 72, ${pingAlpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(rx, ry, pingRadius, 0, Math.PI * 2);
+        ctx.stroke();
 
-      // Marcador del titán
-      ctx.fillStyle = '#e11d48';
-      ctx.beginPath();
-      ctx.arc(pt.cx, pt.cy, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+        ctx.fillStyle = '#e11d48';
+        ctx.beginPath();
+        ctx.arc(rx, ry, 5.0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else if (dist <= this.radarRange * 1.6) {
+        // Alerta de proximidad periférica del Macrófago Boss
+        const angle = Math.atan2(-dy, dx);
+        const edgeX = centerX + Math.cos(angle) * (radarRadius - 6);
+        const edgeY = centerY + Math.sin(angle) * (radarRadius - 6);
+
+        ctx.fillStyle = '#e11d48';
+        ctx.beginPath();
+        ctx.arc(edgeX, edgeY, 4.0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    // 8. Marcador del Jugador (Flecha Direccional de Alta Precisión)
+    // 9. Marcador Central del Jugador (Siempre en el centro del radar)
     ctx.save();
-    ctx.translate(pPt.cx, pPt.cy);
-
-    // La rotación en Three.js es anti-horaria; en Canvas con Y invertido se invierte el ángulo
+    ctx.translate(centerX, centerY);
     ctx.rotate(-data.player.rotation);
 
     // Halo bioluminiscente del jugador
-    const playerPulse = 1.0 + Math.sin(time * 5.0) * 0.15;
-    ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+    const playerPulse = 1.0 + Math.sin(time * 5.0) * 0.18;
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.35)';
     ctx.beginPath();
-    ctx.arc(0, 0, 6.0 * playerPulse, 0, Math.PI * 2);
+    ctx.arc(0, 0, 7.0 * playerPulse, 0, Math.PI * 2);
     ctx.fill();
 
-    // Flecha direccional estilizada (estilo nave de Starblast)
+    // Flecha direccional de navegación
     ctx.fillStyle = '#34d399';
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(6.5, 0);       // Punta frontal
-    ctx.lineTo(-4.5, -4.0);   // Ala izquierda
-    ctx.lineTo(-2.0, 0);      // Hendidura de propulsor
-    ctx.lineTo(-4.5, 4.0);    // Ala derecha
+    ctx.moveTo(7.5, 0);       // Proa
+    ctx.lineTo(-5.0, -4.5);   // Ala izquierda
+    ctx.lineTo(-2.2, 0);      // Propulsor
+    ctx.lineTo(-5.0, 4.5);    // Ala derecha
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
     ctx.restore();
 
-    // Borde perimetral con brillo cian
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(0.5, 0.5, renderW - 1, renderH - 1);
+    ctx.restore(); // Termina clip circular
+
+    // 10. Borde Perimetral Metálico/Cian del Escáner
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radarRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Marcas cardinales sutiles en el bisel
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('N', centerX, centerY - radarRadius + 7);
+    ctx.fillText('S', centerX, centerY + radarRadius - 7);
+    ctx.fillText('E', centerX + radarRadius - 7, centerY);
+    ctx.fillText('O', centerX - radarRadius + 7, centerY);
 
     ctx.restore();
 
-    // 9. Actualización de textos del HUD
-    this.coordsLabel.textContent = `X: ${data.player.x.toFixed(1)} | Y: ${data.player.y.toFixed(1)}`;
-    this.sectorLabel.textContent = `SEC: ${getSectorLabel(data.player.x, data.player.y)}`;
+    // 11. Textos Informativos del HUD
+    this.coordsLabel.textContent = `X: ${px.toFixed(1)} | Y: ${py.toFixed(1)}`;
+    this.sectorLabel.textContent = `SEC: ${getSectorLabel(px, py)}`;
   }
 }

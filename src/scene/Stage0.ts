@@ -210,11 +210,11 @@ export class Stage0 {
       opacity: 0.8,
     });
 
-    for (let i = 0; i < 55; i++) {
+    for (let i = 0; i < 110; i++) {
       const rbc = new THREE.Mesh(rbcGeo, rbcMat);
       rbc.position.set(
-        (Math.random() - 0.5) * 260,
-        (Math.random() - 0.5) * 220,
+        (Math.random() - 0.5) * 750,
+        (Math.random() - 0.5) * 650,
         -6 - Math.random() * 12
       );
       // Inclinación suave y natural para apreciar la concavidad central sin orificio

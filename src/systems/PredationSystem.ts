@@ -58,9 +58,9 @@ export class PredationSystem {
 
   public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
 
-  private maxNutrients = 160;
-  private maxMicroorganisms = 85;
-  private maxAdipocytes = 12;
+  private maxNutrients = 380;
+  private maxMicroorganisms = 180;
+  private maxAdipocytes = 28;
   private worldBounds = WORLD_BOUNDS;
 
   // Recursos compartidos para los gránulos de nutrientes

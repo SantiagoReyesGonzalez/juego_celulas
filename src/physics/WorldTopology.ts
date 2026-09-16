@@ -4,11 +4,11 @@
  * cálculo de distancia euclidiana toroidal mínima (Minimum Image Convention) y navegación.
  */
 
-export const WORLD_WIDTH = 260;
-export const WORLD_HEIGHT = 220;
+export const WORLD_WIDTH = 750;
+export const WORLD_HEIGHT = 650;
 
-export const HALF_WIDTH = WORLD_WIDTH / 2;   // 130
-export const HALF_HEIGHT = WORLD_HEIGHT / 2; // 110
+export const HALF_WIDTH = WORLD_WIDTH / 2;   // 375
+export const HALF_HEIGHT = WORLD_HEIGHT / 2; // 325
 
 export const WORLD_BOUNDS = {
   minX: -HALF_WIDTH,
