@@ -5,7 +5,6 @@ import { Player } from '../entities/Player';
 import { PredationSystem } from '../systems/PredationSystem';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { Hud } from '../ui/Hud';
-import { BiofilmHub } from '../entities/BiofilmHub';
 import { EvolutionSystem } from '../systems/EvolutionSystem';
 import { MitosisModal } from '../ui/MitosisModal';
 import { ThreatDirector } from '../systems/ThreatDirector';
@@ -35,7 +34,6 @@ export class Stage0 {
   public vacuoleManager!: VacuoleManager;
   public predationSystem!: PredationSystem;
   public hud!: Hud;
-  public biofilmHub!: BiofilmHub;
   public evolutionSystem!: EvolutionSystem;
   public mitosisModal!: MitosisModal;
   public threatDirector!: ThreatDirector;
@@ -143,8 +141,7 @@ export class Stage0 {
       this.hud = new Hud(this.vacuoleManager);
       this.predationSystem = new PredationSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
 
-      // Inicialización de Evolución y Nido de Biopelícula (Etapa 3)
-      this.biofilmHub = new BiofilmHub(this.physicsWorld, this.scene, -14, -10, 10.0);
+      // Inicialización de Evolución Celular y Mitosis (Etapa 3)
       this.evolutionSystem = new EvolutionSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
       this.mitosisModal = new MitosisModal(this.evolutionSystem, this.player);
 
@@ -299,12 +296,9 @@ export class Stage0 {
         this.predationSystem.update(dt, time);
       }
 
-      // 3. Actualización de Evolución Celular y Nido de Biopelícula
+      // 3. Actualización de Evolución Celular y Mitosis
       if (this.evolutionSystem) {
         this.evolutionSystem.update(dt);
-      }
-      if (this.biofilmHub) {
-        this.biofilmHub.update(dt, time, this.player.body.translation(), this.vacuoleManager);
       }
 
       // 4. Sistema Inmunológico y Depredación Hostil (Etapa 5)

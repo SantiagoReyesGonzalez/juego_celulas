@@ -12,8 +12,8 @@ export class NutrientPellet {
   public position: THREE.Vector2;
   public mesh: THREE.Mesh;
   public radius = 0.4;
-  public atpValue = 1.0;
-  public massGain = 0.08;
+  public atpValue = 4.0;
+  public massGain = 0.12;
   public isCollected = false;
   private floatOffset = Math.random() * Math.PI * 2;
   private floatSpeed = 1.3 + Math.random() * 0.8;
@@ -57,8 +57,8 @@ export class PredationSystem {
 
   public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
 
-  private maxNutrients = 110;
-  private maxMicroorganisms = 35;
+  private maxNutrients = 120;
+  private maxMicroorganisms = 75;
   private maxAdipocytes = 8;
   private worldBounds = { minX: -60, maxX: 60, minY: -50, maxY: 50 };
 
@@ -108,11 +108,17 @@ export class PredationSystem {
     }
 
     // 2. Microorganismos (Cocos, Bacilos, Desechos)
-    // Generar 6 organismos débiles cerca para que cazar sea accesible de inmediato
-    for (let i = 0; i < 6; i++) {
+    // Generar 20 organismos accesibles en el entorno cercano (distancia 5 a 26)
+    for (let i = 0; i < 20; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = 8.0 + Math.random() * 14.0;
-      const type = Math.random() < 0.6 ? MicroorganismType.CELLULAR_DEBRIS : MicroorganismType.TINY_COCCUS;
+      const dist = 5.0 + Math.random() * 21.0;
+      const rand = Math.random();
+      let type = MicroorganismType.TINY_COCCUS;
+      if (rand < 0.45) {
+        type = MicroorganismType.CELLULAR_DEBRIS;
+      } else if (rand > 0.82) {
+        type = MicroorganismType.SMALL_BACILLUS;
+      }
       const micro = new Microorganism(this.physicsWorld, this.scene, Math.cos(angle) * dist, Math.sin(angle) * dist, type);
       this.microorganisms.push(micro);
     }
@@ -211,13 +217,14 @@ export class PredationSystem {
 
       // Depredación al hacer contacto y pasar por encima de la presa
       if (this.player.containsPoint(microPos.x, microPos.y, 1.05)) {
-        if (playerMass >= micro.mass * 1.12) {
+        const canEngulf = (playerMass >= micro.mass * 0.98) || (this.player.isSprinting && playerMass >= micro.mass * 0.80);
+        if (canEngulf) {
           // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
           this.vacuoleManager.addAtp(micro.atpValue * atpBonus);
           // Aumento sustancial de biomasa
-          const massGain = Math.max(0.35, micro.mass * 0.75);
+          const massGain = Math.max(0.40, micro.mass * 0.85);
           this.player.grow(massGain);
-          this.player.feedBounce(1.22);
+          this.player.feedBounce(1.25);
 
           micro.isDead = true;
           micro.dispose(this.scene, this.physicsWorld);
@@ -227,16 +234,16 @@ export class PredationSystem {
             this.onPredationActivity('microorganism');
           }
 
-          // Reaparición en la lejanía
+          // Reaparición dinámica en la lejanía
           setTimeout(() => {
             if (this.microorganisms.length < this.maxMicroorganisms) {
               this.spawnRandomMicroorganism();
             }
-          }, 3500);
+          }, 1800);
           continue;
-        } else if (playerMass < micro.mass * 0.85) {
-          // La otra célula es mayor: daña a la bacteria del jugador
-          this.vacuoleManager.takeDamage(10);
+        } else if (playerMass < micro.mass * 0.75) {
+          // La otra célula es notablemente mayor: daña a la bacteria del jugador
+          this.vacuoleManager.takeDamage(8);
         }
       }
     }

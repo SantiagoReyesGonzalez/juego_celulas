@@ -44,6 +44,7 @@ export class Player {
   private lastSprintTime = 0;
   private sprintCooldown = 0.45; // Segundos entre impulsos
   private sprintStretch = 1.0;
+  public isSprinting = false;
 
   // Estado de Controles
   public isThrusting = false;
@@ -323,10 +324,12 @@ export class Player {
     if (timeNow - this.lastSprintTime < this.sprintCooldown) return false;
     if (vacuoleManager.atp < this.sprintAtpCost) return false;
 
-    // Deducir ATP
-    vacuoleManager.atp -= this.sprintAtpCost;
-    vacuoleManager.notifyStats();
+    // Deducir ATP de forma reactiva con notificación visual en el HUD
+    const success = vacuoleManager.spendAtp(this.sprintAtpCost, 'Sprint!');
+    if (!success) return false;
+
     this.lastSprintTime = timeNow;
+    this.isSprinting = true;
 
     // Vector de empuje frontal instantáneo
     const currentRot = this.body.rotation();
@@ -379,6 +382,7 @@ export class Player {
 
     // 4. Sprint Celular de Caza (Dash)
     const now = performance.now() / 1000;
+    this.isSprinting = (now - this.lastSprintTime < 0.5);
     if (this.isSprintRequested) {
       this.triggerSprint(vacuoleManager, now);
       this.isSprintRequested = false; // Un impulso por activación

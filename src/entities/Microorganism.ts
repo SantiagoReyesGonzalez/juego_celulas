@@ -35,20 +35,20 @@ export class Microorganism {
     // Configuración morfológica y biofísica según el tipo
     switch (type) {
       case MicroorganismType.CELLULAR_DEBRIS:
-        this.radius = 0.5 + Math.random() * 0.2;
+        this.radius = 0.45 + Math.random() * 0.15;
         this.mass = 0.25;
-        this.atpValue = 3;
+        this.atpValue = 6;
         break;
       case MicroorganismType.SMALL_BACILLUS:
-        this.radius = 0.95;
-        this.mass = 1.0;
-        this.atpValue = 10;
+        this.radius = 0.85;
+        this.mass = 0.85;
+        this.atpValue = 18;
         break;
       case MicroorganismType.TINY_COCCUS:
       default:
-        this.radius = 0.65 + Math.random() * 0.2;
+        this.radius = 0.60 + Math.random() * 0.15;
         this.mass = 0.45;
-        this.atpValue = 6;
+        this.atpValue = 10;
         break;
     }
 

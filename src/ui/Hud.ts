@@ -163,7 +163,12 @@ export class Hud {
 
     // Notificaciones de ATP recolectado
     this.vacuoleManager.onAtpCollected = (amount) => {
-      this.showAtpPopup(`+${amount} ATP`, '#facc15');
+      this.showAtpPopup(`+${Math.round(amount)} ATP`, '#facc15');
+    };
+
+    // Notificaciones de ATP gastado (Sprint, upgrades)
+    this.vacuoleManager.onAtpSpent = (spent, reason) => {
+      this.showAtpPopup(`-${Math.round(spent)} ATP (${reason})`, '#f97316');
     };
 
     // Notificación de derrame de ATP por daño
@@ -234,20 +239,31 @@ export class Hud {
     });
   }
 
-  private showAtpPopup(text: string, color: string): void {
+  public showAtpPopup(text: string, color: string, screenX?: number, screenY?: number): void {
     const el = document.createElement('div');
     el.className = 'atp-popup';
     el.style.color = color;
     el.textContent = text;
+
+    // Si no se especifican coordenadas de pantalla, colocar de forma visible y estilizada
+    if (screenX !== undefined && screenY !== undefined) {
+      el.style.left = `${screenX}px`;
+      el.style.top = `${screenY}px`;
+    } else {
+      const offset = (Math.random() - 0.5) * 80;
+      el.style.left = `calc(50% + ${offset}px)`;
+      el.style.top = `72px`;
+    }
+
     this.popupsContainer.appendChild(el);
 
     setTimeout(() => {
       el.remove();
-    }, 1200);
+    }, 1100);
   }
 
-  public showCustomPopup(text: string, color = '#ffffff'): void {
-    this.showAtpPopup(text, color);
+  public showCustomPopup(text: string, color = '#ffffff', screenX?: number, screenY?: number): void {
+    this.showAtpPopup(text, color, screenX, screenY);
   }
 
   public updateThreat(threat: ThreatTelemetry): void {

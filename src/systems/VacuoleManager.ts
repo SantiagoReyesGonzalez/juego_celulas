@@ -27,7 +27,7 @@ export class VacuoleManager {
   public maxOsmoticPressure = 50;
   public osmoticRegenRate = 4.0; // Puntos por segundo
 
-  public atp = 0;
+  public atp = 25;
   public atpCapacity = 80;
 
   // 2. Upgrades Celulares estilo Starblast.io (8 estadísticas / 6 niveles)
@@ -91,6 +91,7 @@ export class VacuoleManager {
   // Eventos y callbacks
   public onStatsChanged?: (stats: CellStats) => void;
   public onAtpCollected?: (amount: number, total: number) => void;
+  public onAtpSpent?: (spentAmount: number, reason: string) => void;
   public onAtpLeak?: (lostAmount: number) => void;
   public onMitosisAvailable?: () => void;
 
@@ -119,7 +120,7 @@ export class VacuoleManager {
     const added = Math.min(amount, spaceLeft);
     this.atp += added;
 
-    if (this.onAtpCollected) {
+    if (this.onAtpCollected && added > 0) {
       this.onAtpCollected(added, this.atp);
     }
 
@@ -133,6 +134,20 @@ export class VacuoleManager {
 
     this.notifyStats();
     return added;
+  }
+
+  /**
+   * Gasta ATP para acciones activas (Sprint de caza, etc.)
+   */
+  public spendAtp(amount: number, reason = 'Sprint'): boolean {
+    if (this.atp < amount) return false;
+    this.atp -= amount;
+    this.mitosisNotified = false;
+    if (this.onAtpSpent) {
+      this.onAtpSpent(amount, reason);
+    }
+    this.notifyStats();
+    return true;
   }
 
   /**
