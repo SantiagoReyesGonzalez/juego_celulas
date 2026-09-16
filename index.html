@@ -350,21 +350,253 @@
         transform: translateY(-1px);
       }
 
+      /* Barra de Instrucciones Superior al Dock */
       #instructions {
         position: absolute;
-        bottom: 20px;
+        bottom: 114px;
         left: 50%;
         transform: translateX(-50%);
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         background: rgba(6, 9, 19, 0.75);
         backdrop-filter: blur(6px);
-        padding: 8px 20px;
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 5px 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
         pointer-events: none;
         white-space: nowrap;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        z-index: 40;
+      }
+
+      /* ================= DOCK INFERIOR DE BIO-MEJORAS (5 NIVELES MÁX) ================= */
+      #bio-upgrades-dock {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(6, 11, 24, 0.90);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        padding: 6px 12px 8px 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 16px rgba(16, 185, 129, 0.15);
+        z-index: 50;
+        user-select: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .dock-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 0 4px;
+      }
+
+      .dock-title-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .dock-title {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        color: #10b981;
+        text-transform: uppercase;
+      }
+
+      .dock-badge {
+        font-size: 9px;
+        font-weight: 700;
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #34d399;
+        padding: 1px 6px;
+        border-radius: 8px;
+        letter-spacing: 0.5px;
+      }
+
+      .dock-hint {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .dock-hint b {
+        color: #fbbf24;
+      }
+
+      #upgrades-dock-list {
+        display: flex;
+        gap: 8px;
+      }
+
+      .dock-upgrade-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 10px;
+        padding: 7px 9px;
+        min-width: 110px;
+        max-width: 122px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: default;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .dock-upgrade-card.pending {
+        opacity: 0.65;
+      }
+
+      .dock-upgrade-card.affordable {
+        opacity: 1;
+        cursor: pointer;
+        border-color: rgba(16, 185, 129, 0.5);
+        background: rgba(16, 185, 129, 0.06);
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+      }
+
+      .dock-upgrade-card.affordable:hover {
+        transform: translateY(-3px) scale(1.03);
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.16);
+        box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45);
+      }
+
+      .dock-upgrade-card.maxed {
+        opacity: 0.95;
+        border-color: rgba(251, 191, 36, 0.6);
+        background: rgba(251, 191, 36, 0.05);
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
+      }
+
+      .dock-card-header {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        width: 100%;
+      }
+
+      .dock-key-badge {
+        font-size: 10px;
+        font-weight: 800;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.3);
+        border-radius: 4px;
+        padding: 1px 4px;
+        font-family: monospace;
+      }
+
+      .dock-icon {
+        font-size: 13px;
+      }
+
+      .dock-name {
+        font-size: 11px;
+        font-weight: 700;
+        color: #f1f5f9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .dock-level-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        margin: 2px 0;
+      }
+
+      .dock-pips-container {
+        display: flex;
+        gap: 3px;
+        align-items: center;
+      }
+
+      .dock-pip {
+        width: 9px;
+        height: 6px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.15);
+        transition: all 0.25s ease;
+      }
+
+      .dock-pip.active {
+        background: #10b981;
+        box-shadow: 0 0 6px #10b981;
+      }
+
+      .dock-pip.active.maxed {
+        background: #fbbf24;
+        box-shadow: 0 0 6px #fbbf24;
+      }
+
+      .dock-level-text {
+        font-size: 10px;
+        font-weight: 700;
+        color: #94a3b8;
+        margin-left: 4px;
+      }
+
+      .dock-level-text.gold {
+        color: #fbbf24;
+        font-weight: 800;
+      }
+
+      .dock-card-footer {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+
+      .dock-cost-btn {
+        width: 100%;
+        text-align: center;
+        padding: 3px 0;
+        border-radius: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        background: rgba(0, 0, 0, 0.35);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: all 0.2s ease;
+      }
+
+      .dock-cost-btn.can-buy {
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+      }
+
+      .dock-cost-btn.can-buy:hover {
+        background: linear-gradient(135deg, #047857, #059669);
+      }
+
+      .dock-cost-btn.is-max {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.4);
+      }
+
+      .dock-benefit-hint {
+        font-size: 9px;
+        color: #64748b;
+        white-space: nowrap;
+        text-align: center;
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       /* Contenedor y Animación de Textos Flotantes (ATP / Biomasa / Sprint) */

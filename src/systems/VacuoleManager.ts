@@ -94,9 +94,11 @@ export class VacuoleManager {
   public onAtpSpent?: (spentAmount: number, reason: string) => void;
   public onAtpLeak?: (lostAmount: number) => void;
   public onMitosisAvailable?: () => void;
+  public onUpgradePurchased?: (upgradeId: string, upgrade: BioUpgrade) => void;
 
   private statsListeners: Array<(stats: CellStats) => void> = [];
   private atpLeakListeners: Array<(lost: number) => void> = [];
+  private upgradePurchasedListeners: Array<(upgradeId: string, upgrade: BioUpgrade) => void> = [];
 
   public addStatsListener(fn: (stats: CellStats) => void): void {
     this.statsListeners.push(fn);
@@ -104,6 +106,10 @@ export class VacuoleManager {
 
   public addAtpLeakListener(fn: (lost: number) => void): void {
     this.atpLeakListeners.push(fn);
+  }
+
+  public addUpgradePurchasedListener(fn: (upgradeId: string, upgrade: BioUpgrade) => void): void {
+    this.upgradePurchasedListeners.push(fn);
   }
 
   private mitosisNotified = false;
@@ -194,6 +200,13 @@ export class VacuoleManager {
     } else if (upgradeId === 'vacuoleCapacity') {
       this.atpCapacity += 45;
       this.mitosisNotified = false; // Requiere llenar la nueva capacidad
+    }
+
+    if (this.onUpgradePurchased) {
+      this.onUpgradePurchased(upgradeId, up);
+    }
+    for (const fn of this.upgradePurchasedListeners) {
+      fn(upgradeId, up);
     }
 
     this.notifyStats();

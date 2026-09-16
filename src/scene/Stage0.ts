@@ -177,6 +177,10 @@ export class Stage0 {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
         this.player.syncSizeWithAtp(stats.atp, stats.atpCapacity);
       });
+      this.vacuoleManager.addUpgradePurchasedListener((_upId, up) => {
+        this.player.applyUpgrades(this.vacuoleManager.upgrades);
+        this.hud.showCustomPopup(`🧬 ${up.name} Niv. ${up.level}/5!`, '#10b981');
+      });
       this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
       this.player.applyUpgrades(this.vacuoleManager.upgrades);
 

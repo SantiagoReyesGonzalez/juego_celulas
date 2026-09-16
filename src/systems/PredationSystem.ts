@@ -181,6 +181,8 @@ export class PredationSystem {
     const playerMass = this.player.currentMass;
     const chemoLevel = this.vacuoleManager.upgrades.chemotaxis?.level || 0;
     const atpBonus = 1.0 + chemoLevel * 0.2;
+    const digestiveLevel = this.vacuoleManager.upgrades.digestiveEfficiency?.level || 0;
+    const biomassBonus = 1.0 + digestiveLevel * 0.25;
 
     // ================= 1. CONSUMO DE GRÁNULOS DE NUTRIENTES (Agar.io) =================
     // La bacteria SOLO se alimenta cuando el cuerpo celular pasa exactamente por encima (sin efecto imán)
@@ -190,7 +192,7 @@ export class PredationSystem {
 
       if (this.player.containsPoint(nut.position.x, nut.position.y, 1.0)) {
         this.vacuoleManager.addAtp(nut.atpValue * atpBonus);
-        this.player.grow(nut.massGain);
+        this.player.grow(nut.massGain * biomassBonus);
         this.player.feedBounce(1.08);
 
         if (this.onPredationActivity) {
@@ -222,7 +224,7 @@ export class PredationSystem {
           // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
           this.vacuoleManager.addAtp(micro.atpValue * atpBonus);
           // Aumento sustancial de biomasa
-          const massGain = Math.max(0.40, micro.mass * 0.85);
+          const massGain = Math.max(0.40, micro.mass * 0.85) * biomassBonus;
           this.player.grow(massGain);
           this.player.feedBounce(1.25);
 

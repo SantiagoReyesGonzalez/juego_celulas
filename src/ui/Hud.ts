@@ -1,6 +1,39 @@
 import { VacuoleManager, CellStats } from '../systems/VacuoleManager';
 import { ThreatTelemetry } from '../systems/ThreatDirector';
 
+const UPGRADE_META: Record<string, { icon: string; shortName: string; benefit: string }> = {
+  propulsion: {
+    icon: '🚀',
+    shortName: 'Propulsión',
+    benefit: '+15% Empuje / +10% Vel',
+  },
+  sprintPower: {
+    icon: '⚡',
+    shortName: 'Sprint Caza',
+    benefit: '+20% Fuerza / -Coste ATP',
+  },
+  digestiveEfficiency: {
+    icon: '🧬',
+    shortName: 'Digestión',
+    benefit: '+25% Biomasa Asimilada',
+  },
+  chemotaxis: {
+    icon: '🧲',
+    shortName: 'Receptores',
+    benefit: '+20% ATP por Alimento',
+  },
+  turgor: {
+    icon: '🛡️',
+    shortName: 'Turgencia',
+    benefit: '+15 Escudo / +Regen',
+  },
+  vacuoleCapacity: {
+    icon: '🔋',
+    shortName: 'Cap. Vacuola',
+    benefit: '+45 Almacén ATP',
+  },
+};
+
 export class Hud {
   private vacuoleManager: VacuoleManager;
   private container: HTMLDivElement;
@@ -121,13 +154,16 @@ export class Hud {
         </div>
       </div>
 
-      <!-- 4. Panel Lateral de Bio-Mejoras (Estilo Starblast.io) -->
-      <div id="bio-upgrades-panel">
-        <div class="upgrades-title">
-          <span>🧬 Bio-Mejoras</span>
-          <span class="upgrades-hint">Teclas [1 - 6]</span>
+      <!-- 4. Dock Inferior de Bio-Mejoras (5 Niveles Máximos) -->
+      <div id="bio-upgrades-dock">
+        <div class="dock-header">
+          <div class="dock-title-group">
+            <span class="dock-title">🧬 BIO-MEJORAS</span>
+            <span class="dock-badge">5 NIVELES MÁX</span>
+          </div>
+          <span class="dock-hint">Teclas <b>[1 - 6]</b> o Clic para Mejorar</span>
         </div>
-        <div id="upgrades-list"></div>
+        <div id="upgrades-dock-list"></div>
       </div>
 
       <!-- 5. Contenedor de Textos Flotantes de ATP -->
@@ -147,7 +183,7 @@ export class Hud {
     this.threatAlertTitle = document.getElementById('threat-alert-title') as HTMLElement;
     this.threatAlertDesc = document.getElementById('threat-alert-desc') as HTMLSpanElement;
     this.mitosisBanner = document.getElementById('mitosis-alert') as HTMLDivElement;
-    this.upgradesList = document.getElementById('upgrades-list') as HTMLDivElement;
+    this.upgradesList = document.getElementById('upgrades-dock-list') as HTMLDivElement;
     this.popupsContainer = document.getElementById('floating-popups') as HTMLDivElement;
 
     this.renderUpgrades();
@@ -233,33 +269,53 @@ export class Hud {
 
     ups.forEach((up, idx) => {
       const key = keys[idx];
+      const meta = UPGRADE_META[up.id] || {
+        icon: '✨',
+        shortName: up.name,
+        benefit: up.description,
+      };
       const cost = this.vacuoleManager.getUpgradeCost(up.id);
       const isMax = up.level >= up.maxLevel;
       const canAfford = !isMax && this.vacuoleManager.atp >= cost;
 
-      // Pips de nivel (e.g. ■■□□□)
+      // Exactamente 5 pips de nivel con feedback cromático y animado
       let pipsHtml = '';
       for (let i = 0; i < up.maxLevel; i++) {
-        pipsHtml += `<span class="pip ${i < up.level ? 'active' : ''}"></span>`;
+        const isFilled = i < up.level;
+        pipsHtml += `<span class="dock-pip ${isFilled ? 'active' : ''} ${isMax ? 'maxed' : ''}"></span>`;
       }
 
-      const item = document.createElement('div');
-      item.className = `upgrade-item ${canAfford ? 'affordable' : ''} ${isMax ? 'maxed' : ''}`;
-      item.innerHTML = `
-        <div class="upgrade-key">[${key}]</div>
-        <div class="upgrade-info">
-          <div class="upgrade-name">${up.name}</div>
-          <div class="upgrade-pips">${pipsHtml}</div>
+      const card = document.createElement('div');
+      card.className = `dock-upgrade-card ${canAfford ? 'affordable' : ''} ${isMax ? 'maxed' : 'pending'}`;
+      card.setAttribute('data-upgrade-id', up.id);
+      card.title = `${up.name} (Nivel ${up.level}/${up.maxLevel})\n${up.description}`;
+
+      card.innerHTML = `
+        <div class="dock-card-header">
+          <span class="dock-key-badge">[${key}]</span>
+          <span class="dock-icon">${meta.icon}</span>
+          <span class="dock-name">${meta.shortName}</span>
         </div>
-        <div class="upgrade-cost">${isMax ? 'MAX' : `${cost} ATP`}</div>
+        <div class="dock-level-row">
+          <div class="dock-pips-container">${pipsHtml}</div>
+          <span class="dock-level-text ${isMax ? 'gold' : ''}">${isMax ? 'MAX' : `${up.level}/5`}</span>
+        </div>
+        <div class="dock-card-footer">
+          <div class="dock-cost-btn ${canAfford ? 'can-buy' : ''} ${isMax ? 'is-max' : ''}">
+            ${isMax ? '<span class="max-badge">★ NIVEL 5</span>' : `<span class="atp-cost">⚡ ${cost} ATP</span>`}
+          </div>
+        </div>
+        <div class="dock-benefit-hint">${meta.benefit}</div>
       `;
 
-      // Clic para comprar con ratón
-      item.addEventListener('click', () => {
+      // Clic para comprar con ratón (con detención de propagación para no accionar controles de juego)
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         this.vacuoleManager.buyUpgrade(up.id);
       });
 
-      this.upgradesList.appendChild(item);
+      this.upgradesList.appendChild(card);
     });
   }
 
