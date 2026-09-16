@@ -5,11 +5,13 @@ import { HydrodynamicsSystem, Morphology, HydrodynamicProperties } from '../syst
 import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology } from '../data/MutationTree';
 import { OrganelleSocket, OrganelleFactory, OrganelleType } from './Organelles';
 import { VacuoleManager } from '../systems/VacuoleManager';
+import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
 
 export class Player {
   // Especie y Taxonomía Actual
   public currentSpecies: BacteriaSpecies;
   public sockets: OrganelleSocket[] = [];
+  public membraneMaterial?: THREE.ShaderMaterial;
 
   // Físicas Rapier2D
   public body: RAPIER.RigidBody;
@@ -170,15 +172,12 @@ export class Player {
     }
     this.flagellaCurves = [];
 
-    const membraneMat = new THREE.MeshStandardMaterial({
-      color: species.color,
-      emissive: species.emissive,
-      emissiveIntensity: 1.0,
-      roughness: 0.15,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.88,
-    });
+    this.membraneMaterial = createMembraneShaderMaterial(
+      species.color,
+      species.emissive,
+      0.88
+    );
+    const membraneMat = this.membraneMaterial;
 
     const coreMat = new THREE.MeshBasicMaterial({
       color: 0x00ffff,
@@ -420,6 +419,23 @@ export class Player {
 
     this.group.scale.set(sx, sy, sz);
     this.updateColliderScale();
+
+    // Actualización de Shader Orgánico de Membrana (Ruido Simplex y Fresnel)
+    if (this.membraneMaterial) {
+      this.membraneMaterial.uniforms.uTime.value = time;
+
+      // Amplitud de ruido reactiva a velocidad y sprint
+      const vel = this.body.linvel();
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      const targetAmp = 0.08 + Math.min(speed * 0.007, 0.12) + (this.sprintStretch - 1.0) * 0.2;
+      this.membraneMaterial.uniforms.uNoiseAmp.value +=
+        (targetAmp - this.membraneMaterial.uniforms.uNoiseAmp.value) * Math.min(dt * 6.0, 1.0);
+
+      // Resplandor de fluorescencia confocal reactivo a la alimentación
+      const targetFresnel = 1.8 + (this.feedPulse - 1.0) * 4.5;
+      this.membraneMaterial.uniforms.uFresnelIntensity.value +=
+        (targetFresnel - this.membraneMaterial.uniforms.uFresnelIntensity.value) * Math.min(dt * 6.0, 1.0);
+    }
 
     // Ondulación de los flagelos
     const vel = this.body.linvel();
