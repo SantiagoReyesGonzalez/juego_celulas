@@ -8,7 +8,7 @@ export class EvolutionSystem {
   private physicsWorld: PhysicsWorld;
   private scene: THREE.Scene;
   private player: Player;
-  private vacuoleManager: VacuoleManager;
+  public vacuoleManager: VacuoleManager;
 
   public isMitosisActive = false;
   private mitosisTimer = 0;
@@ -27,10 +27,18 @@ export class EvolutionSystem {
   }
 
   /**
+   * Verifica si la bacteria ha alcanzado la meta de puntos / capacidad de vacuola (100% de ATP)
+   */
+  public canMitosis(): boolean {
+    return this.vacuoleManager.atp >= this.vacuoleManager.atpCapacity;
+  }
+
+  /**
    * Ejecuta la secuencia de Mitosis Celular hacia una nueva especie
    */
-  public evolve(targetSpecies: BacteriaSpecies): void {
-    if (this.isMitosisActive) return;
+  public evolve(targetSpecies: BacteriaSpecies): boolean {
+    if (this.isMitosisActive) return false;
+    if (!this.canMitosis()) return false;
 
     this.isMitosisActive = true;
     this.mitosisTimer = 1.2; // Duración de la animación de bipartición
@@ -55,6 +63,7 @@ export class EvolutionSystem {
 
     // 4. Reaplicar Bio-Mejoras sobre las nuevas estadísticas base
     this.player.applyUpgrades(this.vacuoleManager.upgrades);
+    return true;
   }
 
   public update(dt: number): void {

@@ -169,6 +169,10 @@ export class Stage0 {
         this.mitosisModal.open();
       };
 
+      this.mitosisModal.onMitosisNotReady = (current, cap) => {
+        this.hud.showCustomPopup(`⚠️ Mitosis bloqueada: ${current} / ${cap} ATP necesarios`, '#f59e0b');
+      };
+
       this.vacuoleManager.addStatsListener(() => {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
       });

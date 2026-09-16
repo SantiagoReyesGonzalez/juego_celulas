@@ -7,6 +7,7 @@ export class MitosisModal {
   private player: Player;
   private modalContainer: HTMLDivElement;
   public isOpen = false;
+  public onMitosisNotReady?: (current: number, cap: number) => void;
 
   constructor(evolutionSystem: EvolutionSystem, player: Player) {
     this.evolutionSystem = evolutionSystem;
@@ -17,18 +18,28 @@ export class MitosisModal {
     this.modalContainer.className = 'modal-overlay hidden';
     document.body.appendChild(this.modalContainer);
 
-    // Cerrar con tecla Escape
+    // Cerrar con tecla Escape, abrir con tecla M únicamente al alcanzar el 100% de Vacuola ATP
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isOpen) {
         this.close();
       }
       if ((e.key === 'm' || e.key === 'M') && !this.isOpen) {
-        this.open();
+        if (this.evolutionSystem.canMitosis()) {
+          this.open();
+        } else if (this.onMitosisNotReady) {
+          const current = Math.round(this.evolutionSystem.vacuoleManager.atp);
+          const cap = this.evolutionSystem.vacuoleManager.atpCapacity;
+          this.onMitosisNotReady(current, cap);
+        }
       }
     });
   }
 
   public open(): void {
+    if (!this.evolutionSystem.canMitosis()) {
+      return;
+    }
+
     const options = this.evolutionSystem.getAvailableEvolutions();
     if (options.length === 0) {
       alert(`La especie ${this.player.currentSpecies.name} ha alcanzado el ápice evolutivo de su linaje.`);
