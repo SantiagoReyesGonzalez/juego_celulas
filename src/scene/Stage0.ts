@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PhysicsWorld } from '../physics/World';
 import { HydrodynamicsSystem } from '../systems/HydrodynamicsSystem';
 import { Player } from '../entities/Player';
-import { MiningSystem } from '../systems/MiningSystem';
+import { PredationSystem } from '../systems/PredationSystem';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { Hud } from '../ui/Hud';
 import { BiofilmHub } from '../entities/BiofilmHub';
@@ -14,6 +14,7 @@ export interface TelemetryData {
   wasmReady: boolean;
   mouseWorld: THREE.Vector2;
   cellSpeed: number;
+  cellMass: number;
 }
 
 export class Stage0 {
@@ -28,9 +29,9 @@ export class Stage0 {
   private player!: Player;
   private isWasmReady = false;
 
-  // Economía Celular, Evolución y UI
+  // Depredación Celular, Evolución y UI
   public vacuoleManager!: VacuoleManager;
-  public miningSystem!: MiningSystem;
+  public predationSystem!: PredationSystem;
   public hud!: Hud;
   public biofilmHub!: BiofilmHub;
   public evolutionSystem!: EvolutionSystem;
@@ -103,10 +104,10 @@ export class Stage0 {
         this.toggleErythrocytes();
       }
 
-      // Teclas 1 - 6 para Bio-Mejoras rápidas estilo Starblast
+      // Teclas 1 - 6 para Bio-Mejoras biológicas
       const keyNum = parseInt(e.key, 10);
       if (keyNum >= 1 && keyNum <= 6 && this.vacuoleManager) {
-        const upgradeKeys = ['propulsion', 'toxinPower', 'fireRate', 'chemotaxis', 'turgor', 'vacuoleCapacity'];
+        const upgradeKeys = ['propulsion', 'sprintPower', 'digestiveEfficiency', 'chemotaxis', 'turgor', 'vacuoleCapacity'];
         const upId = upgradeKeys[keyNum - 1];
         if (this.vacuoleManager.buyUpgrade(upId)) {
           this.player.applyUpgrades(this.vacuoleManager.upgrades);
@@ -134,10 +135,10 @@ export class Stage0 {
       this.hydroSystem = new HydrodynamicsSystem();
       this.player = new Player(this.physicsWorld, this.scene);
 
-      // Inicialización de Economía Celular (Etapa 2)
+      // Inicialización de Economía Celular y Depredación (Agar.io + Spore)
       this.vacuoleManager = new VacuoleManager();
       this.hud = new Hud(this.vacuoleManager);
-      this.miningSystem = new MiningSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
+      this.predationSystem = new PredationSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
 
       // Inicialización de Evolución y Nido de Biopelícula (Etapa 3)
       this.biofilmHub = new BiofilmHub(this.physicsWorld, this.scene, -14, -10, 10.0);
@@ -283,15 +284,15 @@ export class Stage0 {
     // 1. Simulación Física Determinista Rapier2D a 60 Hz con Hidrodinámica
     if (this.isWasmReady && this.physicsWorld && this.player) {
       this.physicsWorld.step(dt, (fixedDt) => {
-        this.player.physicsUpdate(fixedDt, this.hydroSystem);
+        this.player.physicsUpdate(fixedDt, this.hydroSystem, this.vacuoleManager);
       });
 
-      // 2. Actualización de Economía Celular, Lisis y Quimiotaxis de ATP
+      // 2. Actualización de Economía Celular y Depredación (Agar.io + Spore)
       if (this.vacuoleManager) {
         this.vacuoleManager.update(dt);
       }
-      if (this.miningSystem) {
-        this.miningSystem.update(dt, time);
+      if (this.predationSystem) {
+        this.predationSystem.update(dt, time);
       }
 
       // 3. Actualización de Evolución Celular y Nido de Biopelícula
@@ -332,11 +333,13 @@ export class Stage0 {
 
       if (this.onTelemetryUpdate) {
         const speed = this.player ? this.player.getSpeed() : 0;
+        const mass = this.player ? this.player.currentMass : 1.0;
         this.onTelemetryUpdate({
           fps: this.currentFps,
           wasmReady: this.isWasmReady,
           mouseWorld: this.mouseWorld.clone(),
           cellSpeed: Math.round(speed * 10) / 10,
+          cellMass: Math.round(mass * 10) / 10,
         });
       }
     }

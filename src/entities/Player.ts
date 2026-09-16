@@ -4,14 +4,7 @@ import { PhysicsWorld } from '../physics/World';
 import { HydrodynamicsSystem, Morphology, HydrodynamicProperties } from '../systems/HydrodynamicsSystem';
 import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology } from '../data/MutationTree';
 import { OrganelleSocket, OrganelleFactory, OrganelleType } from './Organelles';
-
-export interface Projectile {
-  mesh: THREE.Mesh;
-  position: THREE.Vector2;
-  velocity: THREE.Vector2;
-  life: number;
-  maxLife: number;
-}
+import { VacuoleManager } from '../systems/VacuoleManager';
 
 export class Player {
   // Especie y Taxonomía Actual
@@ -23,6 +16,12 @@ export class Player {
   public collider!: RAPIER.Collider;
   public hydroProps: HydrodynamicProperties;
 
+  // Crecimiento y Masa (Paradigma Agar.io / Spore)
+  public currentMass: number;
+  public baseMass: number;
+  public currentScale = 1.0;
+  public targetScale = 1.0;
+
   // Visuales Three.js
   public group: THREE.Group;
   private flagellaCurves: THREE.Line[] = [];
@@ -30,25 +29,26 @@ export class Player {
   // Parámetros de Rendimiento Celular
   public thrustForce = 45.0;
   public brakeForce = 28.0;
-  public recoilStrength = 7.0;
   public rotationSpeed = 9.0;
   public targetAngle = 0;
 
-  // Sistema de Proyectiles de Toxina
-  public projectiles: Projectile[] = [];
-  public projectilesGroup: THREE.Group;
-  private lastShootTime = 0;
-  public shootCooldown = 0.22;
-  public projectileBaseSpeed = 28.0;
+  // Mecánica de Sprint Celular de Caza (Dash / Jet)
+  public sprintForce = 85.0;
+  public sprintAtpCost = 5.0;
+  private lastSprintTime = 0;
+  private sprintCooldown = 0.45; // Segundos entre impulsos
+  private sprintStretch = 1.0;
 
   // Estado de Controles
   public isThrusting = false;
   public isBraking = false;
-  public isShooting = false;
+  public isSprintRequested = false;
   public mouseWorld = new THREE.Vector2(0, 0);
 
   constructor(physicsWorld: PhysicsWorld, scene: THREE.Scene, initialSpeciesId = 'micrococcus') {
     this.currentSpecies = SPECIES_CATALOG[initialSpeciesId] || SPECIES_CATALOG.micrococcus;
+    this.baseMass = this.currentSpecies.mass;
+    this.currentMass = this.baseMass;
 
     // 1. Cuerpo físico dinámico en Rapier2D
     this.body = physicsWorld.createDynamicBody(0, 0, 0.1, 2.0);
@@ -59,14 +59,11 @@ export class Player {
       terminalVelocity: 14.0,
     };
 
-    // 2. Grupos Visuales Three.js
+    // 2. Grupo Visual Three.js
     this.group = new THREE.Group();
     scene.add(this.group);
 
-    this.projectilesGroup = new THREE.Group();
-    scene.add(this.projectilesGroup);
-
-    // 3. Configuración inicial de chasis, colisionador y sockets
+    // 3. Configuración inicial de especie
     this.setSpecies(this.currentSpecies, physicsWorld);
 
     // 4. Registro de Entradas (Teclado y Ratón)
@@ -78,6 +75,10 @@ export class Player {
    */
   public setSpecies(species: BacteriaSpecies, physicsWorld: PhysicsWorld): void {
     this.currentSpecies = species;
+    this.baseMass = species.mass;
+    this.currentMass = this.baseMass;
+    this.targetScale = 1.0;
+    this.currentScale = 1.0;
 
     // 1. Reconfiguración del Colisionador Físico en Rapier2D
     if (this.collider) {
@@ -139,7 +140,7 @@ export class Player {
     }
 
     // 2. Parámetros Físicos de la Especie
-    this.body.setAdditionalMass(species.mass * 2.2, true);
+    this.body.setAdditionalMass(this.currentMass * 2.2, true);
     this.thrustForce = species.acceleration * 1.8;
     this.rotationSpeed = species.turnRate * 2.5;
     this.hydroProps.terminalVelocity = species.maxSpeed;
@@ -149,13 +150,10 @@ export class Player {
   }
 
   private buildSpeciesVisuals(species: BacteriaSpecies, radius: number, length: number): void {
-    // Limpiar geometrías anteriores
     while (this.group.children.length > 0) {
       const child = this.group.children[0];
       this.group.remove(child);
-      if ((child as THREE.Mesh).geometry) {
-        (child as THREE.Mesh).geometry.dispose();
-      }
+      if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
       if ((child as THREE.Mesh).material) {
         const mat = (child as THREE.Mesh).material;
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
@@ -164,7 +162,6 @@ export class Player {
     }
     this.flagellaCurves = [];
 
-    // Material de la membrana de la especie
     const membraneMat = new THREE.MeshStandardMaterial({
       color: species.color,
       emissive: species.emissive,
@@ -181,7 +178,6 @@ export class Player {
       opacity: 0.9,
     });
 
-    // Malla principal según la morfología
     switch (species.morphology) {
       case CellMorphology.COCCUS: {
         const geo = new THREE.SphereGeometry(radius, 24, 24);
@@ -193,7 +189,6 @@ export class Player {
       }
 
       case CellMorphology.DIPLOCOCCUS: {
-        // Doble coco fusionado con surco central
         const r1 = radius * 0.95;
         const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(r1, 20, 20), membraneMat);
         sphere1.position.set(0.6, 0, 0);
@@ -211,19 +206,6 @@ export class Player {
         break;
       }
 
-      case CellMorphology.STREPTOCOCCUS: {
-        // Cadena de 3 cocos
-        const segR = radius * 0.85;
-        [-1.1, 0, 1.1].forEach((offX) => {
-          const sphere = new THREE.Mesh(new THREE.SphereGeometry(segR, 16, 16), membraneMat);
-          sphere.position.set(offX, 0, 0);
-          this.group.add(sphere);
-        });
-        const core = new THREE.Mesh(new THREE.SphereGeometry(segR * 0.5, 12, 12), coreMat);
-        this.group.add(core);
-        break;
-      }
-
       case CellMorphology.BACILLUS:
       default: {
         const capGeo = new THREE.CapsuleGeometry(radius, length * 0.8, 16, 24);
@@ -236,7 +218,7 @@ export class Player {
       }
     }
 
-    // Gotas de ATP internas
+    // Vacuolas internas de nutrientes
     for (let i = 0; i < 3; i++) {
       const vac = new THREE.Mesh(
         new THREE.SphereGeometry(0.26, 10, 10),
@@ -246,7 +228,7 @@ export class Player {
       this.group.add(vac);
     }
 
-    // 4. Generación y Anclaje de Sockets Modulares
+    // Sockets Modulares y Organelos
     this.sockets = OrganelleFactory.generateSocketsForSpecies(species.sockets, radius, length);
 
     this.sockets.forEach((socket) => {
@@ -256,7 +238,6 @@ export class Player {
       this.group.add(organelleMesh);
       socket.mesh = organelleMesh;
 
-      // Si es un flagelo, registrar para animación sinusoidal
       if (socket.equippedOrganelle === OrganelleType.FLAGELLUM) {
         organelleMesh.children.forEach((c) => {
           if (c instanceof THREE.Line) {
@@ -271,29 +252,66 @@ export class Player {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isThrusting = true;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.isBraking = true;
-      if (e.code === 'Space') this.isShooting = true;
+      if (e.code === 'Space') this.isSprintRequested = true;
     });
 
     window.addEventListener('keyup', (e) => {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isThrusting = false;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.isBraking = false;
-      if (e.code === 'Space') this.isShooting = false;
+      if (e.code === 'Space') this.isSprintRequested = false;
     });
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 2) this.isThrusting = true;
-      if (e.button === 0) this.isShooting = true;
+      if (e.button === 0) this.isSprintRequested = true; // Clic izquierdo = Sprint de Caza
     });
 
     window.addEventListener('mouseup', (e) => {
       if (e.button === 2) this.isThrusting = false;
-      if (e.button === 0) this.isShooting = false;
+      if (e.button === 0) this.isSprintRequested = false;
     });
 
     window.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  public physicsUpdate(fixedDt: number, hydro: HydrodynamicsSystem): void {
+  /**
+   * Crecimiento por depredación y asimilación de biomasa (estilo Agar.io)
+   */
+  public grow(massGain: number): void {
+    this.currentMass += massGain;
+    // La escala crece con la raíz cuadrada de la masa
+    this.targetScale = Math.min(2.4, Math.sqrt(this.currentMass / this.baseMass));
+    this.body.setAdditionalMass(this.currentMass * 2.2, true);
+  }
+
+  /**
+   * Ejecuta el Sprint Celular de Caza (Dash / Jet) gastando ATP
+   */
+  public triggerSprint(vacuoleManager: VacuoleManager, timeNow: number): boolean {
+    if (timeNow - this.lastSprintTime < this.sprintCooldown) return false;
+    if (vacuoleManager.atp < this.sprintAtpCost) return false;
+
+    // Deducir ATP
+    vacuoleManager.atp -= this.sprintAtpCost;
+    vacuoleManager.notifyStats();
+    this.lastSprintTime = timeNow;
+
+    // Vector de empuje frontal instantáneo
+    const currentRot = this.body.rotation();
+    const fx = Math.cos(currentRot) * this.sprintForce;
+    const fy = Math.sin(currentRot) * this.sprintForce;
+    this.body.applyImpulse({ x: fx, y: fy }, true);
+
+    // Deformación elástica de membrana por inercia
+    this.sprintStretch = 1.4;
+    return true;
+  }
+
+  public physicsUpdate(
+    fixedDt: number,
+    hydro: HydrodynamicsSystem,
+    vacuoleManager: VacuoleManager
+  ): void {
     const pos = this.body.translation();
     const currentRot = this.body.rotation();
 
@@ -312,7 +330,7 @@ export class Player {
     const forwardX = Math.cos(newRot);
     const forwardY = Math.sin(newRot);
 
-    // 2. Propulsión Frontal
+    // 2. Propulsión Frontal Continua (Flagelar)
     if (this.isThrusting) {
       const fx = forwardX * this.thrustForce * fixedDt;
       const fy = forwardY * this.thrustForce * fixedDt;
@@ -327,10 +345,11 @@ export class Player {
       this.body.applyImpulse({ x: brakeX, y: brakeY }, true);
     }
 
-    // 4. Mecánica de Disparo con Múltiples Sockets y Recoil Boost
+    // 4. Sprint Celular de Caza (Dash)
     const now = performance.now() / 1000;
-    if (this.isShooting && now - this.lastShootTime >= this.shootCooldown) {
-      this.shootToxin(pos.x, pos.y, forwardX, forwardY, now);
+    if (this.isSprintRequested) {
+      this.triggerSprint(vacuoleManager, now);
+      this.isSprintRequested = false; // Un impulso por activación
     }
 
     // 5. Arrastre Hidrodinámico
@@ -338,73 +357,14 @@ export class Player {
     hydro.applyRotationalDrag(this.body, 2.5);
   }
 
-  /**
-   * Dispara toxinas desde todos los sockets equipados con inyector (permite fuego dual/múltiple)
-   */
-  private shootToxin(x: number, y: number, forwardX: number, forwardY: number, timeNow: number): void {
-    this.lastShootTime = timeNow;
-
-    // Obtener todos los sockets con inyectores de toxina
-    const nozzles = this.sockets.filter((s) => s.equippedOrganelle === OrganelleType.TOXIN_INJECTOR);
-    const firingPoints = nozzles.length > 0 ? nozzles : [{ offset: new THREE.Vector2(1.6, 0), angle: 0 }];
-
-    const currentVel = this.body.linvel();
-    const projectileSpeed = this.projectileBaseSpeed;
-    const currentRot = this.body.rotation();
-    const cosR = Math.cos(currentRot);
-    const sinR = Math.sin(currentRot);
-
-    firingPoints.forEach((socket) => {
-      // Rotar offset del socket a coordenadas mundiales
-      const worldOffsetX = socket.offset.x * cosR - socket.offset.y * sinR;
-      const worldOffsetY = socket.offset.x * sinR + socket.offset.y * cosR;
-
-      const spawnX = x + worldOffsetX;
-      const spawnY = y + worldOffsetY;
-
-      const shotAngle = currentRot + socket.angle;
-      const shotDirX = Math.cos(shotAngle);
-      const shotDirY = Math.sin(shotAngle);
-
-      const pVelX = currentVel.x + shotDirX * projectileSpeed;
-      const pVelY = currentVel.y + shotDirY * projectileSpeed;
-
-      const pGeo = new THREE.SphereGeometry(0.3, 12, 12);
-      const pMat = new THREE.MeshStandardMaterial({
-        color: 0xa855f7,
-        emissive: 0x9333ea,
-        emissiveIntensity: 1.8,
-        roughness: 0.2,
-      });
-      const pMesh = new THREE.Mesh(pGeo, pMat);
-      pMesh.position.set(spawnX, spawnY, 0.2);
-      this.projectilesGroup.add(pMesh);
-
-      this.projectiles.push({
-        mesh: pMesh,
-        position: new THREE.Vector2(spawnX, spawnY),
-        velocity: new THREE.Vector2(pVelX, pVelY),
-        life: 0,
-        maxLife: 1.4,
-      });
-    });
-
-    // RECOIL BOOST (3ª Ley de Newton)
-    const recoilX = -forwardX * this.recoilStrength;
-    const recoilY = -forwardY * this.recoilStrength;
-    this.body.applyImpulse({ x: recoilX, y: recoilY }, true);
-  }
-
   public applyUpgrades(upgrades: Record<string, { level: number }>): void {
     const propLevel = upgrades.propulsion?.level || 0;
     this.thrustForce = this.currentSpecies.acceleration * 1.8 * (1.0 + propLevel * 0.15);
     this.hydroProps.terminalVelocity = this.currentSpecies.maxSpeed * (1.0 + propLevel * 0.10);
 
-    const fireLevel = upgrades.fireRate?.level || 0;
-    this.shootCooldown = 0.22 * Math.max(0.35, 1.0 - fireLevel * 0.15);
-
-    const toxinLevel = upgrades.toxinPower?.level || 0;
-    this.projectileBaseSpeed = 28.0 * (1.0 + toxinLevel * 0.12);
+    const sprintLevel = upgrades.sprintPower?.level || 0;
+    this.sprintForce = 85.0 * (1.0 + sprintLevel * 0.2);
+    this.sprintAtpCost = Math.max(2.0, 5.0 - sprintLevel * 0.6);
   }
 
   public visualUpdate(dt: number, time: number): void {
@@ -412,6 +372,18 @@ export class Player {
     const rot = this.body.rotation();
     this.group.position.set(pos.x, pos.y, 0);
     this.group.rotation.z = rot;
+
+    // Crecimiento suave hacia la escala objetivo
+    this.currentScale += (this.targetScale - this.currentScale) * Math.min(dt * 3.0, 1.0);
+
+    // Recuperación elástica tras sprint
+    this.sprintStretch += (1.0 - this.sprintStretch) * Math.min(dt * 6.0, 1.0);
+
+    this.group.scale.set(
+      this.currentScale * this.sprintStretch,
+      this.currentScale * (2.0 - this.sprintStretch),
+      this.currentScale
+    );
 
     // Ondulación de los flagelos
     const vel = this.body.linvel();
@@ -429,28 +401,6 @@ export class Player {
       }
       positions.needsUpdate = true;
     });
-
-    // Actualización de proyectiles
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
-      p.life += dt;
-      p.position.x += p.velocity.x * dt;
-      p.position.y += p.velocity.y * dt;
-      p.mesh.position.set(p.position.x, p.position.y, 0.2);
-
-      const progress = p.life / p.maxLife;
-      if (progress > 0.7) {
-        (p.mesh.material as THREE.MeshStandardMaterial).opacity = 1.0 - (progress - 0.7) / 0.3;
-        (p.mesh.material as THREE.MeshStandardMaterial).transparent = true;
-      }
-
-      if (p.life >= p.maxLife) {
-        this.projectilesGroup.remove(p.mesh);
-        p.mesh.geometry.dispose();
-        (p.mesh.material as THREE.Material).dispose();
-        this.projectiles.splice(i, 1);
-      }
-    }
   }
 
   public getSpeed(): number {

@@ -13,6 +13,7 @@ function init(): void {
   const wasmEl = document.getElementById('wasm-status');
   const coordsEl = document.getElementById('coords-val');
   const speedEl = document.getElementById('speed-val');
+  const massEl = document.getElementById('mass-val');
 
   try {
     const stage = new Stage0(canvas);
@@ -28,6 +29,9 @@ function init(): void {
       }
       if (speedEl) {
         speedEl.textContent = `${data.cellSpeed.toFixed(1)} u/s`;
+      }
+      if (massEl && data.cellMass !== undefined) {
+        massEl.textContent = `${data.cellMass.toFixed(1)} M`;
       }
     };
 
