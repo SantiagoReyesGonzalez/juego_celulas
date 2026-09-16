@@ -22,6 +22,8 @@ export interface TelemetryData {
   cellSpeed: number;
   cellMass: number;
   cellScale: number;
+  cellTier?: number;
+  cellSpecies?: string;
 }
 
 export class Stage0 {
@@ -588,6 +590,8 @@ export class Stage0 {
         const speed = this.player ? this.player.getSpeed() : 0;
         const mass = this.player ? this.player.currentMass : 1.0;
         const scale = this.player ? this.player.currentScale : 1.0;
+        const tier = this.player ? this.player.currentSpecies.tier : 1;
+        const species = this.player ? this.player.currentSpecies.name : 'Bacilo';
         this.onTelemetryUpdate({
           fps: this.currentFps,
           wasmReady: this.isWasmReady,
@@ -595,6 +599,8 @@ export class Stage0 {
           cellSpeed: Math.round(speed * 10) / 10,
           cellMass: Math.round(mass * 100) / 100,
           cellScale: Math.round(scale * 100) / 100,
+          cellTier: tier,
+          cellSpecies: species,
         });
       }
     }

@@ -27,24 +27,96 @@
         height: 100%;
         display: block;
       }
+      /* Insignia de Jugador Superior Izquierda (Estilo Arcade) */
+      #player-badge-pill {
+        position: absolute;
+        top: 14px;
+        left: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(6, 11, 24, 0.88);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        border-radius: 20px;
+        padding: 5px 12px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), 0 0 10px rgba(16, 185, 129, 0.12);
+        z-index: 45;
+        user-select: none;
+      }
+      .badge-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #f1f5f9;
+      }
+      .badge-icon {
+        font-size: 14px;
+        filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));
+      }
+      .badge-text {
+        color: #34d399;
+        font-size: 11.5px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+      }
+      .badge-num {
+        color: #38bdf8;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+      .badge-divider {
+        width: 1px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .fps-pill {
+        font-size: 10.5px;
+        color: #94a3b8;
+        font-family: monospace;
+      }
+      .debug-toggle-btn {
+        background: transparent;
+        border: none;
+        color: #64748b;
+        font-size: 13px;
+        cursor: pointer;
+        padding: 2px 3px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        transition: all 0.2s;
+      }
+      .debug-toggle-btn:hover {
+        color: #10b981;
+        transform: rotate(45deg);
+      }
+
+      /* Panel de Telemetría Detallada de Depuración (Oculto por defecto [F3]) */
       #telemetry-hud {
         position: absolute;
-        top: 16px;
+        top: 56px;
         left: 16px;
         color: #e2e8f0;
-        background: rgba(6, 9, 19, 0.75);
-        backdrop-filter: blur(8px);
+        background: rgba(6, 9, 19, 0.90);
+        backdrop-filter: blur(12px);
         border: 1px solid rgba(16, 185, 129, 0.3);
-        border-radius: 8px;
-        padding: 12px 16px;
-        font-size: 13px;
-        line-height: 1.6;
-        pointer-events: none;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 12px;
+        line-height: 1.5;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.75);
+        z-index: 44;
+        transition: opacity 0.2s ease;
+      }
+      #telemetry-hud.hidden {
+        display: none;
       }
       .hud-title {
         font-weight: 700;
-        font-size: 14px;
+        font-size: 13px;
         color: #10b981;
         margin-bottom: 4px;
         display: flex;
@@ -53,16 +125,16 @@
       }
       .hud-badge {
         display: inline-block;
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: #10b981;
-        box-shadow: 0 0 8px #10b981;
+        box-shadow: 0 0 6px #10b981;
       }
       .hud-stat {
         display: flex;
         justify-content: space-between;
-        gap: 16px;
+        gap: 14px;
       }
       .hud-label {
         color: #94a3b8;
@@ -72,50 +144,83 @@
         color: #38bdf8;
         font-variant-numeric: tabular-nums;
       }
+
+      /* Medidores Arcade Superiores */
       #cellular-meters {
         position: absolute;
-        top: 16px;
+        top: 14px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
-        gap: 12px;
-        z-index: 10;
-        pointer-events: none;
+        gap: 10px;
+        z-index: 45;
+        pointer-events: auto;
       }
-      .meter-card {
-        background: rgba(6, 9, 19, 0.85);
-        backdrop-filter: blur(10px);
+      .arcade-meter {
+        background: rgba(6, 11, 24, 0.88);
+        backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        padding: 8px 14px;
-        min-width: 170px;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 6px 12px;
+        min-width: 145px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65);
+        transition: transform 0.15s ease, border-color 0.15s ease;
+        cursor: default;
       }
-      .meter-header {
+      .arcade-meter:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .meter-icon-wrap {
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.25));
+      }
+      .meter-body {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+      }
+      .meter-info {
         display: flex;
         justify-content: space-between;
-        font-size: 11px;
-        font-weight: 600;
-        margin-bottom: 5px;
+        align-items: center;
+        gap: 8px;
       }
-      .hp-card .meter-title { color: #10b981; }
-      .shield-card .meter-title { color: #38bdf8; }
-      .atp-card .meter-title { color: #fbbf24; }
-      .threat-card .meter-title { color: #f43f5e; }
-      .meter-num {
+      .meter-name {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+      }
+      .hp-meter .meter-name { color: #34d399; }
+      .shield-meter .meter-name { color: #38bdf8; }
+      .atp-meter .meter-name { color: #fbbf24; }
+      .threat-meter .meter-name { color: #f43f5e; }
+
+      .meter-val {
+        font-size: 11px;
+        font-weight: 800;
         color: #f1f5f9;
         font-variant-numeric: tabular-nums;
       }
       .meter-track {
         width: 100%;
-        height: 7px;
+        height: 6.5px;
         background: rgba(255, 255, 255, 0.08);
-        border-radius: 4px;
+        border-radius: 6px;
         overflow: hidden;
       }
       .meter-fill {
         height: 100%;
-        border-radius: 4px;
+        border-radius: 6px;
         transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .hp-fill {
@@ -904,37 +1009,52 @@
         font-size: 11px;
       }
 
-      /* Barra de Instrucciones Superior al Dock */
+      /* Barra de Instrucciones Superior al Dock (Minimalista Arcade) */
       #instructions {
         position: absolute;
-        bottom: 114px;
+        bottom: 104px;
         left: 50%;
         transform: translateX(-50%);
-        color: #94a3b8;
+        color: #cbd5e1;
         font-size: 11px;
-        background: rgba(6, 9, 19, 0.75);
-        backdrop-filter: blur(6px);
-        padding: 5px 16px;
-        border-radius: 16px;
+        background: rgba(6, 11, 24, 0.85);
+        backdrop-filter: blur(8px);
+        padding: 4px 16px;
+        border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.12);
         pointer-events: none;
         white-space: nowrap;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .inst-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .inst-item b {
+        color: #38bdf8;
+      }
+      .inst-dot {
+        color: #475569;
+        font-size: 8px;
       }
 
       /* ================= DOCK INFERIOR DE 8 BIO-MEJORAS ================= */
       #bio-upgrades-dock {
         position: absolute;
-        bottom: 10px;
+        bottom: 8px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(6, 11, 24, 0.90);
-        backdrop-filter: blur(14px);
+        background: rgba(6, 11, 24, 0.92);
+        backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.14);
         border-radius: 14px;
-        padding: 6px 12px 8px 12px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 16px rgba(16, 185, 129, 0.15);
+        padding: 6px 12px 7px 12px;
+        box-shadow: 0 8px 36px rgba(0, 0, 0, 0.85), 0 0 16px rgba(16, 185, 129, 0.15);
         z-index: 50;
         user-select: none;
         display: flex;
@@ -954,11 +1074,15 @@
       .dock-title-group {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+      }
+
+      .dock-logo {
+        font-size: 13px;
       }
 
       .dock-title {
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 800;
         letter-spacing: 0.8px;
         color: #10b981;
@@ -973,11 +1097,11 @@
         color: #34d399;
         padding: 1px 6px;
         border-radius: 8px;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
       }
 
       .dock-hint {
-        font-size: 11px;
+        font-size: 10.5px;
         color: #94a3b8;
       }
       .dock-hint b {
@@ -986,16 +1110,15 @@
 
       #upgrades-dock-list {
         display: flex;
-        gap: 6px;
+        gap: 7px;
       }
 
       .dock-upgrade-card {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(255, 255, 255, 0.035);
         border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 10px;
-        padding: 6px 7px;
-        min-width: 95px;
-        max-width: 108px;
+        border-radius: 11px;
+        padding: 5px 6px 6px 6px;
+        width: 95px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1003,7 +1126,6 @@
         transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         cursor: default;
         position: relative;
-        overflow: hidden;
       }
 
       .dock-upgrade-card.pending {
@@ -1013,73 +1135,94 @@
       .dock-upgrade-card.affordable {
         opacity: 1;
         cursor: pointer;
-        border-color: rgba(16, 185, 129, 0.5);
-        background: rgba(16, 185, 129, 0.06);
-        box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+        border-color: rgba(16, 185, 129, 0.6);
+        background: rgba(16, 185, 129, 0.08);
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
       }
 
       .dock-upgrade-card.affordable:hover {
-        transform: translateY(-3px) scale(1.03);
-        border-color: #10b981;
-        background: rgba(16, 185, 129, 0.16);
-        box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45);
+        transform: translateY(-4px) scale(1.04);
+        border-color: #34d399;
+        background: rgba(16, 185, 129, 0.2);
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.55);
       }
 
       .dock-upgrade-card.maxed {
         opacity: 0.95;
         border-color: rgba(251, 191, 36, 0.6);
-        background: rgba(251, 191, 36, 0.05);
-        box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
+        background: rgba(251, 191, 36, 0.06);
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
       }
 
-      .dock-card-header {
+      .dock-card-top {
         display: flex;
+        justify-content: space-between;
         align-items: center;
-        gap: 5px;
         width: 100%;
+        padding: 0 1px;
       }
 
       .dock-key-badge {
-        font-size: 10px;
+        font-size: 9.5px;
         font-weight: 800;
-        background: rgba(0, 0, 0, 0.45);
+        background: rgba(0, 0, 0, 0.5);
         color: #fbbf24;
-        border: 1px solid rgba(251, 191, 36, 0.3);
+        border: 1px solid rgba(251, 191, 36, 0.35);
         border-radius: 4px;
         padding: 1px 4px;
         font-family: monospace;
       }
 
+      .dock-lvl-badge {
+        font-size: 9px;
+        font-weight: 700;
+        color: #94a3b8;
+      }
+
+      .dock-lvl-badge.gold {
+        color: #fbbf24;
+        font-weight: 800;
+      }
+
+      .dock-icon-wrapper {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
       .dock-icon {
-        font-size: 13px;
+        font-size: 21px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .dock-upgrade-card:hover .dock-icon {
+        transform: scale(1.15);
       }
 
       .dock-name {
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 700;
         color: #f1f5f9;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .dock-level-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        margin: 2px 0;
+        text-align: center;
+        letter-spacing: 0.2px;
       }
 
       .dock-pips-container {
         display: flex;
-        gap: 2px;
+        gap: 2.5px;
         align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin: 1px 0;
       }
 
       .dock-pip {
-        width: 8px;
-        height: 5px;
+        width: 11px;
+        height: 4px;
         border-radius: 2px;
         background: rgba(255, 255, 255, 0.15);
         transition: all 0.25s ease;
@@ -1095,32 +1238,14 @@
         box-shadow: 0 0 6px #fbbf24;
       }
 
-      .dock-level-text {
-        font-size: 10px;
-        font-weight: 700;
-        color: #94a3b8;
-        margin-left: 4px;
-      }
-
-      .dock-level-text.gold {
-        color: #fbbf24;
-        font-weight: 800;
-      }
-
-      .dock-card-footer {
-        width: 100%;
-        display: flex;
-        justify-content: center;
-      }
-
       .dock-cost-btn {
         width: 100%;
         text-align: center;
         padding: 3px 0;
         border-radius: 5px;
-        font-size: 11px;
-        font-weight: 700;
-        background: rgba(0, 0, 0, 0.35);
+        font-size: 10.5px;
+        font-weight: 800;
+        background: rgba(0, 0, 0, 0.4);
         color: #94a3b8;
         border: 1px solid rgba(255, 255, 255, 0.08);
         transition: all 0.2s ease;
@@ -1129,8 +1254,13 @@
       .dock-cost-btn.can-buy {
         background: linear-gradient(135deg, #059669, #10b981);
         color: #ffffff;
-        border: none;
-        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+        border: 1px solid #34d399;
+        box-shadow: 0 2px 10px rgba(16, 185, 129, 0.5);
+        animation: pulseBuyBtn 2.2s infinite alternate;
+      }
+      @keyframes pulseBuyBtn {
+        from { box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4); }
+        to { box-shadow: 0 3px 14px rgba(16, 185, 129, 0.85); }
       }
 
       .dock-cost-btn.can-buy:hover {
@@ -1143,14 +1273,68 @@
         border: 1px solid rgba(251, 191, 36, 0.4);
       }
 
-      .dock-benefit-hint {
-        font-size: 9px;
-        color: #64748b;
-        white-space: nowrap;
-        text-align: center;
-        width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      /* Tooltip Flotante Arcade */
+      .dock-tooltip {
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        background: rgba(4, 8, 18, 0.96);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        border-radius: 10px;
+        padding: 9px 12px;
+        width: 210px;
+        color: #f1f5f9;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.2);
+        z-index: 100;
+        text-align: left;
+      }
+      .dock-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: rgba(4, 8, 18, 0.96);
+      }
+      .dock-upgrade-card:hover .dock-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+      }
+      .tooltip-title {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: #38bdf8;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 3px;
+      }
+      .tooltip-desc {
+        font-size: 10.5px;
+        color: #cbd5e1;
+        line-height: 1.35;
+        margin-bottom: 5px;
+      }
+      .tooltip-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 4px;
+        font-size: 9.5px;
+        color: #94a3b8;
+      }
+      .tooltip-cost {
+        color: #fbbf24;
+        font-weight: 700;
       }
 
       /* Contenedor y Animación de Textos Flotantes (ATP / Biomasa / Sprint) */
@@ -1321,14 +1505,29 @@
   <body>
     <canvas id="game-canvas"></canvas>
 
-    <div id="telemetry-hud">
+    <!-- Insignia Arcade Superior Izquierda: Célula y Masa -->
+    <div id="player-badge-pill">
+      <div class="badge-item cell-tier">
+        <span class="badge-icon">🧫</span>
+        <span id="tier-val" class="badge-text">Tier 1</span>
+      </div>
+      <div class="badge-divider"></div>
+      <div class="badge-item cell-mass">
+        <span class="badge-icon">⚖️</span>
+        <span id="mass-val" class="badge-num">1.00 μg</span>
+      </div>
+      <div class="badge-divider"></div>
+      <div class="badge-item fps-item">
+        <span id="fps-val" class="fps-pill">60 FPS</span>
+      </div>
+      <button id="toggle-debug-btn" class="debug-toggle-btn" title="Alternar panel técnico de depuración (Tecla F3)">⚙️</button>
+    </div>
+
+    <!-- Panel de Telemetría Detallada de Depuración (Oculto por defecto, alternable con F3 o botón ⚙️) -->
+    <div id="telemetry-hud" class="hidden">
       <div class="hud-title">
         <span class="hud-badge"></span>
-        Proyecto Bacteria: Etapa 3
-      </div>
-      <div class="hud-stat">
-        <span class="hud-label">FPS:</span>
-        <span id="fps-val" class="hud-value">--</span>
+        Proyecto Bacteria: Telemetría [F3]
       </div>
       <div class="hud-stat">
         <span class="hud-label">Física (Rapier WASM):</span>
@@ -1343,23 +1542,20 @@
         <span id="speed-val" class="hud-value">0.0 u/s</span>
       </div>
       <div class="hud-stat">
-        <span class="hud-label">Masa Celular:</span>
-        <span id="mass-val" class="hud-value">1.0 μg</span>
-      </div>
-      <div class="hud-stat">
         <span class="hud-label">Tamaño / Escala:</span>
         <span id="scale-val" class="hud-value">1.00x</span>
       </div>
     </div>
 
+    <!-- Barra de Instrucciones Arcade Minimalista -->
     <div id="instructions">
-      <b>W / Clic Der:</b> Nado &nbsp;|&nbsp; 
-      <b>Clic Izq / Espacio:</b> Sprint Caza (ATP) &nbsp;|&nbsp; 
-      <b>Contacto:</b> Engullir &nbsp;|&nbsp; 
-      <b>☣️ Nódulo Cáustico:</b> Golpea el Núcleo (60 Impactos) &nbsp;|&nbsp; 
-      <b>[1-6]:</b> Bio-Mejoras &nbsp;|&nbsp; 
-      <b>TAB / N / Z:</b> Radar &nbsp;|&nbsp; 
-      <b>M:</b> Mitosis
+      <span class="inst-item">🖱️ <b>Nadar:</b> W / Clic Der</span>
+      <span class="inst-dot">•</span>
+      <span class="inst-item">⚡ <b>Sprint:</b> Espacio / Clic Izq</span>
+      <span class="inst-dot">•</span>
+      <span class="inst-item">🧬 <b>Mitosis:</b> [M]</span>
+      <span class="inst-dot">•</span>
+      <span class="inst-item">☣️ <b>Nódulo:</b> Golpea Núcleo</span>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

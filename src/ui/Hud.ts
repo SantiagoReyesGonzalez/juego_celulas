@@ -1,46 +1,54 @@
 import { VacuoleManager, CellStats } from '../systems/VacuoleManager';
 import { ThreatTelemetry } from '../systems/ThreatDirector';
 
-const UPGRADE_META: Record<string, { icon: string; shortName: string; benefit: string }> = {
+const UPGRADE_META: Record<string, { icon: string; shortName: string; fullName: string; benefit: string }> = {
   propulsion: {
     icon: '🚀',
-    shortName: 'Propulsión',
-    benefit: '+15% Empuje / +10% Vel',
+    shortName: 'Impulso',
+    fullName: 'Impulso Flagelar',
+    benefit: '+15% Empuje y +10% Velocidad Máx',
   },
   sprintPower: {
     icon: '⚡',
-    shortName: 'Sprint Caza',
-    benefit: '+20% Fuerza / -Coste ATP',
+    shortName: 'Sprint',
+    fullName: 'Sprint de Caza',
+    benefit: '+20% Fuerza y -15% Coste de ATP',
   },
   membraneHardening: {
     icon: '❤️',
-    shortName: 'Vida (Pared)',
-    benefit: '+25 HP Máx / Cura Inmediata',
+    shortName: 'Vida',
+    fullName: 'Refuerzo de Membrana',
+    benefit: '+25 HP Máximo y curación inmediata',
   },
   cellularRegen: {
     icon: '🌱',
-    shortName: 'Regeneración',
-    benefit: '+1.5 HP/s Reparación Pasiva',
+    shortName: 'Regen',
+    fullName: 'Regeneración Tisular',
+    benefit: '+1.5 HP/s Reparación Pasiva Continua',
   },
   turgor: {
     icon: '🛡️',
-    shortName: 'Turgencia',
-    benefit: '+15 Escudo / +Regen',
+    shortName: 'Escudo',
+    fullName: 'Turgencia Osmótica',
+    benefit: '+15 Escudo y +50% Regeneración',
   },
   digestiveEfficiency: {
     icon: '🧬',
     shortName: 'Digestión',
+    fullName: 'Eficiencia Enzimática',
     benefit: '+25% Biomasa Asimilada',
   },
   chemotaxis: {
     icon: '🧲',
-    shortName: 'Receptores',
-    benefit: '+20% ATP por Alimento',
+    shortName: 'Imán ATP',
+    fullName: 'Atracción Quimiotáctica',
+    benefit: '+20% ATP por Alimento Absorbido',
   },
   vacuoleCapacity: {
     icon: '🔋',
-    shortName: 'Cap. Vacuola',
-    benefit: '+45 Almacén ATP',
+    shortName: 'Vacuola',
+    fullName: 'Capacidad de Vacuola',
+    benefit: '+45 Capacidad Máxima de ATP',
   },
 };
 
@@ -48,7 +56,7 @@ export class Hud {
   private vacuoleManager: VacuoleManager;
   private container: HTMLDivElement;
 
-  // Elementos de los Medidores
+  // Elementos de los Medidores Arcade
   private hpBarFill!: HTMLDivElement;
   private hpText!: HTMLSpanElement;
   private shieldBarFill!: HTMLDivElement;
@@ -60,6 +68,7 @@ export class Hud {
   private threatBarFill!: HTMLDivElement;
   private threatTitle!: HTMLSpanElement;
   private threatText!: HTMLSpanElement;
+  private threatIcon!: HTMLDivElement;
   private threatAlertBanner!: HTMLDivElement;
   private threatAlertTitle!: HTMLElement;
   private threatAlertDesc!: HTMLSpanElement;
@@ -103,49 +112,61 @@ export class Hud {
 
   private buildHudElements(): void {
     this.container.innerHTML = `
-      <!-- 1. Los 3 Medidores Biológicos Superiores -->
+      <!-- 1. Los 4 Medidores Biológicos Superiores (Estilo Arcade) -->
       <div id="cellular-meters">
-        <!-- Integridad de Membrana (HP) -->
-        <div class="meter-card hp-card">
-          <div class="meter-header">
-            <span class="meter-title">🛡️ Integridad Membrana</span>
-            <span id="hp-val" class="meter-num">100 / 100</span>
-          </div>
-          <div class="meter-track">
-            <div id="hp-bar" class="meter-fill hp-fill" style="width: 100%;"></div>
-          </div>
-        </div>
-
-        <!-- Presión Osmótica (Turgencia / Escudo) -->
-        <div class="meter-card shield-card">
-          <div class="meter-header">
-            <span class="meter-title">💧 Presión Osmótica</span>
-            <span id="shield-val" class="meter-num">50 / 50</span>
-          </div>
-          <div class="meter-track">
-            <div id="shield-bar" class="meter-fill shield-fill" style="width: 100%;"></div>
+        <!-- Vida (Membrana) -->
+        <div class="arcade-meter hp-meter" title="Salud de la membrana bacteriana">
+          <div class="meter-icon-wrap">❤️</div>
+          <div class="meter-body">
+            <div class="meter-info">
+              <span class="meter-name">VIDA</span>
+              <span id="hp-val" class="meter-val">100 / 100</span>
+            </div>
+            <div class="meter-track">
+              <div id="hp-bar" class="meter-fill hp-fill" style="width: 100%;"></div>
+            </div>
           </div>
         </div>
 
-        <!-- Vacuola de ATP (Energía / Recursos) -->
-        <div class="meter-card atp-card">
-          <div class="meter-header">
-            <span class="meter-title">⚡ Vacuola de ATP</span>
-            <span id="atp-val" class="meter-num">0 / 80 (0%)</span>
-          </div>
-          <div class="meter-track">
-            <div id="atp-bar" class="meter-fill atp-fill" style="width: 0%;"></div>
+        <!-- Escudo Osmótico -->
+        <div class="arcade-meter shield-meter" title="Presión osmótica que absorbe impactos antes de dañar la membrana">
+          <div class="meter-icon-wrap">🛡️</div>
+          <div class="meter-body">
+            <div class="meter-info">
+              <span class="meter-name">ESCUDO</span>
+              <span id="shield-val" class="meter-val">50 / 50</span>
+            </div>
+            <div class="meter-track">
+              <div id="shield-bar" class="meter-fill shield-fill" style="width: 100%;"></div>
+            </div>
           </div>
         </div>
 
-        <!-- Inflamación Tisular (Alerta Inmunológica del Huésped) -->
-        <div class="meter-card threat-card">
-          <div class="meter-header">
-            <span id="threat-title" class="meter-title">🟢 Calma Tisular</span>
-            <span id="threat-val" class="meter-num">5% (Patrulla)</span>
+        <!-- ATP (Energía) -->
+        <div class="arcade-meter atp-meter" title="Reserva energética de ATP para Sprint y Bio-Mejoras">
+          <div class="meter-icon-wrap">⚡</div>
+          <div class="meter-body">
+            <div class="meter-info">
+              <span class="meter-name">ATP</span>
+              <span id="atp-val" class="meter-val">0 / 80</span>
+            </div>
+            <div class="meter-track">
+              <div id="atp-bar" class="meter-fill atp-fill" style="width: 0%;"></div>
+            </div>
           </div>
-          <div class="meter-track">
-            <div id="threat-bar" class="meter-fill threat-fill" style="width: 5%;"></div>
+        </div>
+
+        <!-- Alerta Inmunológica -->
+        <div class="arcade-meter threat-meter" title="Nivel de alerta del sistema inmunitario del huésped">
+          <div class="meter-icon-wrap" id="threat-icon">🟢</div>
+          <div class="meter-body">
+            <div class="meter-info">
+              <span id="threat-title" class="meter-name">CALMA</span>
+              <span id="threat-val" class="meter-val">5%</span>
+            </div>
+            <div class="meter-track">
+              <div id="threat-bar" class="meter-fill threat-fill" style="width: 5%;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -178,14 +199,15 @@ export class Hud {
         </div>
       </div>
 
-      <!-- 4. Dock Inferior de 8 Bio-Mejoras (Estilo Starblast.io) -->
+      <!-- 4. Dock Inferior de 8 Bio-Mejoras -->
       <div id="bio-upgrades-dock">
         <div class="dock-header">
           <div class="dock-title-group">
-            <span class="dock-title">🧬 BIO-MEJORAS</span>
-            <span class="dock-badge">5 NIVELES MÁX</span>
+            <span class="dock-logo">🧬</span>
+            <span class="dock-title">BIO-MEJORAS</span>
+            <span class="dock-badge">5 NIVELES</span>
           </div>
-          <span class="dock-hint">Teclas <b>[1 - 8]</b> o Clic para Mejorar</span>
+          <span class="dock-hint">Teclas <b>[1 - 8]</b> o Clic</span>
         </div>
         <div id="upgrades-dock-list"></div>
       </div>
@@ -203,6 +225,7 @@ export class Hud {
     this.threatBarFill = document.getElementById('threat-bar') as HTMLDivElement;
     this.threatTitle = document.getElementById('threat-title') as HTMLSpanElement;
     this.threatText = document.getElementById('threat-val') as HTMLSpanElement;
+    this.threatIcon = document.getElementById('threat-icon') as HTMLDivElement;
     this.threatAlertBanner = document.getElementById('threat-alert') as HTMLDivElement;
     this.threatAlertTitle = document.getElementById('threat-alert-title') as HTMLElement;
     this.threatAlertDesc = document.getElementById('threat-alert-desc') as HTMLSpanElement;
@@ -300,6 +323,7 @@ export class Hud {
       const meta = UPGRADE_META[up.id] || {
         icon: '✨',
         shortName: up.name,
+        fullName: up.name,
         benefit: up.description,
       };
       const cost = this.vacuoleManager.getUpgradeCost(up.id);
@@ -316,24 +340,29 @@ export class Hud {
       const card = document.createElement('div');
       card.className = `dock-upgrade-card ${canAfford ? 'affordable' : ''} ${isMax ? 'maxed' : 'pending'}`;
       card.setAttribute('data-upgrade-id', up.id);
-      card.title = `${up.name} (Nivel ${up.level}/${up.maxLevel})\n${up.description}`;
 
       card.innerHTML = `
-        <div class="dock-card-header">
+        <div class="dock-card-top">
           <span class="dock-key-badge">[${key}]</span>
+          <span class="dock-lvl-badge ${isMax ? 'gold' : ''}">${isMax ? 'MAX' : `${up.level}/5`}</span>
+        </div>
+        <div class="dock-icon-wrapper">
           <span class="dock-icon">${meta.icon}</span>
-          <span class="dock-name">${meta.shortName}</span>
         </div>
-        <div class="dock-level-row">
-          <div class="dock-pips-container">${pipsHtml}</div>
-          <span class="dock-level-text ${isMax ? 'gold' : ''}">${isMax ? 'MAX' : `${up.level}/5`}</span>
+        <span class="dock-name">${meta.shortName}</span>
+        <div class="dock-pips-container">${pipsHtml}</div>
+        <div class="dock-cost-btn ${canAfford ? 'can-buy' : ''} ${isMax ? 'is-max' : ''}">
+          ${isMax ? '★ MAX' : `⚡ ${cost}`}
         </div>
-        <div class="dock-card-footer">
-          <div class="dock-cost-btn ${canAfford ? 'can-buy' : ''} ${isMax ? 'is-max' : ''}">
-            ${isMax ? '<span class="max-badge">★ NIVEL 5</span>' : `<span class="atp-cost">⚡ ${cost} ATP</span>`}
+        <!-- Tooltip Flotante Arcade al pasar el cursor -->
+        <div class="dock-tooltip">
+          <div class="tooltip-title">${meta.icon} ${meta.fullName}</div>
+          <div class="tooltip-desc">${meta.benefit}</div>
+          <div class="tooltip-footer">
+            <span>${isMax ? 'Nivel Máximo (5/5)' : `Nivel ${up.level}/${up.maxLevel}`}</span>
+            <span class="tooltip-cost">${isMax ? '★ COMPLETO' : `Coste: ${cost} ATP [${key}]`}</span>
           </div>
         </div>
-        <div class="dock-benefit-hint">${meta.benefit}</div>
       `;
 
       // Clic para comprar con ratón (con detención de propagación para no accionar controles de juego)
@@ -346,8 +375,6 @@ export class Hud {
       this.upgradesList.appendChild(card);
     });
   }
-
-
 
   public showAtpPopup(text: string, color: string, screenX?: number, screenY?: number): void {
     const el = document.createElement('div');
@@ -381,21 +408,24 @@ export class Hud {
     this.threatBarFill.style.width = `${pct}%`;
 
     if (threat.alertLevel === 'CRITICAL') {
-      this.threatTitle.innerHTML = '🚨 Tormenta Citoquinas';
+      this.threatTitle.textContent = 'TORMENTA';
       this.threatTitle.style.color = '#ef4444';
-      this.threatText.textContent = `${pct}% (Macrófago Titán)`;
+      this.threatText.textContent = `${pct}%`;
+      if (this.threatIcon) this.threatIcon.textContent = '🚨';
       this.threatBarFill.style.background = 'linear-gradient(90deg, #e11d48, #ef4444)';
-      this.threatBarFill.style.boxShadow = '0 0 12px #ef4444';
+      this.threatBarFill.style.boxShadow = '0 0 10px #ef4444';
     } else if (threat.alertLevel === 'ALERT') {
-      this.threatTitle.innerHTML = '⚠️ Alerta Inmunitaria';
+      this.threatTitle.textContent = 'ALERTA';
       this.threatTitle.style.color = '#f59e0b';
-      this.threatText.textContent = `${pct}% (${threat.activeNeutrophils} Neutrófilos)`;
+      this.threatText.textContent = `${pct}%`;
+      if (this.threatIcon) this.threatIcon.textContent = '⚠️';
       this.threatBarFill.style.background = 'linear-gradient(90deg, #d97706, #f59e0b)';
-      this.threatBarFill.style.boxShadow = '0 0 10px #f59e0b';
+      this.threatBarFill.style.boxShadow = '0 0 8px #f59e0b';
     } else {
-      this.threatTitle.innerHTML = '🟢 Calma Tisular';
+      this.threatTitle.textContent = 'CALMA';
       this.threatTitle.style.color = '#10b981';
-      this.threatText.textContent = `${pct}% (${threat.activeNeutrophils} Patrulla)`;
+      this.threatText.textContent = `${pct}%`;
+      if (this.threatIcon) this.threatIcon.textContent = '🟢';
       this.threatBarFill.style.background = 'linear-gradient(90deg, #059669, #10b981)';
       this.threatBarFill.style.boxShadow = '0 0 8px #10b981';
     }

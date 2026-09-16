@@ -8,19 +8,54 @@ function init(): void {
     return;
   }
 
-  // Elementos HUD de Telemetría
+  // Elementos HUD Arcade e Insignia de Jugador
+  const tierEl = document.getElementById('tier-val');
+  const massEl = document.getElementById('mass-val');
   const fpsEl = document.getElementById('fps-val');
+
+  // Elementos de Telemetría Detallada (Depuración [F3])
+  const debugHud = document.getElementById('telemetry-hud');
+  const toggleBtn = document.getElementById('toggle-debug-btn');
   const wasmEl = document.getElementById('wasm-status');
   const coordsEl = document.getElementById('coords-val');
   const speedEl = document.getElementById('speed-val');
-  const massEl = document.getElementById('mass-val');
   const scaleEl = document.getElementById('scale-val');
+
+  // Toggle para mostrar/ocultar consola técnica
+  const toggleDebugPanel = () => {
+    if (debugHud) {
+      debugHud.classList.toggle('hidden');
+    }
+  };
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDebugPanel();
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F3') {
+      e.preventDefault();
+      toggleDebugPanel();
+    }
+  });
 
   try {
     const stage = new Stage0(canvas);
 
     stage.onTelemetryUpdate = (data) => {
+      // 1. Datos de Insignia de Jugador (Siempre visible)
       if (fpsEl) fpsEl.textContent = `${data.fps} FPS`;
+      if (massEl && data.cellMass !== undefined) {
+        massEl.textContent = `${data.cellMass.toFixed(2)} μg`;
+      }
+      if (tierEl && data.cellTier !== undefined) {
+        tierEl.textContent = `Tier ${data.cellTier}`;
+      }
+
+      // 2. Datos de Telemetría Detallada (Solo visibles si se abre con F3 o botón)
       if (wasmEl) {
         wasmEl.textContent = data.wasmReady ? 'Activo (60 Hz)' : 'Inicializando...';
         wasmEl.style.color = data.wasmReady ? '#10b981' : '#f59e0b';
@@ -30,9 +65,6 @@ function init(): void {
       }
       if (speedEl) {
         speedEl.textContent = `${data.cellSpeed.toFixed(1)} u/s`;
-      }
-      if (massEl && data.cellMass !== undefined) {
-        massEl.textContent = `${data.cellMass.toFixed(2)} μg`;
       }
       if (scaleEl && data.cellScale !== undefined) {
         scaleEl.textContent = `${data.cellScale.toFixed(2)}x`;
