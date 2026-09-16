@@ -1,16 +1,25 @@
 import { VacuoleManager, CellStats } from '../systems/VacuoleManager';
+import { ThreatTelemetry } from '../systems/ThreatDirector';
 
 export class Hud {
   private vacuoleManager: VacuoleManager;
   private container: HTMLDivElement;
 
-  // Elementos de los 3 Medidores
+  // Elementos de los Medidores
   private hpBarFill!: HTMLDivElement;
   private hpText!: HTMLSpanElement;
   private shieldBarFill!: HTMLDivElement;
   private shieldText!: HTMLSpanElement;
   private atpBarFill!: HTMLDivElement;
   private atpText!: HTMLSpanElement;
+
+  // Medidor de Inflamación Tisular
+  private threatBarFill!: HTMLDivElement;
+  private threatTitle!: HTMLSpanElement;
+  private threatText!: HTMLSpanElement;
+  private threatAlertBanner!: HTMLDivElement;
+  private threatAlertTitle!: HTMLElement;
+  private threatAlertDesc!: HTMLSpanElement;
 
   // Banner de Mitosis
   private mitosisBanner!: HTMLDivElement;
@@ -71,6 +80,17 @@ export class Hud {
             <div id="atp-bar" class="meter-fill atp-fill" style="width: 0%;"></div>
           </div>
         </div>
+
+        <!-- Inflamación Tisular (Alerta Inmunológica del Huésped) -->
+        <div class="meter-card threat-card">
+          <div class="meter-header">
+            <span id="threat-title" class="meter-title">🟢 Calma Tisular</span>
+            <span id="threat-val" class="meter-num">5% (Patrulla)</span>
+          </div>
+          <div class="meter-track">
+            <div id="threat-bar" class="meter-fill threat-fill" style="width: 5%;"></div>
+          </div>
+        </div>
       </div>
 
       <!-- 2. Alerta de Mitosis Disponible -->
@@ -83,7 +103,16 @@ export class Hud {
         </div>
       </div>
 
-      <!-- 3. Panel Lateral de Bio-Mejoras (Estilo Starblast.io) -->
+      <!-- 3. Banner de Alerta Inmunológica -->
+      <div id="threat-alert" class="threat-alert hidden">
+        <span class="threat-alert-icon">⚠️</span>
+        <div class="threat-alert-text">
+          <b id="threat-alert-title">¡RESPUESTA INMUNITARIA!</b>
+          <span id="threat-alert-desc">Los neutrófilos te persiguen por quimiotaxis</span>
+        </div>
+      </div>
+
+      <!-- 4. Panel Lateral de Bio-Mejoras (Estilo Starblast.io) -->
       <div id="bio-upgrades-panel">
         <div class="upgrades-title">
           <span>🧬 Bio-Mejoras</span>
@@ -92,7 +121,7 @@ export class Hud {
         <div id="upgrades-list"></div>
       </div>
 
-      <!-- 4. Contenedor de Textos Flotantes de ATP -->
+      <!-- 5. Contenedor de Textos Flotantes de ATP -->
       <div id="floating-popups"></div>
     `;
 
@@ -102,6 +131,12 @@ export class Hud {
     this.shieldText = document.getElementById('shield-val') as HTMLSpanElement;
     this.atpBarFill = document.getElementById('atp-bar') as HTMLDivElement;
     this.atpText = document.getElementById('atp-val') as HTMLSpanElement;
+    this.threatBarFill = document.getElementById('threat-bar') as HTMLDivElement;
+    this.threatTitle = document.getElementById('threat-title') as HTMLSpanElement;
+    this.threatText = document.getElementById('threat-val') as HTMLSpanElement;
+    this.threatAlertBanner = document.getElementById('threat-alert') as HTMLDivElement;
+    this.threatAlertTitle = document.getElementById('threat-alert-title') as HTMLElement;
+    this.threatAlertDesc = document.getElementById('threat-alert-desc') as HTMLSpanElement;
     this.mitosisBanner = document.getElementById('mitosis-alert') as HTMLDivElement;
     this.upgradesList = document.getElementById('upgrades-list') as HTMLDivElement;
     this.popupsContainer = document.getElementById('floating-popups') as HTMLDivElement;
@@ -209,5 +244,47 @@ export class Hud {
     setTimeout(() => {
       el.remove();
     }, 1200);
+  }
+
+  public showCustomPopup(text: string, color = '#ffffff'): void {
+    this.showAtpPopup(text, color);
+  }
+
+  public updateThreat(threat: ThreatTelemetry): void {
+    const pct = Math.max(0, Math.min(100, Math.round(threat.inflammation * 100)));
+    this.threatBarFill.style.width = `${pct}%`;
+
+    if (threat.alertLevel === 'CRITICAL') {
+      this.threatTitle.innerHTML = '🚨 Tormenta Citoquinas';
+      this.threatTitle.style.color = '#ef4444';
+      this.threatText.textContent = `${pct}% (Macrófago Titán)`;
+      this.threatBarFill.style.background = 'linear-gradient(90deg, #e11d48, #ef4444)';
+      this.threatBarFill.style.boxShadow = '0 0 12px #ef4444';
+    } else if (threat.alertLevel === 'ALERT') {
+      this.threatTitle.innerHTML = '⚠️ Alerta Inmunitaria';
+      this.threatTitle.style.color = '#f59e0b';
+      this.threatText.textContent = `${pct}% (${threat.activeNeutrophils} Neutrófilos)`;
+      this.threatBarFill.style.background = 'linear-gradient(90deg, #d97706, #f59e0b)';
+      this.threatBarFill.style.boxShadow = '0 0 10px #f59e0b';
+    } else {
+      this.threatTitle.innerHTML = '🟢 Calma Tisular';
+      this.threatTitle.style.color = '#10b981';
+      this.threatText.textContent = `${pct}% (${threat.activeNeutrophils} Patrulla)`;
+      this.threatBarFill.style.background = 'linear-gradient(90deg, #059669, #10b981)';
+      this.threatBarFill.style.boxShadow = '0 0 8px #10b981';
+    }
+  }
+
+  private alertTimeout?: any;
+  public showThreatAlert(title: string, desc: string, level: 'info' | 'warn' | 'danger'): void {
+    if (this.alertTimeout) clearTimeout(this.alertTimeout);
+
+    this.threatAlertBanner.className = `threat-alert ${level}`;
+    this.threatAlertTitle.textContent = title;
+    this.threatAlertDesc.textContent = desc;
+
+    this.alertTimeout = setTimeout(() => {
+      this.threatAlertBanner.classList.add('hidden');
+    }, 3800);
   }
 }

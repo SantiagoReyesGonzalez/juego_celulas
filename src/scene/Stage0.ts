@@ -8,6 +8,7 @@ import { Hud } from '../ui/Hud';
 import { BiofilmHub } from '../entities/BiofilmHub';
 import { EvolutionSystem } from '../systems/EvolutionSystem';
 import { MitosisModal } from '../ui/MitosisModal';
+import { ThreatDirector } from '../systems/ThreatDirector';
 
 export interface TelemetryData {
   fps: number;
@@ -30,13 +31,14 @@ export class Stage0 {
   private player!: Player;
   private isWasmReady = false;
 
-  // Depredación Celular, Evolución y UI
+  // Depredación Celular, Evolución, Sistema Inmunológico y UI
   public vacuoleManager!: VacuoleManager;
   public predationSystem!: PredationSystem;
   public hud!: Hud;
   public biofilmHub!: BiofilmHub;
   public evolutionSystem!: EvolutionSystem;
   public mitosisModal!: MitosisModal;
+  public threatDirector!: ThreatDirector;
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -146,6 +148,26 @@ export class Stage0 {
       this.evolutionSystem = new EvolutionSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
       this.mitosisModal = new MitosisModal(this.evolutionSystem, this.player);
 
+      // Inicialización del Sistema Inmunológico y Director de Amenazas (Etapa 5)
+      this.threatDirector = new ThreatDirector(this.physicsWorld, this.scene);
+      this.threatDirector.onThreatChanged = (threat) => {
+        this.hud.updateThreat(threat);
+      };
+      this.threatDirector.onWarningAlert = (title, desc, level) => {
+        this.hud.showThreatAlert(title, desc, level);
+      };
+
+      // Notificar al Director de Amenazas cuando la bacteria consume tejido o presas
+      this.predationSystem.onPredationActivity = (type) => {
+        if (type === 'pellet') {
+          this.threatDirector.addInflammation(0.0035);
+        } else if (type === 'microorganism') {
+          this.threatDirector.addInflammation(0.016);
+        } else if (type === 'adipocyte') {
+          this.threatDirector.addInflammation(0.022);
+        }
+      };
+
       this.hud.onMitosisClick = () => {
         this.mitosisModal.open();
       };
@@ -156,7 +178,7 @@ export class Stage0 {
       this.player.applyUpgrades(this.vacuoleManager.upgrades);
 
       this.isWasmReady = true;
-      console.log('✅ Rapier2D WASM, Hidrodinámica, Economía Celular y Evolución inicializados a 60 Hz');
+      console.log('✅ Rapier2D WASM, Hidrodinámica, Sistema Inmune y Evolución inicializados a 60 Hz');
     } catch (err) {
       console.error('Error inicializando Rapier2D / Player:', err);
     }
@@ -283,6 +305,20 @@ export class Stage0 {
       }
       if (this.biofilmHub) {
         this.biofilmHub.update(dt, time, this.player.body.translation(), this.vacuoleManager);
+      }
+
+      // 4. Sistema Inmunológico y Depredación Hostil (Etapa 5)
+      if (this.threatDirector) {
+        this.threatDirector.update(
+          dt,
+          time,
+          this.player,
+          this.vacuoleManager,
+          this.predationSystem.atpOrbs,
+          (text, _x, _y, color) => {
+            this.hud.showCustomPopup(text, color);
+          }
+        );
       }
 
       // 4. Actualización Visual del Jugador (Posición, Rotación y Flagelos)

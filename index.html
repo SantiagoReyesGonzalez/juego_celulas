@@ -101,6 +101,7 @@
       .hp-card .meter-title { color: #10b981; }
       .shield-card .meter-title { color: #38bdf8; }
       .atp-card .meter-title { color: #fbbf24; }
+      .threat-card .meter-title { color: #f43f5e; }
       .meter-num {
         color: #f1f5f9;
         font-variant-numeric: tabular-nums;
@@ -128,6 +129,10 @@
       .atp-fill {
         background: linear-gradient(90deg, #d97706, #fbbf24);
         box-shadow: 0 0 10px #fbbf24;
+      }
+      .threat-fill {
+        background: linear-gradient(90deg, #10b981, #f59e0b);
+        box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
       }
 
       /* Banner de Mitosis */
@@ -162,6 +167,45 @@
       @keyframes pulseMitosis {
         from { transform: translateX(-50%) scale(1); box-shadow: 0 0 15px rgba(250, 204, 21, 0.5); }
         to { transform: translateX(-50%) scale(1.05); box-shadow: 0 0 30px rgba(250, 204, 21, 1); }
+      }
+
+      /* Banner de Alerta Inmunológica */
+      .threat-alert {
+        position: absolute;
+        top: 76px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(159, 18, 57, 0.95);
+        border: 2px solid #fda4af;
+        border-radius: 30px;
+        padding: 8px 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #ffffff;
+        font-size: 13px;
+        box-shadow: 0 0 25px rgba(244, 63, 94, 0.8);
+        animation: pulseThreat 1.2s infinite alternate;
+        z-index: 99;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      .threat-alert.hidden {
+        display: none;
+      }
+      .threat-alert.warn {
+        background: rgba(180, 83, 9, 0.95);
+        border-color: #fef08a;
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.8);
+      }
+      .threat-alert.danger {
+        background: rgba(159, 18, 57, 0.95);
+        border-color: #fda4af;
+        box-shadow: 0 0 30px rgba(225, 29, 72, 1.0);
+      }
+      @keyframes pulseThreat {
+        from { transform: translateX(-50%) scale(1); }
+        to { transform: translateX(-50%) scale(1.04); }
       }
 
       /* Modal de Mitosis Celular y Selección Taxonómica */

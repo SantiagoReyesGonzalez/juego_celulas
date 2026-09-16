@@ -55,6 +55,8 @@ export class PredationSystem {
   public adipocytes: Adipocyte[] = [];
   public atpOrbs: AtpOrb[] = [];
 
+  public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
+
   private maxNutrients = 110;
   private maxMicroorganisms = 35;
   private maxAdipocytes = 8;
@@ -185,6 +187,10 @@ export class PredationSystem {
         this.player.grow(nut.massGain);
         this.player.feedBounce(1.08);
 
+        if (this.onPredationActivity) {
+          this.onPredationActivity('pellet');
+        }
+
         nut.dispose(this.scene);
         this.nutrients.splice(i, 1);
 
@@ -217,6 +223,10 @@ export class PredationSystem {
           micro.dispose(this.scene, this.physicsWorld);
           this.microorganisms.splice(i, 1);
 
+          if (this.onPredationActivity) {
+            this.onPredationActivity('microorganism');
+          }
+
           // Reaparición en la lejanía
           setTimeout(() => {
             if (this.microorganisms.length < this.maxMicroorganisms) {
@@ -245,6 +255,10 @@ export class PredationSystem {
           // Erosión por fricción y enzimas de membrana
           const damage = 1.0 + (speed - 4.5) * 0.3;
           const isLysed = ad.hit(damage);
+
+          if (this.onPredationActivity) {
+            this.onPredationActivity('adipocyte');
+          }
 
           // Desprender orbes al erosionar
           const count = Math.floor(1 + Math.random() * 2);
