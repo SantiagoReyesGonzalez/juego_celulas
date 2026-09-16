@@ -110,24 +110,29 @@ export class Stage0 {
   private async initPhysics(): Promise<void> {
     try {
       const gravity = { x: 0.0, y: 0.0 };
-      this.rapierWorld = new RAPIER.World(gravity);
-      this.isWasmReady = true;
-      console.log('✅ Rapier2D WASM inicializado con éxito a 60Hz');
+      // Compatibilidad con empaquetadores ESM / Vite
+      const WorldClass = RAPIER.World || (RAPIER as unknown as { default?: { World?: typeof RAPIER.World } }).default?.World;
+      if (WorldClass) {
+        this.rapierWorld = new WorldClass(gravity);
+        this.isWasmReady = true;
+        console.log('✅ Rapier2D WASM inicializado con éxito a 60Hz');
+      } else {
+        console.warn('⚠️ World class no encontrada directamente en RAPIER');
+      }
     } catch (err) {
       console.error('Error inicializando Rapier2D:', err);
     }
   }
 
   private createBacterialCell(): void {
-    // Membrana Externa Lipídica (Verde Esmeralda Translúcido con Resplandor)
+    // Membrana Externa Lipídica (Verde Esmeralda Translúcido y Bioluminiscente)
     const membraneGeo = new THREE.CapsuleGeometry(1.2, 2.4, 16, 32);
-    const membraneMat = new THREE.MeshPhysicalMaterial({
+    const membraneMat = new THREE.MeshStandardMaterial({
       color: 0x10b981,
       emissive: 0x059669,
-      emissiveIntensity: 0.6,
-      roughness: 0.2,
-      transmission: 0.7,
-      thickness: 1.5,
+      emissiveIntensity: 0.7,
+      roughness: 0.3,
+      metalness: 0.1,
       transparent: true,
       opacity: 0.85,
     });
