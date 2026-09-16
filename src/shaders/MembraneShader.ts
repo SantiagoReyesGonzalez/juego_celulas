@@ -37,13 +37,17 @@ void main() {
   vec3 normal = normalize(vNormal);
   vec3 viewDir = normalize(vViewPosition);
 
-  // Efecto Fresnel 3D confocal de alta velocidad
+  // Fresnel confocal bioluminiscente de alta intensidad (estilo Imagen de Referencia 01)
   float fresnel = 1.0 - max(dot(normal, viewDir), 0.0);
-  fresnel = pow(fresnel, uFresnelPower) * uFresnelIntensity;
+  float rimGlow = pow(fresnel, uFresnelPower) * uFresnelIntensity;
 
-  vec3 baseColor = uColor * 0.6 + uEmissive * 0.35;
-  vec3 finalColor = mix(baseColor, uEmissive * 2.0, clamp(fresnel, 0.0, 1.0));
-  float alpha = clamp(uOpacity * (0.45 + fresnel * 0.75), 0.0, 0.95);
+  // Núcleo translúcido gelatinoso con dispersión subsuperficial simulada
+  float coreGlow = (1.0 - fresnel) * 0.45;
+  vec3 baseColor = uColor * (0.65 + coreGlow) + uEmissive * 0.65;
+  vec3 rimColor = uEmissive * (2.6 + rimGlow * 1.4);
+
+  vec3 finalColor = mix(baseColor, rimColor, clamp(fresnel * 1.25, 0.0, 1.0));
+  float alpha = clamp(uOpacity * (0.45 + fresnel * 0.55), 0.0, 0.96);
 
   gl_FragColor = vec4(finalColor, alpha);
 }

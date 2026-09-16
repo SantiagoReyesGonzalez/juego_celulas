@@ -55,6 +55,7 @@ export class Stage0 {
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
   private erythrocyteGroup: THREE.Group;
+  private sporeParticles?: THREE.Points;
 
   // Interacción y Mouse
   private mouseScreen = new THREE.Vector2(0, 0);
@@ -79,11 +80,11 @@ export class Stage0 {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x060913, 1.0);
+    this.renderer.setClearColor(0x090306, 1.0);
 
-    // 2. Escena y Niebla Tisular Suave
+    // 2. Escena y Niebla Tisular Cálida ("Dark Capillary", estilo Imagen de Referencia 01)
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x060913, 45, 110);
+    this.scene.fog = new THREE.Fog(0x090306, 38, 120);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;
@@ -141,15 +142,23 @@ export class Stage0 {
   }
 
   private setupLighting(): void {
-    const ambientLight = new THREE.AmbientLight(0x2a3b4c, 2.5);
+    // Luz ambiental profunda color vino/capilar
+    const ambientLight = new THREE.AmbientLight(0x380b15, 2.8);
     this.scene.add(ambientLight);
 
-    const rimLight = new THREE.DirectionalLight(0x00ffcc, 4.5);
-    rimLight.position.set(12, 22, 30);
+    // Realce cian eléctrico de alto contraste (rim light)
+    const rimLight = new THREE.DirectionalLight(0x00f0ff, 4.6);
+    rimLight.position.set(15, 25, 30);
     this.scene.add(rimLight);
 
-    const warmFill = new THREE.PointLight(0xffa500, 3.5, 120);
-    warmFill.position.set(-18, -12, 25);
+    // Acento verde esmeralda bioluminiscente
+    const bioLight = new THREE.DirectionalLight(0x10b981, 2.6);
+    bioLight.position.set(-15, -20, 25);
+    this.scene.add(bioLight);
+
+    // Luz de relleno cálida ámbar/naranja
+    const warmFill = new THREE.PointLight(0xff7700, 3.8, 150);
+    warmFill.position.set(-12, 16, 22);
     this.scene.add(warmFill);
   }
 
@@ -244,13 +253,13 @@ export class Stage0 {
     // 1. Glóbulos Rojos (Eritrocitos Bicóncavos Biológicos Reales - Sin Agujero de Dona)
     const rbcGeo = this.createBiconcaveErythrocyteGeometry(1.6);
     const rbcMat = new THREE.MeshStandardMaterial({
-      color: 0x9b1b1b,
-      emissive: 0x3d0707,
-      emissiveIntensity: 0.35,
+      color: 0x9e1a22,
+      emissive: 0x42070e,
+      emissiveIntensity: 0.45,
       roughness: 0.32,
       metalness: 0.08,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.85,
     });
 
     for (let i = 0; i < 110; i++) {
@@ -269,6 +278,50 @@ export class Stage0 {
       const scale = 0.7 + Math.random() * 0.5;
       rbc.scale.set(scale, scale, scale);
       this.erythrocyteGroup.add(rbc);
+    }
+
+    // 2. Polvo de Micro-Esporas Bioluminiscentes Doradas (estilo Imagen de Referencia 01)
+    const sporeCount = 320;
+    const sporePositions = new Float32Array(sporeCount * 3);
+    for (let i = 0; i < sporeCount; i++) {
+      sporePositions[i * 3] = (Math.random() - 0.5) * 750;
+      sporePositions[i * 3 + 1] = (Math.random() - 0.5) * 650;
+      sporePositions[i * 3 + 2] = -4 + Math.random() * 8;
+    }
+    const sporeGeo = new THREE.BufferGeometry();
+    sporeGeo.setAttribute('position', new THREE.BufferAttribute(sporePositions, 3));
+    const sporeMat = new THREE.PointsMaterial({
+      color: 0xfbbf24,
+      size: 0.45,
+      transparent: true,
+      opacity: 0.82,
+      blending: THREE.AdditiveBlending,
+    });
+    this.sporeParticles = new THREE.Points(sporeGeo, sporeMat);
+    this.particlesGroup.add(this.sporeParticles);
+
+    // 3. Estructuras Orgánicas de Tejido Vascular Capilar de Fondo ("Dark Capillary")
+    const tissueGeo = new THREE.TorusGeometry(32.0, 4.5, 12, 32, Math.PI);
+    const tissueMat = new THREE.MeshStandardMaterial({
+      color: 0x36060f,
+      emissive: 0x1d0207,
+      emissiveIntensity: 0.4,
+      roughness: 0.55,
+      transparent: true,
+      opacity: 0.72,
+      side: THREE.DoubleSide,
+    });
+    for (let i = 0; i < 8; i++) {
+      const wall = new THREE.Mesh(tissueGeo, tissueMat);
+      wall.position.set(
+        (Math.random() - 0.5) * 650,
+        (Math.random() - 0.5) * 550,
+        -7 - Math.random() * 5
+      );
+      wall.rotation.z = Math.random() * Math.PI * 2;
+      const s = 1.4 + Math.random() * 1.8;
+      wall.scale.set(s, s, s);
+      this.particlesGroup.add(wall);
     }
   }
 
@@ -511,6 +564,18 @@ export class Stage0 {
         rbc.position.y = wrapped.y;
       }
     });
+
+    // 7.5. Deriva suave de las micro-esporas bioluminiscentes doradas
+    if (this.sporeParticles) {
+      const posAttr = this.sporeParticles.geometry.attributes.position as THREE.BufferAttribute;
+      const count = posAttr.count;
+      for (let i = 0; i < count; i++) {
+        let y = posAttr.getY(i) + Math.sin(time * 0.8 + i * 0.5) * 0.02;
+        let x = posAttr.getX(i) + Math.cos(time * 0.6 + i * 0.4) * 0.015;
+        posAttr.setXY(i, x, y);
+      }
+      posAttr.needsUpdate = true;
+    }
 
     // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico
     if (this.minimap && this.player) {

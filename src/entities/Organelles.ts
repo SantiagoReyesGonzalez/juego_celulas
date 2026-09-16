@@ -57,9 +57,10 @@ export class OrganelleFactory {
       }
 
       case OrganelleType.FLAGELLUM: {
-        const segments = 24;
-        const segmentLength = 0.16;
-        const baseWidth = 0.12;
+        // Flagelos largos, ondulantes y sedosos de 6.4 unidades (estilo Imagen de Referencia 01)
+        const segments = 32;
+        const segmentLength = 0.20;
+        const baseWidth = 0.14;
 
         // 1. Anillo motor basal en la membrana celular (origen 0,0,0)
         const motorGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.06, 12);
@@ -67,19 +68,19 @@ export class OrganelleFactory {
         const motorMat = new THREE.MeshBasicMaterial({
           color: color,
           transparent: true,
-          opacity: 0.9,
+          opacity: 0.95,
         });
         const motor = new THREE.Mesh(motorGeo, motorMat);
         group.add(motor);
 
-        // 2. Malla Ribbon orgánica de doble cara con grosor decreciente
+        // 2. Malla Ribbon orgánica de doble cara con grosor decreciente y resplandor neón
         const ribbonVertices: number[] = [];
         const ribbonIndices: number[] = [];
 
         for (let i = 0; i < segments; i++) {
           const x = i * segmentLength;
           const norm = i / (segments - 1);
-          const halfW = baseWidth * (1.0 - 0.82 * norm) * 0.5;
+          const halfW = baseWidth * (1.0 - 0.85 * norm) * 0.5;
 
           // Vértice superior e inferior
           ribbonVertices.push(x, halfW, 0);
@@ -102,14 +103,14 @@ export class OrganelleFactory {
         const ribbonMat = new THREE.MeshBasicMaterial({
           color: color,
           transparent: true,
-          opacity: 0.78,
+          opacity: 0.88,
           side: THREE.DoubleSide,
           depthWrite: false,
         });
         const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
         group.add(ribbon);
 
-        // 3. Filamento axial central de alta luminiscencia
+        // 3. Filamento axial central de alta luminiscencia blanca
         const linePoints: THREE.Vector3[] = [];
         for (let i = 0; i < segments; i++) {
           linePoints.push(new THREE.Vector3(i * segmentLength, 0, 0));
@@ -118,8 +119,8 @@ export class OrganelleFactory {
         const lineMat = new THREE.LineBasicMaterial({
           color: 0xffffff,
           transparent: true,
-          opacity: 0.9,
-          linewidth: 1,
+          opacity: 0.95,
+          linewidth: 1.5,
         });
         const line = new THREE.Line(lineGeo, lineMat);
         group.add(line);
@@ -346,5 +347,134 @@ export class OrganelleFactory {
       linePositions.needsUpdate = true;
       ribbonPositions.needsUpdate = true;
     });
+  }
+
+  /**
+   * Crea una corona perimetral de cilios/pelos bioluminiscentes (estilo Imagen de Referencia 01)
+   */
+  public static createCiliaFringe(
+    radius: number,
+    length: number,
+    morphology: CellMorphology,
+    color = 0x34d399
+  ): THREE.LineSegments {
+    const ciliaCount = morphology === CellMorphology.COCCUS ? 36 : 48;
+    const vertices: number[] = [];
+    const basePoints: THREE.Vector3[] = [];
+    const normals: THREE.Vector3[] = [];
+    const lengths: number[] = [];
+
+    const halfL = (length * 0.8) * 0.5;
+
+    for (let i = 0; i < ciliaCount; i++) {
+      const u = i / ciliaCount;
+      const angle = u * Math.PI * 2;
+      let bx = 0;
+      let by = 0;
+      let nx = Math.cos(angle);
+      let ny = Math.sin(angle);
+
+      if (
+        morphology === CellMorphology.BACILLUS ||
+        morphology === CellMorphology.STREPTOCOCCUS ||
+        morphology === CellMorphology.VIBRIO ||
+        morphology === CellMorphology.SPIRILLUM
+      ) {
+        if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+          // Casquete frontal (+X)
+          const subAngle = angle * 2.0;
+          bx = halfL + radius * Math.cos(subAngle);
+          by = radius * Math.sin(subAngle);
+          nx = Math.cos(subAngle);
+          ny = Math.sin(subAngle);
+        } else if (angle > Math.PI / 4 && angle < (3 * Math.PI) / 4) {
+          // Lado superior (+Y)
+          const normX = (angle - Math.PI / 4) / (Math.PI / 2);
+          bx = halfL - normX * (halfL * 2);
+          by = radius;
+          nx = 0;
+          ny = 1;
+        } else if (angle >= (3 * Math.PI) / 4 && angle <= (5 * Math.PI) / 4) {
+          // Casquete posterior (-X)
+          const subAngle = Math.PI + (angle - Math.PI) * 2.0;
+          bx = -halfL + radius * Math.cos(subAngle);
+          by = radius * Math.sin(subAngle);
+          nx = Math.cos(subAngle);
+          ny = Math.sin(subAngle);
+        } else {
+          // Lado inferior (-Y)
+          const normX = (angle - (5 * Math.PI) / 4) / (Math.PI / 2);
+          bx = -halfL + normX * (halfL * 2);
+          by = -radius;
+          nx = 0;
+          ny = -1;
+        }
+      } else {
+        // Morfología circular
+        bx = radius * Math.cos(angle);
+        by = radius * Math.sin(angle);
+      }
+
+      const cLen = 0.35 + Math.random() * 0.22;
+      lengths.push(cLen);
+      basePoints.push(new THREE.Vector3(bx, by, 0));
+      normals.push(new THREE.Vector3(nx, ny, 0));
+
+      // Vértice base
+      vertices.push(bx, by, 0);
+      // Vértice punta inicial
+      vertices.push(bx + nx * cLen, by + ny * cLen, 0);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+    const mat = new THREE.LineBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.85,
+    });
+
+    const ciliaMesh = new THREE.LineSegments(geo, mat);
+    ciliaMesh.userData.ciliaData = {
+      basePoints,
+      normals,
+      lengths,
+      ciliaCount,
+    };
+
+    return ciliaMesh;
+  }
+
+  /**
+   * Anima la ondulación y vibración hidrodinámica de los micro-cilios perimetrales
+   */
+  public static animateCilia(ciliaMesh: THREE.LineSegments, time: number): void {
+    const data = ciliaMesh.userData.ciliaData;
+    if (!data) return;
+
+    const { basePoints, normals, lengths, ciliaCount } = data;
+    const positions = ciliaMesh.geometry.attributes.position as THREE.BufferAttribute;
+
+    for (let i = 0; i < ciliaCount; i++) {
+      const base = basePoints[i];
+      const norm = normals[i];
+      const len = lengths[i];
+
+      // Vector tangente perpendicular
+      const tx = -norm.y;
+      const ty = norm.x;
+
+      // Ondulación sinusoidal dependiente del tiempo y del índice
+      const sway = Math.sin(time * 7.5 + i * 0.8) * 0.12;
+
+      // Actualizar solo el vértice de la punta (índice i * 2 + 1)
+      const tipX = base.x + norm.x * len + tx * sway;
+      const tipY = base.y + norm.y * len + ty * sway;
+
+      positions.setXYZ(i * 2 + 1, tipX, tipY, 0);
+    }
+
+    positions.needsUpdate = true;
   }
 }

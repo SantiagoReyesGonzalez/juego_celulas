@@ -34,9 +34,13 @@ export class NutrientPellet {
 
   public update(dt: number, time: number): void {
     if (this.isCollected) return;
-    this.mesh.position.x = this.position.x + Math.sin(time * this.floatSpeed + this.floatOffset) * 0.12;
-    this.mesh.position.y = this.position.y + Math.cos(time * this.floatSpeed + this.floatOffset) * 0.12;
-    this.mesh.rotation.y += dt * 2.0;
+    const wave = Math.sin(time * this.floatSpeed + this.floatOffset);
+    this.mesh.position.x = this.position.x + wave * 0.14;
+    this.mesh.position.y = this.position.y + Math.cos(time * this.floatSpeed + this.floatOffset) * 0.14;
+    this.mesh.rotation.y += dt * 1.8;
+    this.mesh.rotation.z += dt * 1.2;
+    const pulse = 1.0 + wave * 0.15;
+    this.mesh.scale.set(pulse, pulse, pulse);
   }
 
   public dispose(scene: THREE.Scene): void {
@@ -81,10 +85,13 @@ export class PredationSystem {
     // Geometría dorada brillante compartida para optimizar el rendimiento
     this.nutGeo = new THREE.DodecahedronGeometry(0.38);
     this.nutMat = new THREE.MeshStandardMaterial({
-      color: 0xffc107,
-      emissive: 0xff9800,
-      emissiveIntensity: 1.6,
-      roughness: 0.15,
+      color: 0xfbbf24,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 2.8,
+      roughness: 0.1,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.95,
     });
 
     this.vacuoleManager.addAtpLeakListener((amount) => {

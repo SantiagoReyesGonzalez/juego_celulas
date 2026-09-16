@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
+import { OrganelleFactory } from './Organelles';
+import { CellMorphology } from '../data/MutationTree';
 
 export enum MicroorganismType {
   TINY_COCCUS = 'TINY_COCCUS',
@@ -23,6 +25,7 @@ export class Microorganism {
   private wanderAngle = Math.random() * Math.PI * 2;
   private wanderTimer = 0;
   private flagellum?: THREE.Line;
+  private ciliaMesh?: THREE.LineSegments;
 
   constructor(
     physicsWorld: PhysicsWorld,
@@ -105,19 +108,31 @@ export class Microorganism {
     });
 
     if (this.type === MicroorganismType.SMALL_BACILLUS) {
-      // Bacilo pequeño alargado
+      // Bacilo pequeño alargado con núcleo brillante y cilios (estilo Imagen 01)
       const geo = new THREE.CapsuleGeometry(this.radius, 1.2, 12, 16);
       const m = new THREE.Mesh(geo, mat);
       m.rotation.z = Math.PI / 2;
       this.mesh.add(m);
 
-      // Flagelo posterior para natación
+      // Núcleo celular interno alargado fluorescente
+      const core = new THREE.Mesh(
+        new THREE.CapsuleGeometry(this.radius * 0.45, 0.6, 8, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
+      );
+      core.rotation.z = Math.PI / 2;
+      this.mesh.add(core);
+
+      // Corona de cilios perimetrales
+      this.ciliaMesh = OrganelleFactory.createCiliaFringe(this.radius, 1.2, CellMorphology.BACILLUS, color);
+      this.mesh.add(this.ciliaMesh);
+
+      // Flagelo posterior largo para natación ondulante
       const points: THREE.Vector3[] = [];
-      for (let i = 0; i < 12; i++) {
-        points.push(new THREE.Vector3(-1.0 - i * 0.12, 0, 0));
+      for (let i = 0; i < 20; i++) {
+        points.push(new THREE.Vector3(-1.0 - i * 0.18, 0, 0));
       }
       const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-      const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8 });
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
       this.flagellum = new THREE.Line(lineGeo, lineMat);
       this.mesh.add(this.flagellum);
     } else {
@@ -129,9 +144,14 @@ export class Microorganism {
       // Núcleo citoplasmático interno
       const core = new THREE.Mesh(
         new THREE.SphereGeometry(this.radius * 0.45, 10, 10),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 })
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
       );
       this.mesh.add(core);
+
+      if (this.type === MicroorganismType.TINY_COCCUS) {
+        this.ciliaMesh = OrganelleFactory.createCiliaFringe(this.radius, 0, CellMorphology.COCCUS, color);
+        this.mesh.add(this.ciliaMesh);
+      }
     }
   }
 
@@ -195,11 +215,16 @@ export class Microorganism {
       const positions = this.flagellum.geometry.attributes.position as THREE.BufferAttribute;
       const count = positions.count;
       for (let j = 0; j < count; j++) {
-        const xDist = j * 0.12;
-        const wave = Math.sin(time * 12.0 - xDist * 3.0) * (xDist * 0.25);
+        const xDist = j * 0.14;
+        const wave = Math.sin(time * 12.0 - xDist * 3.0) * (xDist * 0.28);
         positions.setY(j, wave);
       }
       positions.needsUpdate = true;
+    }
+
+    // Ondulación de los cilios perimetrales si posee
+    if (this.ciliaMesh) {
+      OrganelleFactory.animateCilia(this.ciliaMesh, time);
     }
   }
 

@@ -32,6 +32,7 @@ export class Player {
   // Visuales Three.js
   public group: THREE.Group;
   private flagellaMeshes: THREE.Object3D[] = [];
+  private ciliaMesh?: THREE.LineSegments;
 
   // Parámetros de Rendimiento Celular
   public thrustForce = 45.0;
@@ -240,11 +241,29 @@ export class Player {
         const mesh = new THREE.Mesh(capGeo, membraneMat);
         mesh.rotation.z = Math.PI / 2;
         this.group.add(mesh);
-        const core = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.55, 16, 16), coreMat);
+
+        // Núcleo celular interno alargado con bioluminiscencia intensa (estilo Imagen 01)
+        const coreGeo = new THREE.CapsuleGeometry(radius * 0.45, length * 0.5, 12, 16);
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        core.rotation.z = Math.PI / 2;
         this.group.add(core);
+
+        // Hilos y gránulos cromosómicos fluorescentes internos
+        for (let k = 0; k < 4; k++) {
+          const thread = new THREE.Mesh(
+            new THREE.SphereGeometry(0.18, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 })
+          );
+          thread.position.set((k - 1.5) * (length * 0.20), (k % 2 === 0 ? 0.14 : -0.14), 0.1);
+          this.group.add(thread);
+        }
         break;
       }
     }
+
+    // Corona perimetral de micro-cilios radiantes (estilo Imagen de Referencia 01)
+    this.ciliaMesh = OrganelleFactory.createCiliaFringe(radius, length, species.morphology, species.color);
+    this.group.add(this.ciliaMesh);
 
     // Si es una Super Macro Célula (Tier 5 Titán), añadir halo corona bioluminiscente
     if (species.role === CellRole.APEX_TITAN) {
@@ -270,7 +289,7 @@ export class Player {
       this.group.add(vac);
     }
 
-    // Sockets Modulares y Organelos
+    // Sockets Modulares y Organelos con Paleta de Colores de Neón Contrastantes
     this.sockets = OrganelleFactory.generateSocketsForSpecies(
       species.sockets,
       radius,
@@ -278,8 +297,16 @@ export class Player {
       species.morphology
     );
 
+    const FLAGELLA_PALETTE = [0x00f0ff, 0xf59e0b, 0x10b981, 0xc084fc, 0xec4899];
+    let flagellumIdx = 0;
+
     this.sockets.forEach((socket) => {
-      const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, species.color);
+      let organelleColor = species.color;
+      if (socket.equippedOrganelle === OrganelleType.FLAGELLUM) {
+        organelleColor = FLAGELLA_PALETTE[flagellumIdx % FLAGELLA_PALETTE.length];
+        flagellumIdx++;
+      }
+      const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, organelleColor);
       organelleMesh.position.set(socket.offset.x, socket.offset.y, 0);
       organelleMesh.rotation.z = socket.angle;
       this.group.add(organelleMesh);
@@ -514,6 +541,11 @@ export class Player {
     const vel = this.body.linvel();
     const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
     OrganelleFactory.animateFlagella(this.flagellaMeshes, time, speed, this.isThrusting);
+
+    // Ondulación de los micro-cilios perimetrales (estilo Imagen 01)
+    if (this.ciliaMesh) {
+      OrganelleFactory.animateCilia(this.ciliaMesh, time);
+    }
 
     // Parpadeo de invulnerabilidad post-reaparición
     if (this.invulnerabilityTimer > 0) {
