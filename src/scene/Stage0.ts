@@ -81,9 +81,14 @@ export class Stage0 {
     // 6. Inicialización de Física e Hidrodinámica
     this.initPhysics();
 
-    // 7. Eventos de Ventana y Ratón
+    // 7. Eventos de Ventana, Ratón y Teclado
     window.addEventListener('resize', this.onResize.bind(this));
     window.addEventListener('mousemove', this.onMouseMove.bind(this));
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'b' || e.key === 'B') {
+        this.toggleErythrocytes();
+      }
+    });
   }
 
   private setupLighting(): void {
@@ -112,26 +117,33 @@ export class Stage0 {
   }
 
   private createBackgroundElements(): void {
-    // 1. Glóbulos Rojos (Eritrocitos) Claramente Visibles en el Fondo
-    const rbcGeo = new THREE.TorusGeometry(1.6, 0.7, 12, 24);
+    // 1. Glóbulos Rojos (Eritrocitos Bicóncavos Biológicos Reales - Sin Agujero de Dona)
+    const rbcGeo = this.createBiconcaveErythrocyteGeometry(1.6);
     const rbcMat = new THREE.MeshStandardMaterial({
-      color: 0xd32f2f,
-      emissive: 0x660000,
-      emissiveIntensity: 0.5,
-      roughness: 0.3,
-      metalness: 0.1,
+      color: 0x9b1b1b,
+      emissive: 0x3d0707,
+      emissiveIntensity: 0.35,
+      roughness: 0.32,
+      metalness: 0.08,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.8,
     });
 
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 28; i++) {
       const rbc = new THREE.Mesh(rbcGeo, rbcMat);
       rbc.position.set(
-        (Math.random() - 0.5) * 80,
-        (Math.random() - 0.5) * 60,
-        -5 - Math.random() * 12
+        (Math.random() - 0.5) * 85,
+        (Math.random() - 0.5) * 65,
+        -6 - Math.random() * 12
       );
-      rbc.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      // Inclinación suave y natural para apreciar la concavidad central sin orificio
+      rbc.rotation.set(
+        0.35 + (Math.random() - 0.5) * 0.7,
+        (Math.random() - 0.5) * 0.7,
+        Math.random() * Math.PI * 2
+      );
+      const scale = 0.7 + Math.random() * 0.5;
+      rbc.scale.set(scale, scale, scale);
       this.erythrocyteGroup.add(rbc);
     }
 
@@ -153,6 +165,47 @@ export class Stage0 {
       );
       this.particlesGroup.add(nutrient);
     }
+  }
+
+  /**
+   * Genera la morfología biológica de un eritrocito humano (disco bicóncavo sólido sin agujero central).
+   * Implementación basada en la formulación de Evans & Fung (1972).
+   */
+  private createBiconcaveErythrocyteGeometry(radius = 1.6): THREE.BufferGeometry {
+    const points: THREE.Vector2[] = [];
+    const numSteps = 24;
+
+    // Perfil superior: del centro cóncavo (r = 0) hacia el borde exterior grueso (r = radius)
+    for (let i = 0; i <= numSteps; i++) {
+      const t = i / numSteps;
+      const r = t * radius;
+      const factor = Math.sqrt(Math.max(0, 1.0 - t * t * 0.96));
+      const h = (0.18 + 0.95 * t * t - 0.75 * Math.pow(t, 4)) * factor;
+      points.push(new THREE.Vector2(r, Math.max(h, 0.04)));
+    }
+
+    // Perfil inferior: del borde exterior grueso de regreso al centro cóncavo inferior
+    for (let i = numSteps; i >= 0; i--) {
+      const t = i / numSteps;
+      const r = t * radius;
+      const factor = Math.sqrt(Math.max(0, 1.0 - t * t * 0.96));
+      const h = (0.18 + 0.95 * t * t - 0.75 * Math.pow(t, 4)) * factor;
+      points.push(new THREE.Vector2(r, -Math.max(h, 0.04)));
+    }
+
+    const geo = new THREE.LatheGeometry(points, 32);
+    // Orientar para que la concavidad apunte hacia el plano de la cámara (Z)
+    geo.rotateX(Math.PI / 2);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /**
+   * Permite alternar la visibilidad de los eritrocitos del fondo en tiempo real
+   */
+  public toggleErythrocytes(): boolean {
+    this.erythrocyteGroup.visible = !this.erythrocyteGroup.visible;
+    return this.erythrocyteGroup.visible;
   }
 
   private onResize(): void {
