@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import RAPIER from '@dimforge/rapier2d';
+import { PhysicsWorld } from '../physics/World';
+import { HydrodynamicsSystem } from '../systems/HydrodynamicsSystem';
+import { Player } from '../entities/Player';
 
 export interface TelemetryData {
   fps: number;
@@ -14,27 +16,22 @@ export class Stage0 {
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   
-  // Rapier2D WASM
-  private rapierWorld: RAPIER.World | null = null;
+  // Módulos de Física e Hidrodinámica
+  private physicsWorld!: PhysicsWorld;
+  private hydroSystem!: HydrodynamicsSystem;
+  private player!: Player;
   private isWasmReady = false;
 
-  // Célula / Bacteria Prototipo
-  private cellGroup: THREE.Group;
-  private cellPosition = new THREE.Vector2(0, 0);
-  private cellVelocity = new THREE.Vector2(0, 0);
-  private cellAngle = 0;
-  private flagellaCurves: THREE.Line[] = [];
-
-  // Partículas y Fondo Biológico
+  // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
   private erythrocyteGroup: THREE.Group;
 
   // Interacción y Mouse
   private mouseScreen = new THREE.Vector2(0, 0);
   private mouseWorld = new THREE.Vector2(0, 0);
-  private frustumSize = 40;
+  private frustumSize = 42;
 
-  // Telemetría y tiempo
+  // Telemetría y Tiempo
   private clock = new THREE.Clock();
   private frameCount = 0;
   private lastFpsUpdate = 0;
@@ -74,111 +71,43 @@ export class Stage0 {
     // 4. Iluminación Biológica de Alto Contraste
     this.setupLighting();
 
-    // 5. Entorno: Glóbulos Rojos y Partículas de Nutrientes
+    // 5. Entorno: Glóbulos Rojos y Nutrientes Flotantes
     this.particlesGroup = new THREE.Group();
     this.erythrocyteGroup = new THREE.Group();
     this.scene.add(this.erythrocyteGroup);
     this.scene.add(this.particlesGroup);
     this.createBackgroundElements();
 
-    // 6. Entidad Célula Bacteriana
-    this.cellGroup = new THREE.Group();
-    this.createBacterialCell();
-    this.scene.add(this.cellGroup);
+    // 6. Inicialización de Física e Hidrodinámica
+    this.initPhysics();
 
-    // 7. Eventos de Ventana y Mouse
+    // 7. Eventos de Ventana y Ratón
     window.addEventListener('resize', this.onResize.bind(this));
     window.addEventListener('mousemove', this.onMouseMove.bind(this));
-
-    // 8. Inicialización de Rapier2D WASM
-    this.initPhysics();
   }
 
   private setupLighting(): void {
-    const ambientLight = new THREE.AmbientLight(0x1a2e35, 1.5);
+    const ambientLight = new THREE.AmbientLight(0x2a3b4c, 2.5);
     this.scene.add(ambientLight);
 
-    const rimLight = new THREE.DirectionalLight(0x10b981, 2.5);
-    rimLight.position.set(10, 20, 30);
+    const rimLight = new THREE.DirectionalLight(0x00ffcc, 4.5);
+    rimLight.position.set(12, 22, 30);
     this.scene.add(rimLight);
 
-    const warmFill = new THREE.PointLight(0xd97706, 1.8, 80);
-    warmFill.position.set(-15, -10, 15);
+    const warmFill = new THREE.PointLight(0xffa500, 3.5, 120);
+    warmFill.position.set(-18, -12, 25);
     this.scene.add(warmFill);
   }
 
-  private async initPhysics(): Promise<void> {
+  private initPhysics(): void {
     try {
-      const gravity = { x: 0.0, y: 0.0 };
-      // Compatibilidad con empaquetadores ESM / Vite
-      const WorldClass = RAPIER.World || (RAPIER as unknown as { default?: { World?: typeof RAPIER.World } }).default?.World;
-      if (WorldClass) {
-        this.rapierWorld = new WorldClass(gravity);
-        this.isWasmReady = true;
-        console.log('✅ Rapier2D WASM inicializado con éxito a 60Hz');
-      } else {
-        console.warn('⚠️ World class no encontrada directamente en RAPIER');
-      }
+      this.physicsWorld = new PhysicsWorld();
+      this.hydroSystem = new HydrodynamicsSystem();
+      this.player = new Player(this.physicsWorld, this.scene);
+      this.isWasmReady = true;
+      console.log('✅ Rapier2D WASM e Hidrodinámica inicializados a 60 Hz');
     } catch (err) {
-      console.error('Error inicializando Rapier2D:', err);
-    }
-  }
-
-  private createBacterialCell(): void {
-    // Membrana Externa Lipídica (Verde Esmeralda de Alto Contraste)
-    const membraneGeo = new THREE.CapsuleGeometry(1.2, 2.4, 16, 32);
-    const membraneMat = new THREE.MeshStandardMaterial({
-      color: 0x00ff88,
-      emissive: 0x059669,
-      emissiveIntensity: 1.0,
-      roughness: 0.1,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.9,
-    });
-    const membrane = new THREE.Mesh(membraneGeo, membraneMat);
-    membrane.rotation.z = Math.PI / 2;
-    this.cellGroup.add(membrane);
-
-    // Citoplasma Interno y Núcleo (Cian Eléctrico Brillante)
-    const coreGeo = new THREE.SphereGeometry(0.8, 16, 16);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
-      transparent: true,
-      opacity: 0.95,
-    });
-    const core = new THREE.Mesh(coreGeo, coreMat);
-    this.cellGroup.add(core);
-
-    // Orgánulos / Vacuolas de ATP internas (Oro Puro Brillante)
-    for (let i = 0; i < 4; i++) {
-      const vacGeo = new THREE.SphereGeometry(0.3, 12, 12);
-      const vacMat = new THREE.MeshBasicMaterial({
-        color: 0xffd700,
-        transparent: true,
-        opacity: 1.0,
-      });
-      const vac = new THREE.Mesh(vacGeo, vacMat);
-      vac.position.set((Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 0.8, 0.2);
-      this.cellGroup.add(vac);
-    }
-
-    // Flagelos Sinusoidales Ondulantes (Cian Neón de Alta Visibilidad)
-    for (let i = -1; i <= 1; i++) {
-      const curvePoints: THREE.Vector3[] = [];
-      for (let j = 0; j < 25; j++) {
-        curvePoints.push(new THREE.Vector3(-1.8 - j * 0.2, i * 0.4, 0));
-      }
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
-      const lineMat = new THREE.LineBasicMaterial({
-        color: i === 0 ? 0x00ffcc : 0x00e5ff,
-        linewidth: 3,
-        transparent: true,
-        opacity: 1.0,
-      });
-      const flagellum = new THREE.Line(lineGeo, lineMat);
-      this.flagellaCurves.push(flagellum);
-      this.cellGroup.add(flagellum);
+      console.error('Error inicializando Rapier2D / Player:', err);
     }
   }
 
@@ -206,7 +135,7 @@ export class Stage0 {
       this.erythrocyteGroup.add(rbc);
     }
 
-    // 2. Gránulos de Glucógeno y Nutrientes (Gemas Doradas de Alto Brillo)
+    // 2. Gránulos de Glucógeno y Nutrientes (Gemas Doradas Brillantes)
     const nutGeo = new THREE.DodecahedronGeometry(0.35);
     const nutMat = new THREE.MeshStandardMaterial({
       color: 0xffc107,
@@ -240,91 +169,56 @@ export class Stage0 {
     this.mouseScreen.x = (e.clientX / window.innerWidth) * 2 - 1;
     this.mouseScreen.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
-    // Convertir de pantalla a coordenadas mundiales
+    // Convertir a coordenadas mundiales Three.js
     const vector = new THREE.Vector3(this.mouseScreen.x, this.mouseScreen.y, 0);
     vector.unproject(this.camera);
     this.mouseWorld.set(vector.x, vector.y);
+
+    if (this.player) {
+      this.player.mouseWorld.copy(this.mouseWorld);
+    }
   }
 
   public update(): void {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     const time = this.clock.getElapsedTime();
 
-    // 1. Simulación de Rapier2D WASM (Tick a 60Hz)
-    if (this.rapierWorld) {
-      this.rapierWorld.step();
+    // 1. Simulación Física Determinista Rapier2D a 60 Hz con Hidrodinámica
+    if (this.isWasmReady && this.physicsWorld && this.player) {
+      this.physicsWorld.step(dt, (fixedDt) => {
+        this.player.physicsUpdate(fixedDt, this.hydroSystem);
+      });
+
+      // 2. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
+      this.player.visualUpdate(dt, time);
+
+      // 3. Seguimiento Suave de la Cámara al Jugador (Smooth Follow)
+      const playerPos = this.player.body.translation();
+      this.camera.position.x += (playerPos.x - this.camera.position.x) * Math.min(dt * 3.0, 1.0);
+      this.camera.position.y += (playerPos.y - this.camera.position.y) * Math.min(dt * 3.0, 1.0);
     }
 
-    // 2. Hidrodinámica y Amortiguamiento Viscoso (F_drag = 0.5 * rho * Cd * A * v^2)
-    const toMouse = new THREE.Vector2().subVectors(this.mouseWorld, this.cellPosition);
-    const dist = toMouse.length();
-
-    if (dist > 0.5) {
-      // Fuerza de empuje proporcional a la distancia con límite máximo
-      const thrustStrength = Math.min(dist * 6.0, 35.0);
-      const thrustDir = toMouse.clone().normalize();
-      const thrustForce = thrustDir.multiplyScalar(thrustStrength);
-
-      // Integración de aceleración
-      this.cellVelocity.add(thrustForce.multiplyScalar(dt));
-
-      // Rotación suave hacia el objetivo
-      const targetAngle = Math.atan2(toMouse.y, toMouse.x);
-      let angleDiff = targetAngle - this.cellAngle;
-      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-      this.cellAngle += angleDiff * Math.min(dt * 8.0, 1.0);
-    }
-
-    // Resistencia viscosa del fluido (Drag)
-    const speed = this.cellVelocity.length();
-    if (speed > 0.001) {
-      const rho = 1.05; // Densidad capilar
-      const cd = 0.8;   // Coeficiente de arrastre bacilo
-      const dragMag = 0.5 * rho * cd * speed * speed + speed * 2.5; // Drag cuadrático + laminar
-      const dragForce = this.cellVelocity.clone().normalize().multiplyScalar(-dragMag);
-      this.cellVelocity.add(dragForce.multiplyScalar(dt));
-    }
-
-    // Actualizar posición de la célula
-    this.cellPosition.add(this.cellVelocity.clone().multiplyScalar(dt));
-    this.cellGroup.position.set(this.cellPosition.x, this.cellPosition.y, 0);
-    this.cellGroup.rotation.z = this.cellAngle;
-
-    // 3. Animación Ondulante de Flagelos (Ecuación Sinusoidal en Vértices)
-    this.flagellaCurves.forEach((flagellum, idx) => {
-      const positions = flagellum.geometry.attributes.position as THREE.BufferAttribute;
-      const count = positions.count;
-      const waveSpeed = 8.0;
-
-      for (let j = 0; j < count; j++) {
-        const xDist = j * 0.15;
-        const wave = Math.sin(time * waveSpeed - xDist * 2.0 + idx) * (xDist * 0.25);
-        positions.setY(j, (idx - 1) * 0.35 + wave);
-      }
-      positions.needsUpdate = true;
-    });
-
-    // 4. Deriva Suave de Glóbulos Rojos y Nutrientes en Segundo Plano
+    // 4. Deriva Suave de Glóbulos Rojos y Nutrientes
     this.erythrocyteGroup.children.forEach((rbc, idx) => {
-      rbc.position.x += Math.sin(time * 0.5 + idx) * 0.02;
-      rbc.rotation.x += 0.003;
-      rbc.rotation.y += 0.005;
+      rbc.position.x += Math.sin(time * 0.4 + idx) * 0.015;
+      rbc.rotation.x += 0.004;
+      rbc.rotation.y += 0.006;
     });
 
     this.particlesGroup.children.forEach((nutrient, idx) => {
-      nutrient.rotation.y += 0.02;
-      nutrient.position.y += Math.sin(time * 1.2 + idx) * 0.01;
+      nutrient.rotation.y += 0.03;
+      nutrient.position.y += Math.sin(time * 1.5 + idx) * 0.01;
     });
 
-    // 5. Medición de Telemetría (FPS)
+    // 5. Telemetría y Estadísticas
     this.frameCount++;
-    if (time - this.lastFpsUpdate >= 0.5) {
-      this.currentFps = Math.round((this.frameCount / (time - this.lastFpsUpdate)));
+    if (time - this.lastFpsUpdate >= 0.35) {
+      this.currentFps = Math.round(this.frameCount / (time - this.lastFpsUpdate));
       this.frameCount = 0;
       this.lastFpsUpdate = time;
 
       if (this.onTelemetryUpdate) {
+        const speed = this.player ? this.player.getSpeed() : 0;
         this.onTelemetryUpdate({
           fps: this.currentFps,
           wasmReady: this.isWasmReady,
@@ -334,7 +228,7 @@ export class Stage0 {
       }
     }
 
-    // 6. Render
+    // 6. Renderizado de la Escena
     this.renderer.render(this.scene, this.camera);
   }
 }
