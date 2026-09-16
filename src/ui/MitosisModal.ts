@@ -1,5 +1,5 @@
 import { EvolutionSystem } from '../systems/EvolutionSystem';
-import { BacteriaSpecies, SPECIES_CATALOG, MutationTree, CellRole } from '../data/MutationTree';
+import { BacteriaSpecies, SPECIES_CATALOG, CellRole } from '../data/MutationTree';
 import { Player } from '../entities/Player';
 
 export class MitosisModal {
@@ -10,23 +10,25 @@ export class MitosisModal {
   public onMitosisNotReady?: (current: number, cap: number) => void;
 
   private selectedSpeciesId: string;
+  private currentRootId: string;
 
   constructor(evolutionSystem: EvolutionSystem, player: Player) {
     this.evolutionSystem = evolutionSystem;
     this.player = player;
     this.selectedSpeciesId = player.currentSpecies.id;
+    this.currentRootId = player.currentSpecies.id;
 
     this.modalContainer = document.createElement('div');
     this.modalContainer.id = 'mitosis-modal-overlay';
     this.modalContainer.className = 'modal-overlay hidden';
     document.body.appendChild(this.modalContainer);
 
-    // Detener propagación de eventos para aislar la UI del canvas
+    // Detener propagación de eventos para que no afecten al juego
     this.modalContainer.addEventListener('mousedown', (e) => e.stopPropagation());
     this.modalContainer.addEventListener('mouseup', (e) => e.stopPropagation());
     this.modalContainer.addEventListener('click', (e) => e.stopPropagation());
 
-    // Eventos de teclado
+    // Atajos de teclado (Escape y M para cerrar/abrir)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isOpen) {
         this.close();
@@ -53,7 +55,9 @@ export class MitosisModal {
     this.player.isSprintRequested = false;
     this.modalContainer.classList.remove('hidden');
 
+    this.currentRootId = this.player.currentSpecies.id;
     const available = this.evolutionSystem.getAvailableEvolutions();
+
     if (forceSelectedId) {
       this.selectedSpeciesId = forceSelectedId;
     } else if (available.length > 0 && this.evolutionSystem.canMitosis()) {
@@ -63,7 +67,7 @@ export class MitosisModal {
     }
 
     this.render();
-    setTimeout(() => this.drawConnectionLines(), 40);
+    requestAnimationFrame(() => this.drawConnectionLines());
   }
 
   public close(): void {
@@ -74,39 +78,68 @@ export class MitosisModal {
     this.modalContainer.classList.add('hidden');
   }
 
+  /**
+   * Obtiene la estructura en capas de la pirámide partiendo de la célula actual en la base
+   */
+  private getPyramidLayers(rootSpecies: BacteriaSpecies): Record<number, BacteriaSpecies[]> {
+    const layers: Record<number, BacteriaSpecies[]> = {};
+    const rootTier = rootSpecies.tier;
+
+    // Piso 0 (Base inferior): La célula raíz (actual)
+    layers[rootTier] = [rootSpecies];
+
+    // Pisos superiores (Arriba): Hijos directos y descendientes
+    for (let t = rootTier + 1; t <= 5; t++) {
+      const prevNodes = layers[t - 1] || [];
+      const prevIds = new Set(prevNodes.map((n) => n.id));
+      const currentTierNodes = Object.values(SPECIES_CATALOG).filter(
+        (sp) => sp.tier === t && sp.parentIds.some((pId) => prevIds.has(pId))
+      );
+      layers[t] = currentTierNodes;
+    }
+
+    return layers;
+  }
+
   private render(): void {
     const current = this.player.currentSpecies;
+    const rootSpecies = SPECIES_CATALOG[this.currentRootId] || current;
     const canMitosis = this.evolutionSystem.canMitosis();
     const availableEvolutions = this.evolutionSystem.getAvailableEvolutions();
     const availableIds = new Set(availableEvolutions.map((sp) => sp.id));
-    const allTiers = MutationTree.getAllTiers();
     const currentAtp = Math.round(this.evolutionSystem.vacuoleManager.atp);
     const atpCap = this.evolutionSystem.vacuoleManager.atpCapacity;
 
     const selectedSpecies = SPECIES_CATALOG[this.selectedSpeciesId] || current;
+    const pyramidLayers = this.getPyramidLayers(rootSpecies);
 
-    // Generar columnas del Árbol (Tiers 1 a 5)
-    let columnsHtml = '';
-    const tierLabels = [
-      { num: 1, title: 'TIER 1 (2 Células)' },
-      { num: 2, title: 'TIER 2 (4 Células)' },
-      { num: 3, title: 'TIER 3 (8 Células)' },
-      { num: 4, title: 'TIER 4 (10 Células)' },
-      { num: 5, title: 'TIER 5 (5 Macro Titanes)' },
-    ];
+    // Obtener los tiers ordenados de menor a mayor (Base abajo -> Cúspide arriba)
+    const tierNumbers = Object.keys(pyramidLayers)
+      .map(Number)
+      .sort((a, b) => a - b);
 
-    tierLabels.forEach(({ num, title }) => {
-      const speciesList = allTiers[num] || [];
+    // Construir los pisos de la pirámide de abajo hacia arriba
+    let pyramidRowsHtml = '';
+    tierNumbers.forEach((tierNum) => {
+      const nodes = pyramidLayers[tierNum] || [];
+      const isBase = tierNum === rootSpecies.tier;
+      const isNext = tierNum === rootSpecies.tier + 1;
+      const isApex = tierNum === 5;
+
+      let rowLabel = `NIVEL ${tierNum}`;
+      if (isBase) rowLabel = `📍 BASE: CÉLULA ACTUAL`;
+      else if (isNext) rowLabel = `🧬 MITOSIS INMEDIATA (MUTAR)`;
+      else if (isApex) rowLabel = `👑 CÚSPIDE: SUPER MACRO TITANES`;
+
       let nodesHtml = '';
-
-      speciesList.forEach((sp) => {
+      nodes.forEach((sp) => {
         const isCurrent = sp.id === current.id;
         const isAvailable = availableIds.has(sp.id);
         const isSelected = sp.id === selectedSpecies.id;
         const roleClass = this.getRoleClass(sp.role);
 
         let stateClass = 'node-locked';
-        let badgeText = `T${sp.tier}`;
+        let badgeText = `Tier ${sp.tier}`;
 
         if (isCurrent) {
           stateClass = 'node-current';
@@ -116,137 +149,160 @@ export class MitosisModal {
           badgeText = '¡MUTAR!';
         } else if (isAvailable) {
           stateClass = 'node-unlocked-pending';
-          badgeText = 'SIGUIENTE';
+          badgeText = 'DISPONIBLE';
+        } else if (isApex) {
+          stateClass = 'node-apex';
+          badgeText = 'TITÁN';
         }
 
         nodesHtml += `
           <div 
-            id="tree-node-${sp.id}"
-            class="tree-node ${stateClass} ${isSelected ? 'node-selected' : ''} ${roleClass}"
+            id="pyramid-node-${sp.id}"
+            class="pyramid-node ${stateClass} ${isSelected ? 'node-selected' : ''} ${roleClass}"
             data-species-id="${sp.id}"
           >
-            <div class="node-header">
-              <span class="node-role-icon">${sp.icon}</span>
-              <span class="node-tier-badge">${badgeText}</span>
+            <div class="p-node-header">
+              <span class="p-node-icon">${sp.icon}</span>
+              <span class="p-node-badge">${badgeText}</span>
             </div>
-            <div class="node-name">${sp.name}</div>
-            <div class="node-archetype">${sp.archetype}</div>
+            <div class="p-node-name">${sp.name}</div>
+            <div class="p-node-archetype">${sp.archetype}</div>
             ${
               isAvailable && canMitosis
-                ? `<div class="node-action-glow">Evolucionar</div>`
+                ? `<div class="p-node-action">🧬 Mutar</div>`
                 : ''
             }
           </div>
         `;
       });
 
-      columnsHtml += `
-        <div class="tree-tier-column" data-tier="${num}">
-          <div class="tier-column-header">
-            <span class="tier-num-pill">Nivel ${num}</span>
-            <span class="tier-subtitle">${title}</span>
-          </div>
-          <div class="tier-nodes-stack">
+      pyramidRowsHtml += `
+        <div class="pyramid-floor ${isBase ? 'floor-base' : ''} ${isNext ? 'floor-next' : ''} ${isApex ? 'floor-apex' : ''}" data-tier="${tierNum}">
+          <div class="floor-tag">${rowLabel}</div>
+          <div class="floor-nodes-row">
             ${nodesHtml}
           </div>
         </div>
       `;
     });
 
-    // Panel de Inspección de la Especie Seleccionada
+    // Si está en Tier 1, ofrecer selector de linaje para comparar el otro inicio
+    let branchSwitcherHtml = '';
+    if (current.tier === 1) {
+      const isMicro = rootSpecies.id === 'micrococcus';
+      branchSwitcherHtml = `
+        <div class="branch-switcher">
+          <span class="switcher-label">Linaje Base:</span>
+          <button class="switch-btn ${isMicro ? 'active' : ''}" data-root="micrococcus">
+            ⚡ Rama Micrococcus (Ágil)
+          </button>
+          <button class="switch-btn ${!isMicro ? 'active' : ''}" data-root="bacillus_primus">
+            🛡️ Rama Bacillus (Tanque)
+          </button>
+        </div>
+      `;
+    }
+
+    // Panel de Inspección Lateral
     const inspectorHtml = this.renderInspector(selectedSpecies, current, canMitosis, availableIds);
 
     this.modalContainer.innerHTML = `
-      <div class="tree-modal-window">
-        <!-- Encabezado del Árbol de Evolución -->
-        <div class="tree-header">
-          <div class="tree-title-group">
-            <div class="tree-title-row">
-              <span class="tree-main-title">🧬 ÁRBOL TAXONÓMICO DE EVOLUCIÓN CELULAR</span>
-              <span class="starblast-badge">Estilo Starblast.io</span>
-            </div>
-            <div class="tree-status-sub">
-              Célula Actual: <b style="color: #38bdf8;">${current.name} (Tier ${current.tier})</b>
-              &nbsp;•&nbsp; 
-              Vacuola ATP: <b style="color: ${canMitosis ? '#10b981' : '#f59e0b'};">${currentAtp} / ${atpCap} ATP (${Math.round((currentAtp / atpCap) * 100)}%)</b>
-              ${
-                canMitosis
-                  ? ' &nbsp;•&nbsp; <span class="mitosis-ready-pill">¡MITOSIS LISTA! Elige tu mutación</span>'
-                  : ' &nbsp;•&nbsp; <span class="mitosis-locked-pill">Llena la vacuola al 100% para mutar</span>'
-              }
-            </div>
+      <div class="pyramid-modal-window">
+        <!-- Barra Superior Compacta -->
+        <div class="pyramid-header">
+          <div class="header-left">
+            <span class="header-title">🧬 PIRÁMIDE EVOLUTIVA ASCENDENTE</span>
+            <span class="header-badge">Proyección de Abajo hacia Arriba</span>
           </div>
-          <button id="close-tree-btn" class="tree-close-btn">&times;</button>
+          <div class="header-center">
+            <span class="cell-status-label">Célula: <b>${current.name}</b></span>
+            <span class="atp-status-pill ${canMitosis ? 'ready' : 'pending'}">
+              ⚡ ${currentAtp} / ${atpCap} ATP (${Math.round((currentAtp / atpCap) * 100)}%)
+              ${canMitosis ? ' • ¡MITOSIS LISTA!' : ''}
+            </span>
+          </div>
+          <button id="close-pyramid-btn" class="pyramid-close-btn">&times;</button>
         </div>
 
-        <!-- Cuerpo con Árbol SVG y Panel de Inspección Lateral -->
-        <div class="tree-body-layout">
-          <div class="tree-scroll-container" id="tree-scroll-viewport">
-            <svg id="tree-connections-svg" class="tree-svg-layer"></svg>
-            <div class="tree-columns-grid">
-              ${columnsHtml}
+        <!-- Área Central: Pirámide Ascendente + Inspector -->
+        <div class="pyramid-content">
+          <!-- Lienzo de la Pirámide -->
+          <div class="pyramid-canvas-area" id="pyramid-canvas-viewport">
+            <svg id="pyramid-svg-layer" class="pyramid-svg-lines"></svg>
+            
+            <div class="pyramid-stack">
+              ${pyramidRowsHtml}
             </div>
+
+            ${branchSwitcherHtml}
           </div>
 
-          <!-- Panel de Inspección Lateral -->
-          <div class="tree-inspector-panel">
+          <!-- Inspector Lateral Compacto -->
+          <div class="pyramid-inspector-dock">
             ${inspectorHtml}
           </div>
         </div>
 
-        <!-- Leyenda de Roles en la Barra Inferior -->
-        <div class="tree-footer-legend">
-          <div class="legend-item"><span class="legend-icon">⚡</span> <b>Interceptor:</b> Velocidad punta y agilidad</div>
-          <div class="legend-item"><span class="legend-icon">🛡️</span> <b>Acorazado:</b> Membrana pesada y escudo</div>
-          <div class="legend-item"><span class="legend-icon">⚔️</span> <b>Depredador Lítico:</b> Daño de sprint y lisis</div>
-          <div class="legend-item"><span class="legend-icon">🔋</span> <b>Asimilador:</b> Vacuola gigante y absorción</div>
-          <div class="legend-item"><span class="legend-icon">👑</span> <b>Titán:</b> Super macro célula de Tier 5</div>
+        <!-- Barra Inferior de Roles -->
+        <div class="pyramid-footer">
+          <div class="role-pill"><span>⚡</span> Interceptor</div>
+          <div class="role-pill"><span>🛡️</span> Acorazado</div>
+          <div class="role-pill"><span>⚔️</span> Depredador Lítico</div>
+          <div class="role-pill"><span>🔋</span> Asimilador</div>
+          <div class="role-pill"><span>👑</span> Titán Nivel 5</div>
         </div>
       </div>
     `;
 
-    // Asignar listeners
-    const closeBtn = document.getElementById('close-tree-btn');
+    // Listeners
+    const closeBtn = document.getElementById('close-pyramid-btn');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => this.close());
     }
 
-    // Clic en los nodos del árbol para inspeccionar
-    const nodeEls = this.modalContainer.querySelectorAll('.tree-node');
-    nodeEls.forEach((el) => {
-      el.addEventListener('click', (e) => {
+    // Clic en los nodos para inspeccionar
+    const nodes = this.modalContainer.querySelectorAll('.pyramid-node');
+    nodes.forEach((n) => {
+      n.addEventListener('click', (e) => {
         e.stopPropagation();
-        const speciesId = (e.currentTarget as HTMLElement).getAttribute('data-species-id');
-        if (speciesId) {
-          this.selectedSpeciesId = speciesId;
+        const id = (e.currentTarget as HTMLElement).getAttribute('data-species-id');
+        if (id) {
+          this.selectedSpeciesId = id;
           this.render();
-          this.drawConnectionLines();
+          requestAnimationFrame(() => this.drawConnectionLines());
         }
       });
     });
 
-    // Botón de Evolución en el Inspector
-    const evolveActionBtn = document.getElementById('inspector-evolve-btn');
-    if (evolveActionBtn) {
-      evolveActionBtn.addEventListener('click', (e) => {
+    // Selector de linajes si está en Tier 1
+    const switchBtns = this.modalContainer.querySelectorAll('.switch-btn');
+    switchBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const root = (e.currentTarget as HTMLElement).getAttribute('data-root');
+        if (root) {
+          this.currentRootId = root;
+          this.selectedSpeciesId = root;
+          this.render();
+          requestAnimationFrame(() => this.drawConnectionLines());
+        }
+      });
+    });
+
+    // Botón de mutar en el inspector
+    const mutateBtn = document.getElementById('inspector-mutate-btn');
+    if (mutateBtn) {
+      mutateBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const targetSpecies = SPECIES_CATALOG[this.selectedSpeciesId];
-        if (targetSpecies && this.evolutionSystem.canMitosis()) {
-          const success = this.evolutionSystem.evolve(targetSpecies);
+        const target = SPECIES_CATALOG[this.selectedSpeciesId];
+        if (target && this.evolutionSystem.canMitosis()) {
+          const success = this.evolutionSystem.evolve(target);
           if (success) {
             this.close();
           }
         }
       });
-    }
-
-    // Scroll para enfocar la célula actual o seleccionada
-    const selectedEl = document.getElementById(`tree-node-${this.selectedSpeciesId}`);
-    const viewport = document.getElementById('tree-scroll-viewport');
-    if (selectedEl && viewport) {
-      const offset = selectedEl.offsetLeft - viewport.clientWidth / 2 + selectedEl.clientWidth / 2;
-      viewport.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' });
     }
   }
 
@@ -267,127 +323,131 @@ export class MitosisModal {
     let actionBtnHtml = '';
     if (isCurrent) {
       actionBtnHtml = `
-        <div class="inspector-status-badge current-status">
-          ✓ Esta es tu célula actual
+        <div class="insp-status-badge current">
+          ✓ Esta es tu célula activa (Base)
         </div>
       `;
     } else if (isAvailable && canMitosis) {
       actionBtnHtml = `
-        <button id="inspector-evolve-btn" class="inspector-evolve-btn ready">
+        <button id="inspector-mutate-btn" class="insp-mutate-btn active-btn">
           🧬 Mutar en ${selected.name}
         </button>
       `;
     } else if (isAvailable && !canMitosis) {
-      const currentAtp = Math.round(this.evolutionSystem.vacuoleManager.atp);
+      const atp = Math.round(this.evolutionSystem.vacuoleManager.atp);
       const cap = this.evolutionSystem.vacuoleManager.atpCapacity;
       actionBtnHtml = `
-        <div class="inspector-status-badge locked-status">
-          ⚠️ Requiere Vacuola al 100% (${currentAtp} / ${cap} ATP)
+        <div class="insp-status-badge locked">
+          ⚠️ Requiere Vacuola al 100% (${atp}/${cap} ATP)
         </div>
       `;
     } else {
       const parentNames = selected.parentIds.map((pId) => SPECIES_CATALOG[pId]?.name || pId).join(', ');
       actionBtnHtml = `
-        <div class="inspector-status-badge future-status">
-          🔒 Bloqueado • Evoluciona antes desde: <b>${parentNames || 'Tier anterior'}</b>
+        <div class="insp-status-badge future">
+          🔒 Proyección futura • Vía: <b>${parentNames || 'Nivel inferior'}</b>
         </div>
       `;
     }
 
     return `
-      <div class="inspector-card">
-        <div class="inspector-header">
-          <div class="inspector-role-badge ${this.getRoleClass(selected.role)}">
-            <span>${selected.icon}</span>
-            <span>Tier ${selected.tier} • ${selected.role}</span>
-          </div>
-          <h2 class="inspector-name">${selected.name}</h2>
-          <div class="inspector-archetype">${selected.archetype}</div>
-        </div>
-
-        <p class="inspector-desc">${selected.description}</p>
-
-        <div class="inspector-stats-table">
-          <div class="stat-heading">📊 Estadísticas Comparativas</div>
-          <div class="stat-row">
-            <span>HP Membrana:</span>
-            <span class="stat-val ${hpDiff >= 0 ? 'good' : 'bad'}">${selected.hp} (${hpDiff >= 0 ? '+' : ''}${hpDiff})</span>
-          </div>
-          <div class="stat-row">
-            <span>Presión Osmótica (Escudo):</span>
-            <span class="stat-val ${shieldDiff >= 0 ? 'good' : 'bad'}">${selected.shield} (${shieldDiff >= 0 ? '+' : ''}${shieldDiff})</span>
-          </div>
-          <div class="stat-row">
-            <span>Velocidad Terminal:</span>
-            <span class="stat-val ${Number(speedDiff) >= 0 ? 'good' : 'bad'}">${selected.maxSpeed} u/s (${Number(speedDiff) >= 0 ? '+' : ''}${speedDiff})</span>
-          </div>
-          <div class="stat-row">
-            <span>Masa Inercial:</span>
-            <span class="stat-val">${selected.mass} μg (${Number(massDiff) >= 0 ? '+' : ''}${massDiff})</span>
-          </div>
-          <div class="stat-row">
-            <span>Capacidad Vacuola ATP:</span>
-            <span class="stat-val good">${selected.vacuoleCapacity} ATP (${vacuoleDiff >= 0 ? '+' : ''}${vacuoleDiff})</span>
-          </div>
-          <div class="stat-row">
-            <span>Ranuras de Organelos:</span>
-            <span class="stat-val good">${selected.sockets.length} Sockets</span>
+      <div class="insp-card">
+        <div class="insp-top">
+          <span class="insp-icon">${selected.icon}</span>
+          <div class="insp-title-box">
+            <span class="insp-tag ${this.getRoleClass(selected.role)}">Tier ${selected.tier} • ${selected.role}</span>
+            <h3 class="insp-name">${selected.name}</h3>
+            <span class="insp-archetype">${selected.archetype}</span>
           </div>
         </div>
 
-        <div class="inspector-footer">
+        <p class="insp-desc">${selected.description}</p>
+
+        <div class="insp-stats-grid">
+          <div class="stat-cell">
+            <span class="stat-lbl">HP Membrana</span>
+            <span class="stat-num ${hpDiff >= 0 ? 'good' : 'bad'}">${selected.hp} (${hpDiff >= 0 ? '+' : ''}${hpDiff})</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-lbl">Escudo Osmótico</span>
+            <span class="stat-num ${shieldDiff >= 0 ? 'good' : 'bad'}">${selected.shield} (${shieldDiff >= 0 ? '+' : ''}${shieldDiff})</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-lbl">Velocidad Punta</span>
+            <span class="stat-num ${Number(speedDiff) >= 0 ? 'good' : 'bad'}">${selected.maxSpeed} u/s</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-lbl">Masa Celular</span>
+            <span class="stat-num ${Number(massDiff) >= 0 ? 'good' : 'bad'}">${selected.mass} μg (${Number(massDiff) >= 0 ? '+' : ''}${massDiff})</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-lbl">Vacuola ATP</span>
+            <span class="stat-num ${vacuoleDiff >= 0 ? 'good' : 'bad'}">${selected.vacuoleCapacity} ATP (${vacuoleDiff >= 0 ? '+' : ''}${vacuoleDiff})</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-lbl">Organelos</span>
+            <span class="stat-num good">${selected.sockets.length} Sockets</span>
+          </div>
+        </div>
+
+        <div class="insp-action-box">
           ${actionBtnHtml}
         </div>
       </div>
     `;
   }
 
+  /**
+   * Dibuja los cables SVG que conectan a los padres (abajo) con sus hijos (arriba)
+   */
   private drawConnectionLines(): void {
-    const svg = document.getElementById('tree-connections-svg') as SVGSVGElement | null;
-    const viewport = document.getElementById('tree-scroll-viewport');
+    const svg = document.getElementById('pyramid-svg-layer') as SVGSVGElement | null;
+    const viewport = document.getElementById('pyramid-canvas-viewport');
     if (!svg || !viewport) return;
 
-    // Ajustar resolución interna del SVG al tamaño real de contenido del árbol
-    const scrollW = viewport.scrollWidth;
-    const scrollH = viewport.scrollHeight;
-    svg.setAttribute('width', `${scrollW}`);
-    svg.setAttribute('height', `${scrollH}`);
+    const vRect = viewport.getBoundingClientRect();
+    svg.setAttribute('width', `${viewport.clientWidth}`);
+    svg.setAttribute('height', `${viewport.clientHeight}`);
     svg.innerHTML = '';
 
     const current = this.player.currentSpecies;
-    const availableEvolutions = this.evolutionSystem.getAvailableEvolutions();
-    const availableIds = new Set(availableEvolutions.map((e) => e.id));
-    const ancestors = MutationTree.getAncestors(current.id);
+    const available = this.evolutionSystem.getAvailableEvolutions();
+    const availableIds = new Set(available.map((a) => a.id));
 
-    // Trazar una curva Bézier cúbica suave entre cada par Padre -> Hijo
-    Object.values(SPECIES_CATALOG).forEach((childSp) => {
-      const childNode = document.getElementById(`tree-node-${childSp.id}`);
-      if (!childNode) return;
+    // Conectar nodos visibles en la pirámide
+    const visibleNodes = viewport.querySelectorAll('.pyramid-node');
+    visibleNodes.forEach((childNode) => {
+      const childId = childNode.getAttribute('data-species-id');
+      if (!childId) return;
+
+      const childSp = SPECIES_CATALOG[childId];
+      if (!childSp) return;
 
       childSp.parentIds.forEach((parentId) => {
-        const parentNode = document.getElementById(`tree-node-${parentId}`);
+        const parentNode = document.getElementById(`pyramid-node-${parentId}`);
         if (!parentNode) return;
 
-        const parentX = parentNode.offsetLeft + parentNode.offsetWidth;
-        const parentY = parentNode.offsetTop + parentNode.offsetHeight / 2;
+        const pRect = parentNode.getBoundingClientRect();
+        const cRect = childNode.getBoundingClientRect();
 
-        const childX = childNode.offsetLeft;
-        const childY = childNode.offsetTop + childNode.offsetHeight / 2;
+        // Padre abajo (Top center del padre) -> Hijo arriba (Bottom center del hijo)
+        const startX = pRect.left + pRect.width / 2 - vRect.left;
+        const startY = pRect.top - vRect.top;
 
-        const dx = (childX - parentX) * 0.52;
-        const pathData = `M ${parentX} ${parentY} C ${parentX + dx} ${parentY}, ${childX - dx} ${childY}, ${childX} ${childY}`;
+        const endX = cRect.left + cRect.width / 2 - vRect.left;
+        const endY = cRect.bottom - vRect.top;
 
-        // Clasificar estilo del cable de conexión
-        let lineClass = 'tree-wire-inactive';
-        if (ancestors.has(parentId) && (ancestors.has(childSp.id) || childSp.id === current.id)) {
-          lineClass = 'tree-wire-ancestor';
-        } else if (parentId === current.id && availableIds.has(childSp.id)) {
-          lineClass = 'tree-wire-available';
+        const dy = (startY - endY) * 0.5;
+        const pathData = `M ${startX} ${startY} C ${startX} ${startY - dy}, ${endX} ${endY + dy}, ${endX} ${endY}`;
+
+        let wireClass = 'p-wire-future';
+        if (parentId === current.id && availableIds.has(childId)) {
+          wireClass = 'p-wire-active';
         }
 
         const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         pathEl.setAttribute('d', pathData);
-        pathEl.setAttribute('class', `tree-wire ${lineClass}`);
+        pathEl.setAttribute('class', `pyramid-wire ${wireClass}`);
         svg.appendChild(pathEl);
       });
     });

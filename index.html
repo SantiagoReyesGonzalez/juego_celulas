@@ -231,431 +231,500 @@
         to { opacity: 1; }
       }
 
-      /* Ventana Panorámica del Árbol */
-      .tree-modal-window {
-        background: #060b19;
+      /* ================= PIRÁMIDE EVOLUTIVA ASCENDENTE (DE ABAJO HACIA ARRIBA) ================= */
+      .pyramid-modal-window {
+        background: #060b18;
         border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(16, 185, 129, 0.15);
-        width: 95vw;
-        max-width: 1380px;
-        height: 88vh;
-        max-height: 860px;
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95), 0 0 35px rgba(16, 185, 129, 0.12);
+        width: min(94vw, 1140px);
+        height: min(86vh, 740px);
         display: flex;
         flex-direction: column;
         overflow: hidden;
         color: #f1f5f9;
-      }
-
-      /* Encabezado */
-      .tree-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 24px;
-        background: rgba(4, 7, 16, 0.95);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-      }
-      .tree-title-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .tree-title-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-      .tree-main-title {
-        font-size: 16px;
-        font-weight: 800;
-        color: #fbbf24;
-        letter-spacing: 0.6px;
-      }
-      .starblast-badge {
-        font-size: 10px;
-        font-weight: 700;
-        background: rgba(251, 191, 36, 0.15);
-        border: 1px solid rgba(251, 191, 36, 0.4);
-        color: #fef08a;
-        padding: 2px 8px;
-        border-radius: 12px;
-      }
-      .tree-status-sub {
-        font-size: 12px;
-        color: #94a3b8;
-      }
-      .mitosis-ready-pill {
-        color: #10b981;
-        font-weight: 800;
-        background: rgba(16, 185, 129, 0.2);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        padding: 2px 8px;
-        border-radius: 10px;
-      }
-      .mitosis-locked-pill {
-        color: #f59e0b;
-        font-size: 11px;
-      }
-      .tree-close-btn {
-        background: transparent;
-        border: none;
-        color: #94a3b8;
-        font-size: 28px;
-        cursor: pointer;
-        line-height: 1;
-        transition: color 0.15s;
-      }
-      .tree-close-btn:hover {
-        color: #ef4444;
-      }
-
-      /* Cuerpo del Árbol */
-      .tree-body-layout {
-        display: flex;
-        flex: 1;
-        overflow: hidden;
-        position: relative;
-      }
-      .tree-scroll-container {
-        flex: 1;
-        overflow: auto;
-        position: relative;
-        padding: 20px 24px;
-        background: radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.04), transparent 70%);
-      }
-      .tree-svg-layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        pointer-events: none;
-        z-index: 1;
-      }
-      .tree-columns-grid {
-        display: flex;
-        gap: 48px;
-        min-width: 980px;
-        position: relative;
-        z-index: 2;
-        padding-bottom: 20px;
-      }
-      .tree-tier-column {
-        display: flex;
-        flex-direction: column;
-        width: 160px;
-        flex-shrink: 0;
-      }
-      .tier-column-header {
-        text-align: center;
-        margin-bottom: 14px;
-      }
-      .tier-num-pill {
-        display: inline-block;
-        font-size: 11px;
-        font-weight: 800;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 12px;
-        padding: 2px 10px;
-        color: #38bdf8;
-        margin-bottom: 4px;
-      }
-      .tier-subtitle {
-        display: block;
-        font-size: 10px;
-        color: #64748b;
-      }
-      .tier-nodes-stack {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-around;
-        flex: 1;
-        gap: 12px;
-      }
-
-      /* Nodos del Árbol */
-      .tree-node {
-        background: rgba(10, 16, 32, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 10px;
-        padding: 8px 10px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        position: relative;
         user-select: none;
       }
-      .tree-node:hover {
-        transform: translateY(-2px) scale(1.02);
-        border-color: rgba(255, 255, 255, 0.3);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-      }
-      .node-header {
+
+      /* Barra Superior */
+      .pyramid-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 3px;
+        padding: 10px 20px;
+        background: rgba(3, 7, 16, 0.96);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
-      .node-role-icon {
-        font-size: 14px;
-      }
-      .node-tier-badge {
-        font-size: 9px;
-        font-weight: 700;
-        padding: 1px 5px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.08);
-        color: #94a3b8;
-      }
-      .node-name {
-        font-size: 12px;
-        font-weight: 800;
-        color: #ffffff;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .node-archetype {
-        font-size: 9.5px;
-        color: #94a3b8;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .node-action-glow {
-        margin-top: 5px;
-        text-align: center;
-        font-size: 10px;
-        font-weight: 800;
-        color: #ffffff;
-        background: linear-gradient(135deg, #059669, #10b981);
-        border-radius: 4px;
-        padding: 2px 0;
-        animation: pulseActionGlow 1.2s infinite alternate;
-      }
-      @keyframes pulseActionGlow {
-        from { opacity: 0.85; transform: scale(0.98); }
-        to { opacity: 1; transform: scale(1.02); }
-      }
-
-      /* Estados de los Nodos */
-      .tree-node.node-current {
-        border-color: #10b981;
-        background: rgba(16, 185, 129, 0.15);
-        box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
-      }
-      .tree-node.node-current .node-tier-badge {
-        background: #10b981;
-        color: #ffffff;
-        font-weight: 800;
-      }
-      .tree-node.node-available {
-        border-color: #fbbf24;
-        background: rgba(251, 191, 36, 0.15);
-        box-shadow: 0 0 18px rgba(251, 191, 36, 0.45);
-        animation: pulseAvailableNode 1.5s infinite alternate;
-      }
-      .tree-node.node-available .node-tier-badge {
-        background: #fbbf24;
-        color: #000000;
-        font-weight: 800;
-      }
-      @keyframes pulseAvailableNode {
-        from { box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); }
-        to { box-shadow: 0 0 22px rgba(251, 191, 36, 0.7); }
-      }
-      .tree-node.node-unlocked-pending {
-        border-color: rgba(56, 189, 248, 0.4);
-        background: rgba(56, 189, 248, 0.06);
-      }
-      .tree-node.node-selected {
-        outline: 2px solid #38bdf8;
-        outline-offset: 2px;
-      }
-      .tree-node.node-locked {
-        opacity: 0.55;
-      }
-      .tree-node.node-locked:hover {
-        opacity: 0.85;
-      }
-
-      /* Tematización de Roles */
-      .tree-node.role-interceptor .node-role-icon { color: #38bdf8; }
-      .tree-node.role-tank .node-role-icon { color: #3b82f6; }
-      .tree-node.role-predator .node-role-icon { color: #ef4444; }
-      .tree-node.role-harvester .node-role-icon { color: #f59e0b; }
-      .tree-node.role-titan {
-        border-color: rgba(251, 191, 36, 0.5);
-        background: radial-gradient(circle, rgba(251, 191, 36, 0.08), rgba(10, 16, 32, 0.95));
-      }
-      .tree-node.role-titan .node-name {
-        color: #fef08a;
-      }
-
-      /* Conexiones SVG */
-      .tree-wire {
-        fill: none;
-        transition: all 0.3s ease;
-      }
-      .tree-wire.tree-wire-inactive {
-        stroke: rgba(255, 255, 255, 0.12);
-        stroke-width: 1.5;
-        stroke-dasharray: 4 4;
-      }
-      .tree-wire.tree-wire-ancestor {
-        stroke: #10b981;
-        stroke-width: 2.5;
-        stroke-dasharray: none;
-        filter: drop-shadow(0 0 4px #10b981);
-      }
-      .tree-wire.tree-wire-available {
-        stroke: #fbbf24;
-        stroke-width: 3.0;
-        stroke-dasharray: none;
-        filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8));
-      }
-
-      /* Panel de Inspección Lateral */
-      .tree-inspector-panel {
-        width: 330px;
-        flex-shrink: 0;
-        background: rgba(4, 7, 18, 0.92);
-        border-left: 1px solid rgba(255, 255, 255, 0.10);
-        padding: 20px;
-        overflow-y: auto;
+      .header-left {
         display: flex;
-        flex-direction: column;
-      }
-      .inspector-card {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-      }
-      .inspector-role-badge {
-        display: inline-flex;
         align-items: center;
-        gap: 6px;
-        font-size: 10.5px;
+        gap: 10px;
+      }
+      .header-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: #fbbf24;
+        letter-spacing: 0.5px;
+      }
+      .header-badge {
+        font-size: 9.5px;
         font-weight: 700;
-        text-transform: uppercase;
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 6px;
-        padding: 3px 8px;
-        margin-bottom: 8px;
+        background: rgba(16, 185, 129, 0.18);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #34d399;
+        padding: 2px 7px;
+        border-radius: 10px;
+      }
+      .header-center {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11.5px;
+        color: #94a3b8;
+      }
+      .cell-status-label b {
         color: #38bdf8;
       }
-      .inspector-role-badge.role-titan {
-        background: rgba(251, 191, 36, 0.15);
-        color: #fbbf24;
-        border: 1px solid rgba(251, 191, 36, 0.4);
-      }
-      .inspector-name {
-        font-size: 18px;
-        font-weight: 800;
-        color: #ffffff;
-        margin: 0 0 4px 0;
-      }
-      .inspector-archetype {
-        font-size: 12px;
-        color: #fbbf24;
-        font-weight: 700;
-        margin-bottom: 12px;
-      }
-      .inspector-desc {
-        font-size: 12px;
-        line-height: 1.55;
-        color: #94a3b8;
-        margin-bottom: 16px;
-      }
-      .inspector-stats-table {
-        background: rgba(0, 0, 0, 0.35);
+      .atp-status-pill {
+        padding: 2px 8px;
         border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-      }
-      .stat-heading {
-        font-size: 11px;
-        font-weight: 800;
-        color: #64748b;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-      }
-      .stat-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 5px;
-        font-size: 12px;
-      }
-      .stat-val.good {
-        color: #10b981;
         font-weight: 700;
       }
-      .stat-val.bad {
-        color: #f59e0b;
-        font-weight: 700;
-      }
-      .inspector-footer {
-        margin-top: auto;
-      }
-      .inspector-evolve-btn {
-        width: 100%;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        font-size: 13px;
-        font-weight: 800;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      .inspector-evolve-btn.ready {
-        background: linear-gradient(135deg, #d97706, #fbbf24);
-        color: #000000;
-        box-shadow: 0 4px 20px rgba(251, 191, 36, 0.5);
-      }
-      .inspector-evolve-btn.ready:hover {
-        background: linear-gradient(135deg, #b45309, #d97706);
-        color: #ffffff;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 25px rgba(251, 191, 36, 0.8);
-      }
-      .inspector-status-badge {
-        text-align: center;
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 600;
-      }
-      .current-status {
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.4);
+      .atp-status-pill.ready {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.5);
         color: #10b981;
       }
-      .locked-status {
+      .atp-status-pill.pending {
         background: rgba(245, 158, 11, 0.15);
         border: 1px solid rgba(245, 158, 11, 0.4);
         color: #f59e0b;
       }
-      .future-status {
+      .pyramid-close-btn {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 26px;
+        cursor: pointer;
+        line-height: 1;
+        transition: color 0.15s;
+      }
+      .pyramid-close-btn:hover {
+        color: #ef4444;
+      }
+
+      /* Contenido Central: Lienzo Piramidal + Inspector */
+      .pyramid-content {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .pyramid-canvas-area {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 14px 20px 8px 20px;
+        background: radial-gradient(circle at 50% 85%, rgba(16, 185, 129, 0.05), transparent 70%);
+      }
+
+      .pyramid-svg-lines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .pyramid-stack {
+        display: flex;
+        flex-direction: column-reverse; /* Base abajo -> Cúspide arriba */
+        justify-content: space-between;
+        flex: 1;
+        position: relative;
+        z-index: 2;
+      }
+
+      .pyramid-floor {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        position: relative;
+      }
+
+      .floor-tag {
+        font-size: 9px;
+        font-weight: 800;
+        color: #64748b;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 1px 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .floor-base .floor-tag {
+        color: #10b981;
+        border-color: rgba(16, 185, 129, 0.3);
+      }
+      .floor-next .floor-tag {
+        color: #fbbf24;
+        border-color: rgba(251, 191, 36, 0.3);
+      }
+      .floor-apex .floor-tag {
+        color: #fef08a;
+        border-color: rgba(251, 191, 36, 0.4);
+      }
+
+      .floor-nodes-row {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+        width: 100%;
+        align-items: center;
+      }
+
+      /* Nodos de la Pirámide */
+      .pyramid-node {
+        width: 142px;
+        padding: 6px 8px;
+        background: rgba(9, 15, 30, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+      }
+      .pyramid-node:hover {
+        transform: translateY(-2px) scale(1.03);
+        border-color: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+      }
+
+      .p-node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2px;
+      }
+      .p-node-icon {
+        font-size: 13px;
+      }
+      .p-node-badge {
+        font-size: 8.5px;
+        font-weight: 700;
+        padding: 1px 4px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #94a3b8;
+      }
+      .p-node-name {
+        font-size: 11px;
+        font-weight: 800;
+        color: #ffffff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .p-node-archetype {
+        font-size: 8.5px;
+        color: #94a3b8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .p-node-action {
+        font-size: 9.5px;
+        font-weight: 800;
+        color: #000000;
+        background: linear-gradient(135deg, #d97706, #fbbf24);
+        border-radius: 4px;
+        padding: 2px 0;
+        margin-top: 3px;
+        animation: pulseAction 1.2s infinite alternate;
+      }
+      @keyframes pulseAction {
+        from { transform: scale(0.98); opacity: 0.85; }
+        to { transform: scale(1.02); opacity: 1; }
+      }
+
+      /* Estados de los Nodos */
+      .pyramid-node.node-current {
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.18);
+        box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+      }
+      .pyramid-node.node-current .p-node-badge {
+        background: #10b981;
+        color: #ffffff;
+        font-weight: 800;
+      }
+
+      .pyramid-node.node-available {
+        border-color: #fbbf24;
+        background: rgba(251, 191, 36, 0.16);
+        box-shadow: 0 0 16px rgba(251, 191, 36, 0.5);
+        animation: pulseAvailNode 1.4s infinite alternate;
+      }
+      .pyramid-node.node-available .p-node-badge {
+        background: #fbbf24;
+        color: #000;
+        font-weight: 800;
+      }
+      @keyframes pulseAvailNode {
+        from { box-shadow: 0 0 8px rgba(251, 191, 36, 0.3); }
+        to { box-shadow: 0 0 20px rgba(251, 191, 36, 0.7); }
+      }
+
+      .pyramid-node.node-unlocked-pending {
+        border-color: rgba(56, 189, 248, 0.45);
+        background: rgba(56, 189, 248, 0.08);
+      }
+
+      .pyramid-node.node-apex {
+        border-color: rgba(251, 191, 36, 0.5);
+        background: radial-gradient(circle, rgba(251, 191, 36, 0.08), rgba(9, 15, 30, 0.95));
+      }
+      .pyramid-node.node-apex .p-node-name {
+        color: #fef08a;
+      }
+
+      .pyramid-node.node-selected {
+        outline: 2px solid #38bdf8;
+        outline-offset: 2px;
+      }
+
+      .pyramid-node.node-locked {
+        opacity: 0.65;
+      }
+      .pyramid-node.node-locked:hover {
+        opacity: 0.9;
+      }
+
+      /* Tematización por Roles */
+      .pyramid-node.role-interceptor .p-node-icon { color: #38bdf8; }
+      .pyramid-node.role-tank .p-node-icon { color: #3b82f6; }
+      .pyramid-node.role-predator .p-node-icon { color: #ef4444; }
+      .pyramid-node.role-harvester .p-node-icon { color: #f59e0b; }
+      .pyramid-node.role-titan .p-node-icon { color: #fbbf24; }
+
+      /* Cables SVG Ascendentes */
+      .pyramid-wire {
+        fill: none;
+        transition: all 0.3s ease;
+      }
+      .pyramid-wire.p-wire-future {
+        stroke: rgba(255, 255, 255, 0.12);
+        stroke-width: 1.5;
+        stroke-dasharray: 4 4;
+      }
+      .pyramid-wire.p-wire-active {
+        stroke: #fbbf24;
+        stroke-width: 2.8;
+        filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8));
+      }
+
+      /* Selector de Linaje Base */
+      .branch-switcher {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .switcher-label {
+        font-size: 10px;
+        color: #64748b;
+      }
+      .switch-btn {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .switch-btn:hover {
+        color: #ffffff;
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+      .switch-btn.active {
+        background: rgba(16, 185, 129, 0.18);
+        border-color: #10b981;
+        color: #10b981;
+      }
+
+      /* Inspector Lateral Compacto (Sin Scroll) */
+      .pyramid-inspector-dock {
+        width: 305px;
+        flex-shrink: 0;
+        background: rgba(3, 7, 16, 0.95);
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .insp-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        justify-content: space-between;
+      }
+
+      .insp-top {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .insp-icon {
+        font-size: 26px;
+      }
+      .insp-title-box {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .insp-tag {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #38bdf8;
+      }
+      .insp-tag.role-titan {
+        color: #fbbf24;
+      }
+      .insp-name {
+        font-size: 15px;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 0;
+      }
+      .insp-archetype {
+        font-size: 11px;
+        color: #fbbf24;
+        font-weight: 700;
+      }
+
+      .insp-desc {
+        font-size: 11px;
+        line-height: 1.45;
+        color: #94a3b8;
+        margin: 8px 0;
+      }
+
+      .insp-stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin: 6px 0;
+      }
+
+      .stat-cell {
+        background: rgba(0, 0, 0, 0.35);
+        padding: 5px 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+      }
+      .stat-lbl {
+        font-size: 9px;
+        color: #64748b;
+        text-transform: uppercase;
+      }
+      .stat-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: #e2e8f0;
+      }
+      .stat-num.good {
+        color: #10b981;
+      }
+      .stat-num.bad {
+        color: #f59e0b;
+      }
+
+      .insp-action-box {
+        margin-top: 8px;
+      }
+
+      .insp-mutate-btn {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .insp-mutate-btn.active-btn {
+        background: linear-gradient(135deg, #d97706, #fbbf24);
+        color: #000000;
+        box-shadow: 0 4px 18px rgba(251, 191, 36, 0.5);
+      }
+      .insp-mutate-btn.active-btn:hover {
+        background: linear-gradient(135deg, #b45309, #d97706);
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 22px rgba(251, 191, 36, 0.8);
+      }
+
+      .insp-status-badge {
+        text-align: center;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .insp-status-badge.current {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #10b981;
+      }
+      .insp-status-badge.locked {
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: #f59e0b;
+      }
+      .insp-status-badge.future {
         background: rgba(255, 255, 255, 0.04);
         border: 1px solid rgba(255, 255, 255, 0.08);
         color: #64748b;
       }
-      .tree-footer-legend {
+
+      /* Barra Inferior */
+      .pyramid-footer {
         display: flex;
         justify-content: space-around;
-        padding: 10px 24px;
-        background: rgba(4, 7, 16, 0.96);
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        font-size: 11px;
-        color: #94a3b8;
+        padding: 6px 20px;
+        background: rgba(3, 6, 14, 0.98);
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 10px;
+        color: #64748b;
       }
-      .legend-item {
+      .role-pill {
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 4px;
       }
-      .legend-item b {
-        color: #f1f5f9;
+      .role-pill span {
+        font-size: 11px;
       }
 
       /* Barra de Instrucciones Superior al Dock */
