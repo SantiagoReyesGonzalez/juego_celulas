@@ -6,6 +6,7 @@ import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology, CellRole } from '../d
 import { OrganelleSocket, OrganelleFactory, OrganelleType } from './Organelles';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
+import { getToroidalDelta } from '../physics/WorldTopology';
 
 export class Player {
   // Especie y Taxonomía Actual
@@ -518,10 +519,9 @@ export class Player {
   public containsPoint(x: number, y: number, tolerance = 0.95): boolean {
     const pos = this.body.translation();
     const radius = this.baseRadius * this.currentScale * tolerance;
+    const { dx, dy } = getToroidalDelta(pos.x, pos.y, x, y);
 
     if (this.currentSpecies.morphology === CellMorphology.COCCUS) {
-      const dx = x - pos.x;
-      const dy = y - pos.y;
       return (dx * dx + dy * dy) <= (radius * radius);
     }
 
@@ -531,8 +531,8 @@ export class Player {
     const dirX = Math.cos(rot);
     const dirY = Math.sin(rot);
 
-    const px = x - pos.x;
-    const py = y - pos.y;
+    const px = dx;
+    const py = dy;
 
     const proj = Math.max(-halfLen, Math.min(halfLen, px * dirX + py * dirY));
     const closestX = dirX * proj;

@@ -8,6 +8,8 @@ import { Hud } from '../ui/Hud';
 import { EvolutionSystem } from '../systems/EvolutionSystem';
 import { MitosisModal } from '../ui/MitosisModal';
 import { ThreatDirector } from '../systems/ThreatDirector';
+import { Minimap } from '../ui/Minimap';
+import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/WorldTopology';
 
 export interface TelemetryData {
   fps: number;
@@ -37,6 +39,7 @@ export class Stage0 {
   public evolutionSystem!: EvolutionSystem;
   public mitosisModal!: MitosisModal;
   public threatDirector!: ThreatDirector;
+  public minimap!: Minimap;
 
   // Fondo Tisular y Entorno Biológico
   private particlesGroup: THREE.Group;
@@ -184,8 +187,11 @@ export class Stage0 {
       this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
       this.player.applyUpgrades(this.vacuoleManager.upgrades);
 
+      // 5. Inicialización del Mini-Mapa Radar Biológico (Estilo Starblast.io)
+      this.minimap = new Minimap();
+
       this.isWasmReady = true;
-      console.log('✅ Rapier2D WASM, Hidrodinámica, Sistema Inmune y Evolución inicializados a 60 Hz');
+      console.log('✅ Rapier2D WASM, Hidrodinámica, Sistema Inmune, Evolución y Mini-Mapa inicializados');
     } catch (err) {
       console.error('Error inicializando Rapier2D / Player:', err);
     }
@@ -204,11 +210,11 @@ export class Stage0 {
       opacity: 0.8,
     });
 
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 55; i++) {
       const rbc = new THREE.Mesh(rbcGeo, rbcMat);
       rbc.position.set(
-        (Math.random() - 0.5) * 85,
-        (Math.random() - 0.5) * 65,
+        (Math.random() - 0.5) * 260,
+        (Math.random() - 0.5) * 220,
         -6 - Math.random() * 12
       );
       // Inclinación suave y natural para apreciar la concavidad central sin orificio
@@ -331,10 +337,28 @@ export class Stage0 {
       // 4. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
       this.player.visualUpdate(dt, time);
 
-      // 5. Seguimiento Suave de la Cámara al Jugador y Zoom Orgánico (Agar.io)
-      const playerPos = this.player.body.translation();
-      this.camera.position.x += (playerPos.x - this.camera.position.x) * Math.min(dt * 3.5, 1.0);
-      this.camera.position.y += (playerPos.y - this.camera.position.y) * Math.min(dt * 3.5, 1.0);
+      // 5. Envolvente Toroidal del Jugador (Wrapping)
+      let playerPos = this.player.body.translation();
+      if (isOutsideBounds(playerPos.x, playerPos.y)) {
+        const wrapped = wrapPosition(playerPos.x, playerPos.y);
+        this.player.body.setTranslation(wrapped, true);
+        this.player.group.position.set(wrapped.x, wrapped.y, 0);
+        playerPos = this.player.body.translation();
+      }
+
+      // 6. Seguimiento Suave y Continuo de Cámara (Toroidal Seamless Follow)
+      const { dx, dy } = getToroidalDelta(
+        this.camera.position.x,
+        this.camera.position.y,
+        playerPos.x,
+        playerPos.y
+      );
+      this.camera.position.x += dx * Math.min(dt * 3.5, 1.0);
+      this.camera.position.y += dy * Math.min(dt * 3.5, 1.0);
+
+      const wrappedCam = wrapPosition(this.camera.position.x, this.camera.position.y);
+      this.camera.position.x = wrappedCam.x;
+      this.camera.position.y = wrappedCam.y;
 
       // Zoom dinámico suave al crecer la bacteria
       const targetFrustum = 42.0 * Math.pow(this.player.currentScale, 0.28);
@@ -344,12 +368,70 @@ export class Stage0 {
       }
     }
 
-    // 4. Deriva Suave de Glóbulos Rojos de Fondo
+    // 7. Deriva y Envolvente Suave de Glóbulos Rojos de Fondo
     this.erythrocyteGroup.children.forEach((rbc, idx) => {
       rbc.position.x += Math.sin(time * 0.4 + idx) * 0.015;
       rbc.rotation.x += 0.004;
       rbc.rotation.y += 0.006;
+      if (isOutsideBounds(rbc.position.x, rbc.position.y, 10)) {
+        const wrapped = wrapPosition(rbc.position.x, rbc.position.y);
+        rbc.position.x = wrapped.x;
+        rbc.position.y = wrapped.y;
+      }
     });
+
+    // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico
+    if (this.minimap && this.player) {
+      const pPos = this.player.body.translation();
+      const pRot = this.player.body.rotation();
+
+      const adBlips = this.predationSystem
+        ? this.predationSystem.adipocytes.map((ad) => {
+            const pos = ad.body.translation();
+            return { x: pos.x, y: pos.y, radius: ad.radius };
+          })
+        : [];
+
+      const microBlips = this.predationSystem
+        ? this.predationSystem.microorganisms.map((m) => {
+            const pos = m.body.translation();
+            return { x: pos.x, y: pos.y };
+          })
+        : [];
+
+      const neutroBlips = this.threatDirector
+        ? this.threatDirector.neutrophils.map((n) => {
+            const pos = n.body.translation();
+            return { x: pos.x, y: pos.y };
+          })
+        : [];
+
+      const macroBlip =
+        this.threatDirector &&
+        this.threatDirector.macrophage &&
+        !this.threatDirector.macrophage.isDead
+          ? {
+              x: this.threatDirector.macrophage.body.translation().x,
+              y: this.threatDirector.macrophage.body.translation().y,
+            }
+          : null;
+
+      const nutBlips = this.predationSystem
+        ? this.predationSystem.nutrients.map((nut) => ({
+            x: nut.position.x,
+            y: nut.position.y,
+          }))
+        : [];
+
+      this.minimap.update(time, {
+        player: { x: pPos.x, y: pPos.y, rotation: pRot },
+        adipocytes: adBlips,
+        microorganisms: microBlips,
+        neutrophils: neutroBlips,
+        macrophage: macroBlip,
+        nutrients: nutBlips,
+      });
+    }
 
     // 5. Telemetría y Estadísticas
     this.frameCount++;

@@ -4,6 +4,7 @@ import { Player } from '../entities/Player';
 import { Microorganism, MicroorganismType } from '../entities/Microorganism';
 import { Adipocyte, AtpOrb } from '../entities/Resources';
 import { VacuoleManager } from './VacuoleManager';
+import { WORLD_BOUNDS, getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
 
 /**
  * Gránulo de Nutriente / Glucógeno comestible (estilo puntos de Agar.io)
@@ -57,10 +58,10 @@ export class PredationSystem {
 
   public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
 
-  private maxNutrients = 120;
-  private maxMicroorganisms = 75;
-  private maxAdipocytes = 8;
-  private worldBounds = { minX: -60, maxX: 60, minY: -50, maxY: 50 };
+  private maxNutrients = 160;
+  private maxMicroorganisms = 85;
+  private maxAdipocytes = 12;
+  private worldBounds = WORLD_BOUNDS;
 
   // Recursos compartidos para los gránulos de nutrientes
   private nutGeo: THREE.BufferGeometry;
@@ -256,8 +257,16 @@ export class PredationSystem {
       const ad = this.adipocytes[i];
       ad.update(dt, time);
 
-      const adPos = ad.body.translation();
-      const dist = Math.hypot(playerPos.x - adPos.x, playerPos.y - adPos.y);
+      let adPos = ad.body.translation();
+
+      // Envolvente toroidal de adipocitos
+      if (isOutsideBounds(adPos.x, adPos.y)) {
+        const wrapped = wrapPosition(adPos.x, adPos.y);
+        ad.body.setTranslation(wrapped, true);
+        adPos = ad.body.translation();
+      }
+
+      const { dx, dy, dist } = getToroidalDelta(playerPos.x, playerPos.y, adPos.x, adPos.y);
 
       // Contacto físico
       if (dist <= playerRadius + ad.radius * 1.05) {
@@ -265,8 +274,8 @@ export class PredationSystem {
         if (this.player.isSprinting && (time - ad.lastHitTime > 0.35)) {
           ad.lastHitTime = time;
 
-          // Impulso físico de reacción
-          const angle = Math.atan2(adPos.y - playerPos.y, adPos.x - playerPos.x);
+          // Impulso físico de reacción usando el vector toroidal
+          const angle = Math.atan2(dy, dx);
           const impactForce = { x: Math.cos(angle) * 45.0, y: Math.sin(angle) * 45.0 };
           const isLysed = ad.hit(1, impactForce);
 
@@ -310,6 +319,13 @@ export class PredationSystem {
     for (let i = this.atpOrbs.length - 1; i >= 0; i--) {
       const orb = this.atpOrbs[i];
       orb.update(dt, time);
+
+      // Envolvente toroidal de orbes de ATP
+      if (isOutsideBounds(orb.position.x, orb.position.y)) {
+        const wrapped = wrapPosition(orb.position.x, orb.position.y);
+        orb.position.x = wrapped.x;
+        orb.position.y = wrapped.y;
+      }
 
       if (this.player.containsPoint(orb.position.x, orb.position.y, 1.0)) {
         this.vacuoleManager.addAtp(orb.atpValue * atpBonus);

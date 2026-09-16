@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { AtpOrb } from './Resources';
+import { getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
 
 export enum NeutrophilState {
   PATROL = 'PATROL',
@@ -123,10 +124,15 @@ export class NeutrophilCell {
 
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     const pos = this.body.translation();
-    const dx = playerPos.x - pos.x;
-    const dy = playerPos.y - pos.y;
-    const distSq = dx * dx + dy * dy;
-    const dist = Math.sqrt(distSq);
+
+    // Envolvente toroidal continua si el neutrófilo cruza los límites
+    if (isOutsideBounds(pos.x, pos.y)) {
+      const wrapped = wrapPosition(pos.x, pos.y);
+      this.body.setTranslation(wrapped, true);
+    }
+
+    // Vector de distancia toroidal mínima respecto al jugador
+    const { dx, dy, dist } = getToroidalDelta(pos.x, pos.y, playerPos.x, playerPos.y);
 
     // El radio de detección quimiotáctica escala con la inflamación tisular
     const activeDetection = this.detectionRadius * (1.0 + inflammation * 0.6);

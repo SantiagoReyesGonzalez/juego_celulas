@@ -5,6 +5,7 @@ import { NeutrophilCell } from '../entities/NeutrophilCell';
 import { MacrophageBoss } from '../entities/MacrophageBoss';
 import { VacuoleManager } from './VacuoleManager';
 import { AtpOrb } from '../entities/Resources';
+import { WORLD_BOUNDS, getToroidalDelta, wrapPosition } from '../physics/WorldTopology';
 
 export interface ThreatTelemetry {
   inflammation: number;
@@ -23,7 +24,7 @@ export class ThreatDirector {
 
   private spawnCooldown = 3.0;
   private decayRate = 0.007; // Decaimiento pasivo por segundo
-  private worldBounds = { minX: -60, maxX: 60, minY: -50, maxY: 50 };
+  private worldBounds = WORLD_BOUNDS;
 
   private bossSpawnThreshold = 0.75;
   private lastAlertNotified: 'CALM' | 'ALERT' | 'CRITICAL' = 'CALM';
@@ -78,14 +79,15 @@ export class ThreatDirector {
   }
 
   public spawnNeutrophil(preferredX?: number, preferredY?: number): void {
-    const x =
+    let x =
       preferredX ??
       Math.random() * (this.worldBounds.maxX - this.worldBounds.minX) + this.worldBounds.minX;
-    const y =
+    let y =
       preferredY ??
       Math.random() * (this.worldBounds.maxY - this.worldBounds.minY) + this.worldBounds.minY;
 
-    const cell = new NeutrophilCell(this.physicsWorld, this.scene, x, y);
+    const wrapped = wrapPosition(x, y);
+    const cell = new NeutrophilCell(this.physicsWorld, this.scene, wrapped.x, wrapped.y);
     this.neutrophils.push(cell);
   }
 
@@ -95,10 +97,9 @@ export class ThreatDirector {
     // Aparece a una distancia prudencial en la dirección del flujo
     const angle = Math.random() * Math.PI * 2;
     const dist = 32.0;
-    const x = playerPos.x + Math.cos(angle) * dist;
-    const y = playerPos.y + Math.sin(angle) * dist;
+    const wrapped = wrapPosition(playerPos.x + Math.cos(angle) * dist, playerPos.y + Math.sin(angle) * dist);
 
-    this.macrophage = new MacrophageBoss(this.physicsWorld, this.scene, x, y);
+    this.macrophage = new MacrophageBoss(this.physicsWorld, this.scene, wrapped.x, wrapped.y);
   }
 
   /**
@@ -148,11 +149,9 @@ export class ThreatDirector {
       neutro.updateAI(dt, playerPos, playerMass, this.globalInflammation);
       neutro.visualUpdate(dt, time);
 
-      // Detección de contacto con el cuerpo bacteriano
+      // Detección de contacto con el cuerpo bacteriano (topología toroidal)
       const nPos = neutro.body.translation();
-      const dx = playerPos.x - nPos.x;
-      const dy = playerPos.y - nPos.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const { dist } = getToroidalDelta(nPos.x, nPos.y, playerPos.x, playerPos.y);
       const touchDist = playerRadius + neutro.radius;
 
       if (dist < touchDist) {
@@ -199,9 +198,7 @@ export class ThreatDirector {
         this.macrophage.update(dt, time, playerPos);
 
         const mPos = this.macrophage.body.translation();
-        const dx = playerPos.x - mPos.x;
-        const dy = playerPos.y - mPos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const { dist } = getToroidalDelta(mPos.x, mPos.y, playerPos.x, playerPos.y);
         const touchDist = playerRadius + this.macrophage.radius;
 
         if (dist < touchDist) {

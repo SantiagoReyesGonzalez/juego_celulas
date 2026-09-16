@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
+import { getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
 
 export enum MicroorganismType {
   TINY_COCCUS = 'TINY_COCCUS',
@@ -132,15 +133,21 @@ export class Microorganism {
   ): void {
     if (this.isDead) return;
 
-    const pos = this.body.translation();
+    let pos = this.body.translation();
+
+    // Envolvente toroidal continua si el microorganismo cruza los límites
+    if (isOutsideBounds(pos.x, pos.y)) {
+      const wrapped = wrapPosition(pos.x, pos.y);
+      this.body.setTranslation(wrapped, true);
+      pos = this.body.translation();
+    }
+
     const rot = this.body.rotation();
     this.mesh.position.set(pos.x, pos.y, 0);
     this.mesh.rotation.z = rot;
 
-    // Distancia al jugador
-    const dx = playerPos.x - pos.x;
-    const dy = playerPos.y - pos.y;
-    const distToPlayer = Math.hypot(dx, dy);
+    // Distancia toroidal mínima al jugador
+    const { dx, dy, dist: distToPlayer } = getToroidalDelta(pos.x, pos.y, playerPos.x, playerPos.y);
 
     const isPlayerPredator = playerMass >= this.mass * 1.15;
 

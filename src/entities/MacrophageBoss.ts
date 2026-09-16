@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { AtpOrb } from './Resources';
+import { getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
 
 export class MacrophageBoss {
   public body: RAPIER.RigidBody;
@@ -98,10 +99,16 @@ export class MacrophageBoss {
     if (this.isDead) return;
 
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
-    const pos = this.body.translation();
-    const dx = playerPos.x - pos.x;
-    const dy = playerPos.y - pos.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    let pos = this.body.translation();
+
+    // Envolvente toroidal si el macrófago cruza los bordes
+    if (isOutsideBounds(pos.x, pos.y)) {
+      const wrapped = wrapPosition(pos.x, pos.y);
+      this.body.setTranslation(wrapped, true);
+      pos = this.body.translation();
+    }
+
+    const { dx, dy, dist } = getToroidalDelta(pos.x, pos.y, playerPos.x, playerPos.y);
 
     // Persecución inexorable lenta pero constante
     const speed = 4.2;
