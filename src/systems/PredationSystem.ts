@@ -248,7 +248,8 @@ export class PredationSystem {
       }
     }
 
-    // ================= 3. DIGESTIÓN POR CONTACTO CON ADIPOCITOS =================
+    // ================= 3. DIGESTIÓN Y RUPTURA DE ADIPOCITOS POR SPRINT =================
+    // Solo se puede comer o romper con salticos del clic (Sprint). Independiente del tamaño siempre es vulnerable.
     for (let i = this.adipocytes.length - 1; i >= 0; i--) {
       const ad = this.adipocytes[i];
       ad.update(dt, time);
@@ -256,33 +257,26 @@ export class PredationSystem {
       const adPos = ad.body.translation();
       const dist = Math.hypot(playerPos.x - adPos.x, playerPos.y - adPos.y);
 
-      if (dist <= playerRadius + ad.radius) {
-        const speed = this.player.getSpeed();
-        if (speed > 4.5) {
-          // Erosión por fricción y enzimas de membrana
-          const damage = 1.0 + (speed - 4.5) * 0.3;
-          const isLysed = ad.hit(damage);
+      // Contacto físico
+      if (dist <= playerRadius + ad.radius * 1.05) {
+        // SOLO SE DAÑA CON EL SPRINT DE CLIC IZQUIERDO
+        if (this.player.isSprinting && (time - ad.lastHitTime > 0.35)) {
+          ad.lastHitTime = time;
+
+          // Impulso físico de reacción
+          const angle = Math.atan2(adPos.y - playerPos.y, adPos.x - playerPos.x);
+          const impactForce = { x: Math.cos(angle) * 45.0, y: Math.sin(angle) * 45.0 };
+          const isLysed = ad.hit(1, impactForce);
+
+          // Retroalimentación de salto y mordisco
+          this.player.feedBounce(1.18);
 
           if (this.onPredationActivity) {
             this.onPredationActivity('adipocyte');
           }
 
-          // Desprender orbes al erosionar
-          const count = Math.floor(1 + Math.random() * 2);
-          for (let k = 0; k < count; k++) {
-            const angle = Math.random() * Math.PI * 2;
-            const orb = new AtpOrb(
-              this.scene,
-              playerPos.x + Math.cos(angle) * 1.5,
-              playerPos.y + Math.sin(angle) * 1.5,
-              Math.cos(angle) * 4.0,
-              Math.sin(angle) * 4.0,
-              5
-            );
-            this.atpOrbs.push(orb);
-          }
-
           if (isLysed) {
+            // Lisis celular completa: libera cascada masiva de ATP y biomasa (>3x el coste de los 3 saltos)
             this.triggerAdipocyteLysis(ad);
             ad.dispose(this.scene, this.physicsWorld);
             this.adipocytes.splice(i, 1);
@@ -291,7 +285,19 @@ export class PredationSystem {
               if (this.adipocytes.length < this.maxAdipocytes) {
                 this.spawnRandomAdipocyte();
               }
-            }, 8000);
+            }, 5000);
+          } else {
+            // Cada golpe intermedio también desprende 1 orbe de ATP como recompensa inmediata
+            const orbAngle = angle + (Math.random() - 0.5) * 1.4;
+            const orb = new AtpOrb(
+              this.scene,
+              adPos.x + Math.cos(orbAngle) * (ad.radius + 0.6),
+              adPos.y + Math.sin(orbAngle) * (ad.radius + 0.6),
+              Math.cos(orbAngle) * 3.5,
+              Math.sin(orbAngle) * 3.5,
+              3.0
+            );
+            this.atpOrbs.push(orb);
           }
         }
       }
@@ -305,8 +311,7 @@ export class PredationSystem {
 
       if (this.player.containsPoint(orb.position.x, orb.position.y, 1.0)) {
         this.vacuoleManager.addAtp(orb.atpValue * atpBonus);
-        // Cada orbe nutre y acrecienta la célula
-        this.player.grow(0.18);
+        this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
         this.player.feedBounce(1.10);
 
         orb.isCollected = true;
@@ -324,19 +329,27 @@ export class PredationSystem {
 
   private triggerAdipocyteLysis(ad: Adipocyte): void {
     const pos = ad.body.translation();
-    const count = Math.floor(6 + ad.radius * 2.0);
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const speed = 3.5 + Math.random() * 5.0;
+    // 8 Orbes de ATP concentradas (3.5 ATP cada una = 28 ATP)
+    const countOrbs = 8;
+    for (let i = 0; i < countOrbs; i++) {
+      const angle = (i / countOrbs) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const speed = 3.0 + Math.random() * 4.5;
       const orb = new AtpOrb(
         this.scene,
         pos.x,
         pos.y,
         Math.cos(angle) * speed,
         Math.sin(angle) * speed,
-        6
+        3.5
       );
       this.atpOrbs.push(orb);
+    }
+
+    // 4 Gránulos de Nutrientes expulsados al lisar la reserva lipídica (+4 ATP y +0.12 masa cada uno)
+    for (let j = 0; j < 4; j++) {
+      const angle = (j / 4) * Math.PI * 2 + Math.PI / 4;
+      const dist = ad.radius * 0.8 + Math.random() * 0.6;
+      this.spawnNutrient(pos.x + Math.cos(angle) * dist, pos.y + Math.sin(angle) * dist);
     }
   }
 

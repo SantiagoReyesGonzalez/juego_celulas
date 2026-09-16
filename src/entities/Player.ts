@@ -40,7 +40,7 @@ export class Player {
 
   // Mecánica de Sprint Celular de Caza (Dash / Jet)
   public sprintForce = 85.0;
-  public sprintAtpCost = 5.0;
+  public sprintAtpCost = 2.0;
   private lastSprintTime = 0;
   private sprintCooldown = 0.45; // Segundos entre impulsos
   private sprintStretch = 1.0;
@@ -431,7 +431,7 @@ export class Player {
 
     const sprintLevel = upgrades.sprintPower?.level || 0;
     this.sprintForce = 85.0 * (1.0 + sprintLevel * 0.2);
-    this.sprintAtpCost = Math.max(2.0, 5.0 - sprintLevel * 0.6);
+    this.sprintAtpCost = Math.max(1.0, 2.0 - sprintLevel * 0.25);
   }
 
   public visualUpdate(dt: number, time: number): void {

@@ -14,13 +14,16 @@ export class Adipocyte {
   private lipidDrops: THREE.Mesh[] = [];
 
   public radius: number;
-  public health: number;
-  public maxHealth: number;
+  public health = 3;
+  public maxHealth = 3;
+  public lastHitTime = 0;
   public isLysed = false;
 
   private hitFlashTimer = 0;
   private originalColor = 0xd97706;
   private originalEmissive = 0x78350f;
+  private healthPipsGroup: THREE.Group;
+  private healthPips: THREE.Mesh[] = [];
 
   constructor(
     physicsWorld: PhysicsWorld,
@@ -30,9 +33,9 @@ export class Adipocyte {
     radius = 2.4
   ) {
     this.radius = radius;
-    // La integridad escala con el volumen del adipocito
-    this.maxHealth = Math.round(3 + (radius / 2.0) * 3);
-    this.health = this.maxHealth;
+    // Vida fija de 3 impactos de sprint para romperlo
+    this.maxHealth = 3;
+    this.health = 3;
 
     // 1. Cuerpo físico elástico en Rapier2D (gran inercia y amortiguamiento viscoso)
     this.body = physicsWorld.createDynamicBody(x, y, 0.4, 1.2);
@@ -84,24 +87,62 @@ export class Adipocyte {
       this.mesh.add(drop);
     }
 
+    // 3. Indicadores de Salud Visual (3 pips luminiscentes estilo [ ● ● ● ])
+    this.healthPipsGroup = new THREE.Group();
+    const pipGeo = new THREE.SphereGeometry(0.24, 10, 10);
+    for (let i = 0; i < 3; i++) {
+      const pipMat = new THREE.MeshStandardMaterial({
+        color: 0x10b981,
+        emissive: 0x10b981,
+        emissiveIntensity: 1.8,
+      });
+      const pip = new THREE.Mesh(pipGeo, pipMat);
+      pip.position.set((i - 1) * 0.72, radius + 0.6, 0.2);
+      this.healthPips.push(pip);
+      this.healthPipsGroup.add(pip);
+    }
+    this.mesh.add(this.healthPipsGroup);
+
     scene.add(this.mesh);
   }
 
+  private updateHealthPips(): void {
+    this.healthPips.forEach((pip, idx) => {
+      const mat = pip.material as THREE.MeshStandardMaterial;
+      if (idx < this.health) {
+        mat.color.setHex(0x10b981);
+        mat.emissive.setHex(0x10b981);
+        mat.emissiveIntensity = 1.8;
+        pip.scale.set(1, 1, 1);
+      } else {
+        mat.color.setHex(0xef4444);
+        mat.emissive.setHex(0x7f1d1d);
+        mat.emissiveIntensity = 0.3;
+        pip.scale.set(0.45, 0.45, 0.45);
+      }
+    });
+  }
+
   /**
-   * Aplica daño enzimático al adipocito con retroalimentación visual de impacto
+   * Aplica daño por embestida de sprint al adipocito con retroalimentación visual de impacto
    */
-  public hit(damage: number, impactForce?: { x: number; y: number }): boolean {
+  public hit(damage = 1, impactForce?: { x: number; y: number }): boolean {
     if (this.isLysed) return true;
 
-    this.health -= damage;
-    this.hitFlashTimer = 0.15; // Destello de impacto
+    this.health = Math.max(0, this.health - damage);
+    this.hitFlashTimer = 0.22; // Destello de impacto
+
+    this.updateHealthPips();
 
     // Efecto visual de destello blanco-rojizo
     (this.outerMembrane.material as THREE.MeshStandardMaterial).color.setHex(0xffffff);
     (this.outerMembrane.material as THREE.MeshStandardMaterial).emissive.setHex(0xef4444);
-    (this.outerMembrane.material as THREE.MeshStandardMaterial).emissiveIntensity = 2.0;
+    (this.outerMembrane.material as THREE.MeshStandardMaterial).emissiveIntensity = 2.5;
 
-    // Aplicar fuerza de empuje si viene del proyectil
+    // Deformación elástica reactiva al impacto de sprint
+    this.mesh.scale.set(1.22, 0.82, 1.22);
+
+    // Aplicar fuerza de empuje
     if (impactForce) {
       this.body.applyImpulse(impactForce, true);
     }
@@ -121,6 +162,9 @@ export class Adipocyte {
     const rot = this.body.rotation();
     this.mesh.position.set(pos.x, pos.y, 0);
     this.mesh.rotation.z = rot;
+
+    // Recuperación elástica de la escala tras impacto
+    this.mesh.scale.lerp(new THREE.Vector3(1, 1, 1), dt * 6.0);
 
     // Restaurar color tras el destello de impacto
     if (this.hitFlashTimer > 0) {
@@ -146,6 +190,10 @@ export class Adipocyte {
     this.lipidDrops.forEach((drop) => {
       drop.geometry.dispose();
       (drop.material as THREE.Material).dispose();
+    });
+    this.healthPips.forEach((pip) => {
+      pip.geometry.dispose();
+      (pip.material as THREE.Material).dispose();
     });
     physicsWorld.rawWorld.removeCollider(this.collider, false);
     physicsWorld.rawWorld.removeRigidBody(this.body);
