@@ -56,7 +56,7 @@ export class BiofilmHub {
   // Componentes Visuales
   private coreGroup: THREE.Group;
   private coreMesh: THREE.Mesh;
-  private membraneMaterial: THREE.ShaderMaterial;
+  private membraneMaterial: THREE.MeshStandardMaterial;
   private coreSpikes: THREE.Mesh[] = [];
   private satellites: THREE.Mesh[] = [];
   private causticDome: THREE.Mesh;
@@ -143,13 +143,9 @@ export class BiofilmHub {
     // ================= 2. NÚCLEO CENTRAL BLINDADO (20 Impactos) =================
     this.coreGroup = new THREE.Group();
 
-    // Macro-núcleo con shader de membrana translúcida orgánica gelatinosa
+    // Macro-núcleo con material de membrana translúcida orgánica gelatinosa
     const coreGeo = new THREE.SphereGeometry(this.coreRadius, 32, 28);
     this.membraneMaterial = createMembraneShaderMaterial(0x059669, 0x047857, 0.42, 0.95);
-    this.membraneMaterial.uniforms.uNoiseFreq.value = 0.85;
-    this.membraneMaterial.uniforms.uNoiseAmp.value = 0.16;
-    this.membraneMaterial.uniforms.uNoiseSpeed.value = 0.8;
-    this.membraneMaterial.uniforms.uFresnelIntensity.value = 2.4;
     this.coreMesh = new THREE.Mesh(coreGeo, this.membraneMaterial);
     this.coreGroup.add(this.coreMesh);
 
@@ -223,9 +219,9 @@ export class BiofilmHub {
 
   public flashHit(): void {
     this.hitFlashTimer = 0.22;
-    this.membraneMaterial.uniforms.uFresnelIntensity.value = 6.0;
-    (this.membraneMaterial.uniforms.uColor.value as THREE.Color).setHex(0xffffff);
-    (this.membraneMaterial.uniforms.uEmissive.value as THREE.Color).setHex(0xef4444);
+    this.membraneMaterial.color.setHex(0xffffff);
+    this.membraneMaterial.emissive.setHex(0xef4444);
+    this.membraneMaterial.emissiveIntensity = 3.0;
     this.coreGroup.scale.set(1.22, 0.84, 1.22);
   }
 
@@ -376,7 +372,6 @@ export class BiofilmHub {
     // 1. Animaciones Orgánicas
     this.coreMesh.rotation.z += 0.009;
     this.coreMesh.rotation.y += 0.005;
-    this.membraneMaterial.uniforms.uTime.value = time;
 
     // Satélites orbitales
     this.satellites.forEach((sat, idx) => {
@@ -396,9 +391,9 @@ export class BiofilmHub {
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= dt;
       if (this.hitFlashTimer <= 0) {
-        this.membraneMaterial.uniforms.uFresnelIntensity.value = 2.4;
-        (this.membraneMaterial.uniforms.uColor.value as THREE.Color).setHex(0x059669);
-        (this.membraneMaterial.uniforms.uEmissive.value as THREE.Color).setHex(0x047857);
+        this.membraneMaterial.color.setHex(0x059669);
+        this.membraneMaterial.emissive.setHex(0x047857);
+        this.membraneMaterial.emissiveIntensity = 0.92;
       }
     }
 

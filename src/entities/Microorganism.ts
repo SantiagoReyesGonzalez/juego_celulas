@@ -29,8 +29,9 @@ export class Microorganism {
   public hp = 10;
   public maxHp = 10;
   private hitFlashTimer = 0;
-  private membraneMaterial?: THREE.ShaderMaterial;
+  private membraneMaterial?: THREE.MeshStandardMaterial;
   private baseColor = 0x22c55e;
+  private baseEmissive = 0x15803d;
 
   // Orgánulos Internos y Flagelos Físicos Verlet
   private internalOrganelles?: InternalOrganelleCluster;
@@ -150,6 +151,7 @@ export class Microorganism {
     }
 
     this.baseColor = color;
+    this.baseEmissive = emissive;
 
     // Membrana translúcida gelatinosa con deformación de vértices por ruido Simplex y Fresnel confocal
     this.membraneMaterial = createMembraneShaderMaterial(
@@ -292,8 +294,8 @@ export class Microorganism {
   public triggerHitFlash(duration = 0.08): void {
     this.hitFlashTimer = duration;
     if (this.membraneMaterial) {
-      this.membraneMaterial.uniforms.uFresnelIntensity.value = 5.5;
-      this.membraneMaterial.uniforms.uColor.value.setHex(0xffffff);
+      this.membraneMaterial.emissive.setHex(0xffffff);
+      this.membraneMaterial.emissiveIntensity = 2.4;
     }
   }
 
@@ -325,15 +327,11 @@ export class Microorganism {
       this.hitFlashTimer -= dt;
       if (this.hitFlashTimer <= 0) {
         if (this.membraneMaterial) {
-          this.membraneMaterial.uniforms.uFresnelIntensity.value = 2.6;
-          this.membraneMaterial.uniforms.uColor.value.setHex(this.baseColor);
+          this.membraneMaterial.color.setHex(this.baseColor);
+          this.membraneMaterial.emissive.setHex(this.baseEmissive);
+          this.membraneMaterial.emissiveIntensity = 0.92;
         }
       }
-    }
-
-    // Actualización de Shader Orgánico de Membrana
-    if (this.membraneMaterial) {
-      this.membraneMaterial.uniforms.uTime.value = time;
     }
 
     let pos = this.body.translation();

@@ -12,7 +12,7 @@ export class Player {
   // Especie y Taxonomía Actual
   public currentSpecies: BacteriaSpecies;
   public sockets: OrganelleSocket[] = [];
-  public membraneMaterial?: THREE.ShaderMaterial;
+  public membraneMaterial?: THREE.MeshStandardMaterial;
 
   // Físicas Rapier2D
   public body: RAPIER.RigidBody;
@@ -527,21 +527,11 @@ export class Player {
     this.group.scale.set(sx, sy, sz);
     this.updateColliderScale();
 
-    // Actualización de Shader Orgánico de Membrana (Ruido Simplex y Fresnel)
+    // Resplandor bioluminiscente de membrana reactivo a la alimentación
     if (this.membraneMaterial) {
-      this.membraneMaterial.uniforms.uTime.value = time;
-
-      // Amplitud de ruido reactiva a velocidad y sprint
-      const vel = this.body.linvel();
-      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      const targetAmp = 0.08 + Math.min(speed * 0.007, 0.12) + (this.sprintStretch - 1.0) * 0.2;
-      this.membraneMaterial.uniforms.uNoiseAmp.value +=
-        (targetAmp - this.membraneMaterial.uniforms.uNoiseAmp.value) * Math.min(dt * 6.0, 1.0);
-
-      // Resplandor de fluorescencia confocal reactivo a la alimentación
-      const targetFresnel = 1.8 + (this.feedPulse - 1.0) * 4.5;
-      this.membraneMaterial.uniforms.uFresnelIntensity.value +=
-        (targetFresnel - this.membraneMaterial.uniforms.uFresnelIntensity.value) * Math.min(dt * 6.0, 1.0);
+      const targetEmissive = 0.90 + (this.feedPulse - 1.0) * 1.8;
+      this.membraneMaterial.emissiveIntensity +=
+        (targetEmissive - this.membraneMaterial.emissiveIntensity) * Math.min(dt * 6.0, 1.0);
     }
 
     // Ondulación hidrodinámica de los flagelos y física de orgánulos

@@ -17,10 +17,6 @@ import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/Worl
 import { CameraShakeSystem } from '../systems/CameraShakeSystem';
 import { BioAudioSystem } from '../audio/BioAudioSystem';
 import { TissueArchitecture } from '../environment/TissueArchitecture';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 export interface TelemetryData {
   fps: number;
@@ -39,11 +35,6 @@ export class Stage0 {
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
 
-  // Pipeline de Post-Procesado Óptico (Microscopía Confocal y Bloom Cálido a 60 FPS)
-  public composer!: EffectComposer;
-  private renderPass!: RenderPass;
-  public bloomPass!: UnrealBloomPass;
-  private outputPass!: OutputPass;
   private lastWindowWidth = window.innerWidth;
   private lastWindowHeight = window.innerHeight;
   
@@ -78,7 +69,7 @@ export class Stage0 {
 
   // Fondo Tisular y Entorno Biológico de Microscopía Cálida
   private backgroundMesh!: THREE.Mesh;
-  private backgroundMat!: THREE.ShaderMaterial;
+  private backgroundMat!: THREE.MeshBasicMaterial;
   private particlesGroup: THREE.Group;
   private erythrocyteGroup: THREE.Group;
   private deepVesicleGroup: THREE.Group;
@@ -108,7 +99,6 @@ export class Stage0 {
   private frameCount = 0;
   private lastFpsUpdate = 0;
   private currentFps = 60;
-  private useDirectRender = false;
   public onTelemetryUpdate?: (data: TelemetryData) => void;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -122,13 +112,13 @@ export class Stage0 {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x120305, 1.0); // Fondo de campo oscuro negro vino (#120305)
+    this.renderer.setClearColor(0x1c0407, 1.0); // Fondo cálido capilar tipo rojito-vino (#1c0407)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
 
-    // 2. Escena y Niebla del Caldo Primigenio Oscuro (#120305)
+    // 2. Escena y Niebla del Caldo Primigenio Cálido (#1c0407)
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x120305, 55, 185);
+    this.scene.fog = new THREE.Fog(0x1c0407, 60, 220);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;
@@ -155,9 +145,6 @@ export class Stage0 {
     this.scene.add(this.particlesGroup);
     this.createWarmMicroscopeBackdrop();
     this.createBackgroundElements();
-
-    // 5.5. Pipeline de Post-Procesado EffectComposer con UnrealBloomPass Cálido (60 FPS)
-    this.setupPostprocessing();
 
     // 6. Inicialización de Física e Hidrodinámica
     this.initPhysics();
@@ -194,94 +181,31 @@ export class Stage0 {
   }
 
   /**
-   * Configura EffectComposer con UnrealBloomPass cálido optimizado a 60 FPS estables.
-   * Aplica un desenfoque suave gaussiano con gradiente térmico (miel, ámbar y rojo capilar)
-   * que envuelve en una atmósfera de microscopía las fuentes de luz celular y las esporas doradas.
-   */
-  private setupPostprocessing(): void {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    // 1. Instanciar EffectComposer con buffer HalfFloatType para precisión HDR (pixelRatio 1.0 estricto)
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.setPixelRatio(1.0);
-    this.composer.setSize(width, height);
-
-    // 2. Pase de Renderizado de Escena Primaria
-    this.renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(this.renderPass);
-
-    // 3. UnrealBloomPass: Difusión suave a 60 FPS con resolución a un cuarto de pantalla (quarter-res)
-    const bloomRes = new THREE.Vector2(Math.floor(width / 4), Math.floor(height / 4));
-    const bloomStrength = 0.85;  // Fuerza contenida para no quemar la pantalla
-    const bloomRadius = 0.35;    // Radio contenido para preservar la nitidez celular
-    const bloomThreshold = 0.72; // Solo emiten bloom fuentes hiperbrillantes: núcleos, esporas doradas, Fresnel
-
-    this.bloomPass = new UnrealBloomPass(bloomRes, bloomStrength, bloomRadius, bloomThreshold);
-
-    // Gradiente térmico en los 5 niveles de dispersión (MIPs) de Unreal Engine:
-    // Miel dorada -> Ámbar cálido -> Naranja biológico -> Capilar visceral
-    this.bloomPass.bloomTintColors = [
-      new THREE.Vector3(1.0, 0.95, 0.82), // MIP 0: Raíz brillante blanco-dorada
-      new THREE.Vector3(1.0, 0.88, 0.70), // MIP 1: Miel dorada cálida
-      new THREE.Vector3(1.0, 0.80, 0.55), // MIP 2: Ámbar brillante
-      new THREE.Vector3(0.96, 0.68, 0.42), // MIP 3: Naranja biológico
-      new THREE.Vector3(0.90, 0.55, 0.32), // MIP 4: Difusión capilar suave
-    ];
-
-    this.composer.addPass(this.bloomPass);
-
-    // 4. OutputPass: Aplicación de ACESFilmicToneMapping y codificación sRGB precisa
-    this.outputPass = new OutputPass();
-    this.composer.addPass(this.outputPass);
-  }
-
-  /**
-   * Crea el plano de fondo orgánico de microscopía en campo oscuro capilar.
-   * Utiliza una transición suave entre Ámbar Profundo (#4a1208), Rojo Sangre (#2b080c) y Bordes Negro Vino (#120305)
-   * con sutil ondulación de fluido microscópico vivo para garantizar alto contraste con los organismos.
+   * Crea el plano de fondo orgánico cálido tipo rojito-naranja de microscopía biológica.
+   * Emplea un CanvasTexture 2D con gradiente radial pre-generado (CERO sobrecarga de shaders)
+   * con tonos ámbar luminoso, naranja sanguíneo y rojo capilar profundo para alto contraste.
    */
   private createWarmMicroscopeBackdrop(): void {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+
+    // Gradiente radial cálido: Centro Ámbar/Naranja -> Naranja Rojizo -> Rojo Capilar -> Vino Oscuro
+    const grad = ctx.createRadialGradient(256, 256, 15, 256, 256, 256);
+    grad.addColorStop(0.0, '#c2410c');  // Naranja cálido luminoso en el centro
+    grad.addColorStop(0.30, '#9a3412'); // Ámbar rojizo tisular
+    grad.addColorStop(0.60, '#7f1d1d'); // Rojo capilar intenso
+    grad.addColorStop(0.85, '#450a0a'); // Borgoña sangre
+    grad.addColorStop(1.0, '#1c0407');  // Borde vino tinto profundo
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    const texture = new THREE.CanvasTexture(canvas);
     const geo = new THREE.PlaneGeometry(1600, 1400);
-    this.backgroundMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uColorCenter: { value: new THREE.Color(0x4a1208) }, // Centro ámbar profundo (#4a1208)
-        uColorMid: { value: new THREE.Color(0x2b080c) },    // Medio rojo sangre (#2b080c)
-        uColorEdge: { value: new THREE.Color(0x120305) },   // Bordes negro vino (#120305)
-        uTime: { value: 0 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 uColorCenter;
-        uniform vec3 uColorMid;
-        uniform vec3 uColorEdge;
-        uniform float uTime;
-        varying vec2 vUv;
-
-        void main() {
-          vec2 p = vUv - vec2(0.5);
-          // Distorsión fluida hidrodinámica sutil
-          float wave1 = sin(p.x * 5.5 + uTime * 0.12) * cos(p.y * 5.5 + uTime * 0.10) * 0.035;
-          float wave2 = cos(p.x * 8.5 - uTime * 0.11) * sin(p.y * 8.5 + uTime * 0.14) * 0.025;
-          float r = length(p + vec2(wave1, wave2)) * 1.85;
-
-          // Gradiente radial de campo oscuro: Ámbar Profundo -> Rojo Sangre -> Negro Vino
-          vec3 col = mix(uColorCenter, uColorMid, smoothstep(0.06, 0.52, r));
-          col = mix(col, uColorEdge, smoothstep(0.44, 1.05, r));
-
-          // Variación bioluminiscente sutil del caldo oscuro
-          float pulse = sin(uTime * 0.35) * 0.015;
-          col += vec3(0.04, 0.01, 0.005) * pulse;
-
-          gl_FragColor = vec4(col, 1.0);
-        }
-      `,
+    this.backgroundMat = new THREE.MeshBasicMaterial({
+      map: texture,
       depthWrite: false,
     });
 
@@ -625,12 +549,6 @@ export class Stage0 {
       this.lastWindowWidth = window.innerWidth;
       this.lastWindowHeight = window.innerHeight;
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-      if (this.composer) {
-        this.composer.setSize(window.innerWidth, window.innerHeight);
-        if (this.bloomPass) {
-          this.bloomPass.setSize(Math.floor(window.innerWidth / 4), Math.floor(window.innerHeight / 4));
-        }
-      }
     }
   }
 
@@ -847,9 +765,8 @@ export class Stage0 {
     }
 
     // 7. Actualización del Fondo Orgánico Cálido de Microscopía
-    if (this.backgroundMesh && this.backgroundMat) {
+    if (this.backgroundMesh) {
       this.backgroundMesh.position.set(this.baseCameraPos.x, this.baseCameraPos.y, -78);
-      this.backgroundMat.uniforms.uTime.value = time;
     }
 
     // 7.2. Deriva y Tumbling 3D de la Capa Densa de Glóbulos Rojos (Z entre -30 y -60)
@@ -1003,26 +920,8 @@ export class Stage0 {
       }
     }
 
-    // Pulso biológico sutil de bloom reactivo a sprint y digestión
-    if (this.bloomPass && this.player) {
-      const sprintBoost = this.player.isSprinting ? 0.20 : 0.0;
-      const feedBoost = (this.player.feedPulse - 1.0) * 0.45;
-      const targetStrength = 0.85 + sprintBoost + feedBoost;
-      this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * Math.min(dt * 6.0, 1.0);
-    }
-
-    // 6. Renderizado de la Escena (Fallback automático a Direct Render si FPS < 35 para hardware limitado)
-    if (this.currentFps > 0 && this.currentFps < 35) {
-      this.useDirectRender = true;
-    } else if (this.currentFps >= 56 && this.useDirectRender) {
-      this.useDirectRender = false;
-    }
-
-    if (this.useDirectRender || !this.composer) {
-      this.renderer.render(this.scene, this.camera);
-    } else {
-      this.composer.render(dt);
-    }
+    // 6. Renderizado Directo de Alto Rendimiento (60+ FPS sin sobrecarga de post-procesamiento)
+    this.renderer.render(this.scene, this.camera);
   }
 
   private handlePlayerDeath(cause: string): void {
