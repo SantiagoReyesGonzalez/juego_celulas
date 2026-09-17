@@ -99,8 +99,7 @@ export class Hud {
   private lastMaxHp = -1;
   private lastShield = -1;
   private lastMaxShield = -1;
-  private lastAtp = -1;
-  private lastAtpCap = -1;
+  private lastDisplayedAtp = -1;
   private lastMitosis = false;
 
   constructor(vacuoleManager: VacuoleManager) {
@@ -151,10 +150,10 @@ export class Hud {
           </div>
         </div>
 
-        <!-- Fila de Energía ATP (Orb bioluminiscente dorado y contador como en la Imagen de Referencia) -->
-        <div class="bio-atp-row" title="Reserva Energética de ATP">
-          <div class="atp-orb-gem"></div>
-          <span id="atp-display-val" class="atp-readout-text">0</span>
+        <!-- Fila de Espora Ámbar Flotante y Contador de Recursos (Copia Fiel de ref_01) -->
+        <div class="bio-atp-row" title="Reserva de ATP / Nutrientes">
+          <div class="amber-spore-orb atp-orb-gem"></div>
+          <span id="atp-display-val" class="spore-counter-text atp-readout-text">0</span>
         </div>
       </div>
 
@@ -293,12 +292,12 @@ export class Hud {
       }
     }
 
-    // Vacuola ATP -> Contador numérico junto al orbe dorado
-    if (stats.atp !== this.lastAtp || stats.atpCapacity !== this.lastAtpCap) {
-      this.lastAtp = stats.atp;
-      this.lastAtpCap = stats.atpCapacity;
+    // Vacuola ATP -> Contador numérico junto a la espora ámbar (actualización estrictamente solo al cambiar el entero)
+    const currentAtpInt = Math.round(stats.atp);
+    if (currentAtpInt !== this.lastDisplayedAtp) {
+      this.lastDisplayedAtp = currentAtpInt;
       if (this.atpDisplayVal) {
-        this.atpDisplayVal.textContent = `${Math.round(stats.atp)}`;
+        this.atpDisplayVal.textContent = `${currentAtpInt}`;
       }
     }
 
