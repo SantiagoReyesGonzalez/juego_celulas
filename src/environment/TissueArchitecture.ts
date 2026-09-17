@@ -154,22 +154,14 @@ export class TissueArchitecture {
   private spawnDeepMacroOrganisms(): void {
     const geo = new THREE.PlaneGeometry(1, 1);
 
-    // Configuraciones de 14 colosos primordiales en tonos miel, ámbar y capilar cálido
+    // Configuraciones optimizadas de 6 macro-células de fondo (escala reducida a 60-80 unidades max)
     const macroConfigs = [
-      { x: -180, y: 140, scale: 180, z: -55, color: 0xb45309, parallax: 0.22, speed: 0.35 },
-      { x: 190, y: -160, scale: 220, z: -65, color: 0x781d10, parallax: 0.18, speed: 0.28 },
-      { x: 260, y: 190, scale: 160, z: -48, color: 0xd97706, parallax: 0.26, speed: 0.42 },
-      { x: -240, y: -210, scale: 240, z: -70, color: 0x991b1b, parallax: 0.15, speed: 0.25 },
-      { x: 0, y: 260, scale: 190, z: -52, color: 0xb45309, parallax: 0.24, speed: 0.38 },
-      { x: 40, y: -280, scale: 210, z: -60, color: 0x781d10, parallax: 0.20, speed: 0.31 },
-      { x: -320, y: 30, scale: 170, z: -50, color: 0xca8a04, parallax: 0.25, speed: 0.40 },
-      { x: 330, y: -40, scale: 185, z: -56, color: 0xd97706, parallax: 0.21, speed: 0.33 },
-      { x: -110, y: -120, scale: 140, z: -45, color: 0xf59e0b, parallax: 0.28, speed: 0.45 },
-      { x: 130, y: 110, scale: 155, z: -47, color: 0x991b1b, parallax: 0.27, speed: 0.41 },
-      { x: -290, y: 270, scale: 200, z: -62, color: 0xb45309, parallax: 0.19, speed: 0.30 },
-      { x: 280, y: -290, scale: 215, z: -66, color: 0x781d10, parallax: 0.17, speed: 0.27 },
-      { x: -70, y: 320, scale: 175, z: -54, color: 0xd97706, parallax: 0.23, speed: 0.36 },
-      { x: 80, y: -340, scale: 195, z: -58, color: 0xca8a04, parallax: 0.20, speed: 0.32 },
+      { x: -180, y: 140, scale: 75, z: -55, color: 0xb45309, parallax: 0.22, speed: 0.35 },
+      { x: 190, y: -160, scale: 80, z: -65, color: 0x781d10, parallax: 0.18, speed: 0.28 },
+      { x: 240, y: 180, scale: 68, z: -48, color: 0xd97706, parallax: 0.26, speed: 0.42 },
+      { x: -220, y: -190, scale: 78, z: -70, color: 0x991b1b, parallax: 0.15, speed: 0.25 },
+      { x: 0, y: 240, scale: 70, z: -52, color: 0xb45309, parallax: 0.24, speed: 0.38 },
+      { x: -60, y: -260, scale: 72, z: -60, color: 0xca8a04, parallax: 0.20, speed: 0.31 },
     ];
 
     macroConfigs.forEach((cfg, idx) => {

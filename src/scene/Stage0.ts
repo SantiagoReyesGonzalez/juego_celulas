@@ -108,6 +108,7 @@ export class Stage0 {
   private frameCount = 0;
   private lastFpsUpdate = 0;
   private currentFps = 60;
+  private useDirectRender = false;
   public onTelemetryUpdate?: (data: TelemetryData) => void;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -201,17 +202,17 @@ export class Stage0 {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // 1. Instanciar EffectComposer con buffer HalfFloatType para precisión HDR
+    // 1. Instanciar EffectComposer con buffer HalfFloatType para precisión HDR (pixelRatio 1.0 estricto)
     this.composer = new EffectComposer(this.renderer);
-    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.composer.setPixelRatio(1.0);
     this.composer.setSize(width, height);
 
     // 2. Pase de Renderizado de Escena Primaria
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.renderPass);
 
-    // 3. UnrealBloomPass: Difusión suave a 60 FPS con resolución half-res para el blur mip-chain
-    const bloomRes = new THREE.Vector2(Math.floor(width / 2), Math.floor(height / 2));
+    // 3. UnrealBloomPass: Difusión suave a 60 FPS con resolución a un cuarto de pantalla (quarter-res)
+    const bloomRes = new THREE.Vector2(Math.floor(width / 4), Math.floor(height / 4));
     const bloomStrength = 0.85;  // Fuerza contenida para no quemar la pantalla
     const bloomRadius = 0.35;    // Radio contenido para preservar la nitidez celular
     const bloomThreshold = 0.72; // Solo emiten bloom fuentes hiperbrillantes: núcleos, esporas doradas, Fresnel
@@ -626,6 +627,9 @@ export class Stage0 {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       if (this.composer) {
         this.composer.setSize(window.innerWidth, window.innerHeight);
+        if (this.bloomPass) {
+          this.bloomPass.setSize(Math.floor(window.innerWidth / 4), Math.floor(window.innerHeight / 4));
+        }
       }
     }
   }
@@ -880,16 +884,10 @@ export class Stage0 {
       }
     }
 
-    // 7.5. Deriva fluida de las micro-esporas doradas bioluminiscentes
-    if (this.sporeParticles) {
-      const posAttr = this.sporeParticles.geometry.attributes.position as THREE.BufferAttribute;
-      const count = posAttr.count;
-      for (let i = 0; i < count; i++) {
-        let y = posAttr.getY(i) + Math.sin(time * 0.85 + i * 0.45) * 0.035;
-        let x = posAttr.getX(i) + Math.cos(time * 0.65 + i * 0.35) * 0.03;
-        posAttr.setXY(i, x, y);
-      }
-      posAttr.needsUpdate = true;
+    // 7.5. Deriva fluida de las micro-esporas doradas bioluminiscentes (sin sobrecarga CPU ni re-subida de buffers)
+    if (this.particlesGroup) {
+      this.particlesGroup.position.x = Math.sin(time * 0.20) * 2.5;
+      this.particlesGroup.position.y = Math.cos(time * 0.17) * 2.0;
     }
 
     // 7.8. Actualización de la Atmósfera Spore (Macro-Organismos en DoF, Bio-Vesículas y Bokeh)
@@ -1013,8 +1011,18 @@ export class Stage0 {
       this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * Math.min(dt * 6.0, 1.0);
     }
 
-    // 6. Renderizado de la Escena con EffectComposer y UnrealBloomPass Cálido (60 FPS)
-    this.composer.render(dt);
+    // 6. Renderizado de la Escena (Fallback automático a Direct Render si FPS < 35 para hardware limitado)
+    if (this.currentFps > 0 && this.currentFps < 35) {
+      this.useDirectRender = true;
+    } else if (this.currentFps >= 56 && this.useDirectRender) {
+      this.useDirectRender = false;
+    }
+
+    if (this.useDirectRender || !this.composer) {
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      this.composer.render(dt);
+    }
   }
 
   private handlePlayerDeath(cause: string): void {
