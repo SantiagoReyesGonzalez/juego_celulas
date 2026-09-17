@@ -33,6 +33,8 @@ export class EvolutionSystem {
     return this.vacuoleManager.atp >= this.vacuoleManager.atpCapacity;
   }
 
+  public onEvolved?: (species: BacteriaSpecies) => void;
+
   /**
    * Ejecuta la secuencia de Mitosis Celular hacia una nueva especie
    */
@@ -52,17 +54,16 @@ export class EvolutionSystem {
     // 2. Transformar la bacteria del jugador a la nueva especie en Rapier2D y Three.js
     this.player.setSpecies(targetSpecies, this.physicsWorld);
 
-    // 3. Ajustar estadísticas del VacuoleManager para el nuevo Tier
-    this.vacuoleManager.maxMembraneIntegrity = targetSpecies.hp;
-    this.vacuoleManager.membraneIntegrity = targetSpecies.hp;
-    this.vacuoleManager.maxOsmoticPressure = targetSpecies.shield;
-    this.vacuoleManager.osmoticPressure = targetSpecies.shield;
-    this.vacuoleManager.atp = 0; // El ATP se consume completamente en la mitosis
-    this.vacuoleManager.atpCapacity = targetSpecies.vacuoleCapacity;
-    this.vacuoleManager.notifyStats();
+    // 3. Reiniciar a nivel 0 y generar catálogo de bio-mejoras exclusivo para el nuevo Tier
+    this.vacuoleManager.resetAndGenerateUpgrades(targetSpecies);
 
-    // 4. Reaplicar Bio-Mejoras sobre las nuevas estadísticas base
+    // 4. Reaplicar Bio-Mejoras (limpias a nivel 0) sobre la nueva bacteria
     this.player.applyUpgrades(this.vacuoleManager.upgrades);
+
+    if (this.onEvolved) {
+      this.onEvolved(targetSpecies);
+    }
+
     return true;
   }
 
@@ -95,11 +96,7 @@ export class EvolutionSystem {
     const base = MutationTree.getSpecies('micrococcus');
     if (base) {
       this.player.setSpecies(base, this.physicsWorld);
-      this.vacuoleManager.maxMembraneIntegrity = base.hp;
-      this.vacuoleManager.membraneIntegrity = base.hp;
-      this.vacuoleManager.maxOsmoticPressure = base.shield;
-      this.vacuoleManager.osmoticPressure = base.shield;
-      this.vacuoleManager.atpCapacity = base.vacuoleCapacity;
+      this.vacuoleManager.resetAndGenerateUpgrades(base);
       this.vacuoleManager.atp = 15;
       this.vacuoleManager.notifyStats();
       this.player.applyUpgrades(this.vacuoleManager.upgrades);

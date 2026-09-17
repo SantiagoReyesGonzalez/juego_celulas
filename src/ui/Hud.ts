@@ -275,6 +275,11 @@ export class Hud {
       this.renderUpgrades(true);
     });
 
+    // Reconstruir reactivamente el dock de bio-mejoras al evolucionar o reaparecer
+    this.vacuoleManager.addUpgradesResetListener(() => {
+      this.refreshUpgradesForNewTier();
+    });
+
     // Notificaciones de ATP recolectado
     this.vacuoleManager.onAtpCollected = (amount) => {
       this.showAtpPopup(`+${Math.round(amount)} ATP`, '#facc15');
@@ -343,11 +348,11 @@ export class Hud {
 
     ups.forEach((up, idx) => {
       const key = keys[idx] || `${idx + 1}`;
-      const meta = UPGRADE_META[up.id] || {
-        icon: '✨',
-        shortName: up.name,
-        fullName: up.name,
-        benefit: up.description,
+      const meta = {
+        icon: up.icon || UPGRADE_META[up.id]?.icon || '✨',
+        shortName: up.shortName || UPGRADE_META[up.id]?.shortName || up.name,
+        fullName: up.name || UPGRADE_META[up.id]?.fullName || up.name,
+        benefit: up.benefit || UPGRADE_META[up.id]?.benefit || up.description,
       };
 
       const card = document.createElement('div');
@@ -441,6 +446,16 @@ export class Hud {
       });
     });
 
+    this.renderUpgrades(true);
+  }
+
+  /**
+   * Reconstruye y actualiza visualmente las 8 bio-mejoras para el nuevo Tier de la bacteria
+   */
+  public refreshUpgradesForNewTier(): void {
+    this.initUpgradeCards();
+    this.lastRenderedLevels = {};
+    this.lastRenderedAtp = -1;
     this.renderUpgrades(true);
   }
 

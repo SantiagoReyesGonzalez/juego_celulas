@@ -175,8 +175,13 @@ export class Stage0 {
       this.hud = new Hud(this.vacuoleManager);
       this.predationSystem = new PredationSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
 
-      // Inicialización de Evolución Celular y Mitosis (Etapa 3)
       this.evolutionSystem = new EvolutionSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
+      this.evolutionSystem.onEvolved = (species) => {
+        this.hud.showCustomPopup(
+          `🧬 ¡MUTACIÓN A TIER ${species.tier}: ${species.name.toUpperCase()}! Bio-Mejoras renovadas`,
+          '#38bdf8'
+        );
+      };
       this.mitosisModal = new MitosisModal(this.evolutionSystem, this.player);
 
       // Inicialización del Sistema Inmunológico y Director de Amenazas (Etapa 5)

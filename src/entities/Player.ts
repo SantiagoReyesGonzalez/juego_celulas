@@ -511,8 +511,9 @@ export class Player {
     this.hydroProps.terminalVelocity = this.currentSpecies.maxSpeed * (1.0 + propLevel * 0.10);
 
     const sprintLevel = upgrades.sprintPower?.level || 0;
-    this.sprintForce = 85.0 * (1.0 + sprintLevel * 0.2);
-    this.sprintAtpCost = Math.max(1.0, 2.0 - sprintLevel * 0.25);
+    const baseSprint = 70.0 + this.currentSpecies.mass * 15.0;
+    this.sprintForce = baseSprint * (1.0 + sprintLevel * 0.2);
+    this.sprintAtpCost = Math.max(1.0, 2.5 - sprintLevel * 0.3);
   }
 
   public visualUpdate(dt: number, time: number): void {
