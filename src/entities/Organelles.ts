@@ -22,6 +22,7 @@ export interface FlagellumUserData {
   segments: number;
   segmentLength: number;
   baseWidth: number;
+  phaseOffset?: number;
 }
 
 export class OrganelleFactory {
@@ -57,83 +58,7 @@ export class OrganelleFactory {
       }
 
       case OrganelleType.FLAGELLUM: {
-        // Flagelos largos, ondulantes y sedosos de 6.4 unidades (estilo Imagen de Referencia 01)
-        const segments = 32;
-        const segmentLength = 0.20;
-        const baseWidth = 0.14;
-
-        // 1. Anillo motor basal en la membrana celular (origen 0,0,0)
-        const motorGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.06, 12);
-        motorGeo.rotateZ(Math.PI / 2);
-        const motorMat = new THREE.MeshBasicMaterial({
-          color: color,
-          transparent: true,
-          opacity: 0.95,
-        });
-        const motor = new THREE.Mesh(motorGeo, motorMat);
-        group.add(motor);
-
-        // 2. Malla Ribbon orgánica de doble cara con grosor decreciente y resplandor neón
-        const ribbonVertices: number[] = [];
-        const ribbonIndices: number[] = [];
-
-        for (let i = 0; i < segments; i++) {
-          const x = i * segmentLength;
-          const norm = i / (segments - 1);
-          const halfW = baseWidth * (1.0 - 0.85 * norm) * 0.5;
-
-          // Vértice superior e inferior
-          ribbonVertices.push(x, halfW, 0);
-          ribbonVertices.push(x, -halfW, 0);
-
-          if (i < segments - 1) {
-            const v0 = i * 2;
-            const v1 = i * 2 + 1;
-            const v2 = (i + 1) * 2;
-            const v3 = (i + 1) * 2 + 1;
-            ribbonIndices.push(v0, v1, v2);
-            ribbonIndices.push(v2, v1, v3);
-          }
-        }
-
-        const ribbonGeo = new THREE.BufferGeometry();
-        ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(ribbonVertices, 3));
-        ribbonGeo.setIndex(ribbonIndices);
-
-        const ribbonMat = new THREE.MeshBasicMaterial({
-          color: color,
-          transparent: true,
-          opacity: 0.88,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        });
-        const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
-        group.add(ribbon);
-
-        // 3. Filamento axial central de alta luminiscencia blanca
-        const linePoints: THREE.Vector3[] = [];
-        for (let i = 0; i < segments; i++) {
-          linePoints.push(new THREE.Vector3(i * segmentLength, 0, 0));
-        }
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
-        const lineMat = new THREE.LineBasicMaterial({
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0.95,
-          linewidth: 1.5,
-        });
-        const line = new THREE.Line(lineGeo, lineMat);
-        group.add(line);
-
-        // Guardar referencias para animación eficiente
-        group.userData.flagellum = {
-          line,
-          ribbon,
-          segments,
-          segmentLength,
-          baseWidth,
-        } as FlagellumUserData;
-        break;
+        return OrganelleFactory.createFlagellumMesh(color);
       }
 
       case OrganelleType.CAPSULE_LAYER: {
@@ -304,7 +229,94 @@ export class OrganelleFactory {
   }
 
   /**
-   * Actualiza la ondulación hidrodinámica de los flagelos unidos a la célula
+   * Crea una malla de flagelo compuesta por un anillo motor, una cinta orgánica (ribbon)
+   * y un filamento axial central sobre vértices existentes.
+   */
+  public static createFlagellumMesh(
+    color: number,
+    phaseOffset = 0,
+    segments = 24,
+    segmentLength = 0.20,
+    baseWidth = 0.15
+  ): THREE.Group {
+    const group = new THREE.Group();
+
+    // 1. Anillo motor basal en la membrana celular (origen 0,0,0)
+    const motorGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.06, 12);
+    motorGeo.rotateZ(Math.PI / 2);
+    const motorMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const motor = new THREE.Mesh(motorGeo, motorMat);
+    group.add(motor);
+
+    // 2. Malla Ribbon orgánica de doble cara con grosor decreciente
+    const ribbonVertices: number[] = [];
+    const ribbonIndices: number[] = [];
+
+    for (let i = 0; i < segments; i++) {
+      const x = i * segmentLength;
+      const norm = i / (segments - 1);
+      const halfW = baseWidth * (1.0 - 0.82 * norm) * 0.5;
+
+      ribbonVertices.push(x, halfW, 0.05);
+      ribbonVertices.push(x, -halfW, 0.05);
+
+      if (i < segments - 1) {
+        const v0 = i * 2;
+        const v1 = i * 2 + 1;
+        const v2 = (i + 1) * 2;
+        const v3 = (i + 1) * 2 + 1;
+        ribbonIndices.push(v0, v1, v2);
+        ribbonIndices.push(v2, v1, v3);
+      }
+    }
+
+    const ribbonGeo = new THREE.BufferGeometry();
+    ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(ribbonVertices, 3));
+    ribbonGeo.setIndex(ribbonIndices);
+
+    const ribbonMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.88,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
+    group.add(ribbon);
+
+    // 3. Filamento axial central de alta luminiscencia blanca
+    const linePoints: THREE.Vector3[] = [];
+    for (let i = 0; i < segments; i++) {
+      linePoints.push(new THREE.Vector3(i * segmentLength, 0, 0.06));
+    }
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.95,
+      linewidth: 1.5,
+    });
+    const line = new THREE.Line(lineGeo, lineMat);
+    group.add(line);
+
+    group.userData.flagellum = {
+      line,
+      ribbon,
+      segments,
+      segmentLength,
+      baseWidth,
+      phaseOffset,
+    } as FlagellumUserData;
+
+    return group;
+  }
+
+  /**
+   * Actualiza la ondulación de los flagelos unidos a la célula usando exclusivamente Math.sin
    */
   public static animateFlagella(
     flagella: THREE.Object3D[],
@@ -312,41 +324,9 @@ export class OrganelleFactory {
     speed: number,
     isThrusting: boolean
   ): void {
-    const waveFreq = 11.0 + Math.min(speed * 2.2, 18.0);
-    const baseAmp = isThrusting ? 0.36 : 0.22;
-
-    flagella.forEach((group, idx) => {
-      const data = group.userData.flagellum as FlagellumUserData | undefined;
-      if (!data) return;
-
-      const { line, ribbon, segments, segmentLength, baseWidth } = data;
-      const linePositions = line.geometry.attributes.position as THREE.BufferAttribute;
-      const ribbonPositions = ribbon.geometry.attributes.position as THREE.BufferAttribute;
-
-      const totalLen = (segments - 1) * segmentLength;
-
-      for (let j = 0; j < segments; j++) {
-        const x = j * segmentLength;
-        const normalizedX = x / totalLen;
-        // La amplitud es 0 estrictamente en j=0 para que la raíz permanezca fija en la membrana
-        const amp = baseAmp * Math.pow(normalizedX, 1.15) * 1.3;
-        const phase = time * waveFreq - x * 2.8 + idx * 0.7;
-        const wave = Math.sin(phase) * amp + Math.sin(phase * 2.1 + 0.6) * (amp * 0.22);
-
-        // Actualizar filamento central
-        linePositions.setXYZ(j, x, wave, 0);
-
-        // Ancho decreciente hacia la punta
-        const halfW = baseWidth * (1.0 - 0.82 * normalizedX) * 0.5;
-
-        // Actualizar cinta orgánica (vértice superior e inferior)
-        ribbonPositions.setXYZ(j * 2, x, wave + halfW, 0);
-        ribbonPositions.setXYZ(j * 2 + 1, x, wave - halfW, 0);
-      }
-
-      linePositions.needsUpdate = true;
-      ribbonPositions.needsUpdate = true;
-    });
+    for (let i = 0; i < flagella.length; i++) {
+      animateFlagellumSin(flagella[i], time, speed, isThrusting, i * 0.85);
+    }
   }
 
   /**
@@ -596,217 +576,60 @@ export class OrganelleFactory {
 }
 
 /**
- * Cadena física de flagelo mediante Integración Verlet con deformación fluida,
- * amortiguamiento viscoso y gradiente cromático continuo por vértice (vertexColors).
+ * Anima el flagelo usando exclusivamente Math.sin sobre los vértices existentes.
+ * Modifica directamente los buffers de posición sin físicas Verlet ni librerías externas.
  */
-export class VerletFlagellum {
-  public group: THREE.Group;
-  private ribbonMesh: THREE.Mesh;
-  private lineMesh: THREE.Line;
-  private segments: number;
-  private segmentLength: number;
-  private baseWidth: number;
-  public socketOffset: THREE.Vector2;
-  public socketAngle: number;
-  public phaseOffset: number;
-  private yPoints: Float32Array;
+export function animateFlagellumSin(
+  flagellum: THREE.Object3D,
+  time: number,
+  speed = 0,
+  isThrusting = false,
+  phaseOffset = 0
+): void {
+  const data = flagellum.userData?.flagellum as FlagellumUserData | undefined;
+  if (!data || !data.ribbon || !data.line) return;
 
-  constructor(
-    parent: THREE.Group,
-    socketOffset: THREE.Vector2,
-    socketAngle: number,
-    colorBaseHex = 0xffffff,
-    colorMidHex = 0x38bdf8,
-    colorTipHex = 0xc084fc,
-    baseWidth = 0.16,
-    segments = 24,
-    segmentLength = 0.18,
-    phaseOffset = 0
-  ) {
-    this.group = new THREE.Group();
-    this.group.position.set(socketOffset.x, socketOffset.y, 0);
-    this.group.rotation.z = socketAngle;
-    parent.add(this.group);
+  const { ribbon, line, segments, segmentLength, baseWidth } = data;
+  const phase = phaseOffset || data.phaseOffset || 0;
 
-    this.socketOffset = socketOffset.clone();
-    this.socketAngle = socketAngle;
-    this.phaseOffset = phaseOffset;
-    this.segments = segments;
-    this.segmentLength = segmentLength;
-    this.baseWidth = baseWidth;
-    this.yPoints = new Float32Array(segments);
+  const ribbonPositions = ribbon.geometry.attributes.position as THREE.BufferAttribute;
+  const linePositions = line.geometry.attributes.position as THREE.BufferAttribute;
 
-    // 1. Anillo Motor Basal en la membrana (local en el origen del socket)
-    const motorGeo = new THREE.CylinderGeometry(baseWidth * 0.95, baseWidth * 0.95, 0.08, 12);
-    motorGeo.rotateZ(Math.PI / 2);
-    motorGeo.translate(0, 0, 0.05);
-    const motorMat = new THREE.MeshBasicMaterial({
-      color: colorBaseHex,
-      transparent: true,
-      opacity: 0.95,
-    });
-    const motor = new THREE.Mesh(motorGeo, motorMat);
-    this.group.add(motor);
+  const waveFreq = 12.0 + Math.min(speed * 2.0, 18.0) * (isThrusting ? 1.3 : 1.0);
+  const baseAmp = isThrusting ? 0.40 : 0.22;
 
-    // 2. Malla Ribbon con Gradiente Cromático por Vértice (vertexColors)
-    const vertexCount = segments * 2;
-    const positions = new Float32Array(vertexCount * 3);
-    const colors = new Float32Array(vertexCount * 3);
-    const indices: number[] = [];
+  // Calculamos la oscilación ondulatoria exclusivamente con Math.sin
+  for (let i = 0; i < segments; i++) {
+    const normX = i / (segments - 1);
+    const x = i * segmentLength;
 
-    const cBase = new THREE.Color(colorBaseHex);
-    const cMid = new THREE.Color(colorMidHex);
-    const cTip = new THREE.Color(colorTipHex);
+    // Amplitud cero en la membrana (normX = 0) creciendo hacia la punta mediante Math.sin
+    const amp = baseAmp * Math.sin(normX * Math.PI * 0.5);
+    const wave = amp * Math.sin(time * waveFreq - normX * 4.8 + phase);
 
-    for (let i = 0; i < segments; i++) {
-      const norm = i / (segments - 1);
+    // Derivada de la onda para calcular las normales del ribbon usando Math.sin
+    const nextNormX = Math.min(1.0, (i + 1) / (segments - 1));
+    const nextAmp = baseAmp * Math.sin(nextNormX * Math.PI * 0.5);
+    const nextWave = nextAmp * Math.sin(time * waveFreq - nextNormX * 4.8 + phase);
 
-      // Interpolación suave del gradiente: Base (blanco/oro) -> Medio (neón) -> Punta (etérea)
-      const vertColor = new THREE.Color();
-      if (norm < 0.4) {
-        const t = norm / 0.4;
-        vertColor.lerpColors(cBase, cMid, t);
-      } else {
-        const t = (norm - 0.4) / 0.6;
-        vertColor.lerpColors(cMid, cTip, t);
-      }
+    const tx = segmentLength;
+    const ty = nextWave - wave;
+    const len = Math.hypot(tx, ty) || 1.0;
+    const nx = -ty / len;
+    const ny = tx / len;
 
-      const v0 = i * 2;
-      const v1 = i * 2 + 1;
+    const halfW = baseWidth * (1.0 - 0.82 * normX) * 0.5;
 
-      colors[v0 * 3] = vertColor.r;
-      colors[v0 * 3 + 1] = vertColor.g;
-      colors[v0 * 3 + 2] = vertColor.b;
+    // Modificar vértices existentes del ribbon (2 vértices por segmento)
+    ribbonPositions.setXYZ(i * 2, x + nx * halfW, wave + ny * halfW, 0.05);
+    ribbonPositions.setXYZ(i * 2 + 1, x - nx * halfW, wave - ny * halfW, 0.05);
 
-      colors[v1 * 3] = vertColor.r;
-      colors[v1 * 3 + 1] = vertColor.g;
-      colors[v1 * 3 + 2] = vertColor.b;
-
-      if (i < segments - 1) {
-        const a = i * 2;
-        const b = i * 2 + 1;
-        const c = (i + 1) * 2;
-        const d = (i + 1) * 2 + 1;
-        indices.push(a, b, c);
-        indices.push(c, b, d);
-      }
-    }
-
-    const ribbonGeo = new THREE.BufferGeometry();
-    ribbonGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    ribbonGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    ribbonGeo.setIndex(indices);
-
-    const ribbonMat = new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.88,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    this.ribbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
-    this.group.add(this.ribbonMesh);
-
-    // 3. Filamento Axial Central de Alta Luminiscencia
-    const linePositions = new Float32Array(segments * 3);
-    const lineColors = new Float32Array(segments * 3);
-    for (let i = 0; i < segments; i++) {
-      const norm = i / (segments - 1);
-      const vertColor = new THREE.Color();
-      if (norm < 0.4) {
-        vertColor.lerpColors(cBase, cMid, norm / 0.4);
-      } else {
-        vertColor.lerpColors(cMid, cTip, (norm - 0.4) / 0.6);
-      }
-      lineColors[i * 3] = vertColor.r;
-      lineColors[i * 3 + 1] = vertColor.g;
-      lineColors[i * 3 + 2] = vertColor.b;
-    }
-
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
-    lineGeo.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
-    const lineMat = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.95,
-      linewidth: 2.0,
-    });
-    this.lineMesh = new THREE.Line(lineGeo, lineMat);
-    this.group.add(this.lineMesh);
+    // Modificar vértices existentes del filamento axial central
+    linePositions.setXYZ(i, x, wave, 0.06);
   }
 
-  public setSocket(socketOffset: THREE.Vector2, socketAngle: number): void {
-    this.socketOffset.copy(socketOffset);
-    this.socketAngle = socketAngle;
-    this.group.position.set(socketOffset.x, socketOffset.y, 0);
-    this.group.rotation.z = socketAngle;
-  }
-
-  /**
-   * Actualiza la onda sinusoidal fluida sobre los vértices del Ribbon y Line
-   */
-  public update(
-    _dt: number,
-    time: number,
-    speed: number,
-    isThrusting: boolean,
-    angularVel = 0
-  ): void {
-    const freq = 12.0 + Math.min(speed * 1.8, 18.0) * (isThrusting ? 1.3 : 1.0);
-    const baseAmp = isThrusting ? 0.42 : 0.24;
-    const waveLength = 5.2;
-
-    // 1. Calcular oscilación ondulatoria con amplitud cero en la raíz (t=0)
-    for (let i = 0; i < this.segments; i++) {
-      const t = i / (this.segments - 1);
-      const amp = baseAmp * Math.pow(t, 1.2);
-      const wave = amp * Math.sin(time * freq - t * waveLength + this.phaseOffset);
-      const harmonic = wave + amp * 0.22 * Math.sin(time * freq * 1.85 - t * waveLength * 1.4 + this.phaseOffset);
-      const turnLag = -angularVel * 0.06 * Math.pow(t, 1.8);
-      this.yPoints[i] = harmonic + turnLag;
-    }
-
-    // 2. Actualizar geometrías de la cinta y del filamento axial
-    const ribbonPos = this.ribbonMesh.geometry.attributes.position as THREE.BufferAttribute;
-    const linePos = this.lineMesh.geometry.attributes.position as THREE.BufferAttribute;
-
-    for (let i = 0; i < this.segments; i++) {
-      const x = i * this.segmentLength;
-      const y = this.yPoints[i];
-
-      let tx = this.segmentLength;
-      let ty = 0;
-      if (i < this.segments - 1) {
-        ty = this.yPoints[i + 1] - y;
-      } else {
-        ty = y - this.yPoints[i - 1];
-      }
-      const len = Math.hypot(tx, ty) || 1.0;
-      const nx = -ty / len;
-      const ny = tx / len;
-
-      const t = i / (this.segments - 1);
-      const halfW = this.baseWidth * (1.0 - 0.80 * t) * 0.5;
-
-      ribbonPos.setXYZ(i * 2, x + nx * halfW, y + ny * halfW, 0.05);
-      ribbonPos.setXYZ(i * 2 + 1, x - nx * halfW, y - ny * halfW, 0.05);
-      linePos.setXYZ(i, x, y, 0.06);
-    }
-
-    ribbonPos.needsUpdate = true;
-    linePos.needsUpdate = true;
-  }
-
-  public dispose(): void {
-    if (this.group.parent) {
-      this.group.parent.remove(this.group);
-    }
-    this.ribbonMesh.geometry.dispose();
-    (this.ribbonMesh.material as THREE.Material).dispose();
-    this.lineMesh.geometry.dispose();
-    (this.lineMesh.material as THREE.Material).dispose();
-  }
+  ribbonPositions.needsUpdate = true;
+  linePositions.needsUpdate = true;
 }
 
 export interface InternalOrganelleItem {

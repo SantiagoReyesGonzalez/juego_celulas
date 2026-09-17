@@ -421,7 +421,7 @@ export class Stage0 {
     });
 
     const erythrocyteCount = 40;
-    const rbcGeo = new THREE.PlaneGeometry(6.5, 6.5);
+    const rbcGeo = new THREE.PlaneGeometry(6.5, 6.5, 1, 1);
     this.erythrocyteInstancedMesh = new THREE.InstancedMesh(rbcGeo, rbcMat, erythrocyteCount);
     this.scene.add(this.erythrocyteInstancedMesh);
     this.erythrocyteData = [];

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
-import { OrganelleFactory, VerletFlagellum, InternalOrganelleCluster } from './Organelles';
+import { OrganelleFactory, InternalOrganelleCluster } from './Organelles';
 import { CellMorphology } from '../data/MutationTree';
 import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
 
@@ -33,9 +33,9 @@ export class Microorganism {
   private baseColor = 0x22c55e;
   private baseEmissive = 0x15803d;
 
-  // Orgánulos Internos y Flagelos Físicos Verlet
+  // Orgánulos Internos y Flagelos
   private internalOrganelles?: InternalOrganelleCluster;
-  private verletFlagella: VerletFlagellum[] = [];
+  private flagellaMeshes: THREE.Object3D[] = [];
   private ciliaMesh?: THREE.LineSegments;
   private apexGlowMesh?: THREE.Mesh;
 
@@ -181,20 +181,12 @@ export class Microorganism {
       this.ciliaMesh = OrganelleFactory.createCiliaFringe(this.radius, 1.2, CellMorphology.BACILLUS, color);
       this.mesh.add(this.ciliaMesh);
 
-      // Flagelo segmentado Verlet con gradiente continuo
-      const vf = new VerletFlagellum(
-        this.mesh,
-        new THREE.Vector2(-1.0, 0),
-        Math.PI,
-        0xffffff,
-        0x38bdf8,
-        0x0284c7,
-        0.14,
-        18,
-        0.16,
-        0
-      );
-      this.verletFlagella.push(vf);
+      // Flagelo animado con Math.sin puro sobre vértices existentes
+      const flagellum = OrganelleFactory.createFlagellumMesh(0x38bdf8, 0, 18, 0.16, 0.14);
+      flagellum.position.set(-1.0, 0, 0);
+      flagellum.rotation.z = Math.PI;
+      this.mesh.add(flagellum);
+      this.flagellaMeshes.push(flagellum);
 
     } else if (this.type === MicroorganismType.NIMBLE_NAYAD) {
       // Presa ágil en forma de huso aerodinámico bioluminiscente cian-dorado
@@ -206,21 +198,13 @@ export class Microorganism {
       this.ciliaMesh = OrganelleFactory.createCiliaFringe(this.radius, 0.7, CellMorphology.BACILLUS, 0xfacc15);
       this.mesh.add(this.ciliaMesh);
 
-      // Doble flagelo ágil Verlet con gradiente cian a oro
+      // Doble flagelo ágil con Math.sin puro
       [-0.2, 0.2].forEach((offsetY, idx) => {
-        const vf = new VerletFlagellum(
-          this.mesh,
-          new THREE.Vector2(-0.75, offsetY),
-          Math.PI,
-          0xffffff,
-          0x2dd4bf,
-          0xfacc15,
-          0.12,
-          16,
-          0.14,
-          idx * 1.2
-        );
-        this.verletFlagella.push(vf);
+        const flagellum = OrganelleFactory.createFlagellumMesh(0x2dd4bf, idx * 1.2, 16, 0.14, 0.12);
+        flagellum.position.set(-0.75, offsetY, 0);
+        flagellum.rotation.z = Math.PI;
+        this.mesh.add(flagellum);
+        this.flagellaMeshes.push(flagellum);
       });
 
     } else if (this.type === MicroorganismType.APEX_VIBRIO) {
@@ -258,21 +242,13 @@ export class Microorganism {
       this.apexGlowMesh = new THREE.Mesh(haloGeo, haloMat);
       this.mesh.add(this.apexGlowMesh);
 
-      // 3 Flagelos propulsores largos Verlet con gradiente carmesí a ámbar fuego
+      // 3 Flagelos propulsores largos con Math.sin puro
       [-0.35, 0, 0.35].forEach((offsetY, idx) => {
-        const vf = new VerletFlagellum(
-          this.mesh,
-          new THREE.Vector2(-1.35, offsetY),
-          Math.PI,
-          0xffffff,
-          0xef4444,
-          0xf59e0b,
-          0.16,
-          22,
-          0.18,
-          idx * 0.85
-        );
-        this.verletFlagella.push(vf);
+        const flagellum = OrganelleFactory.createFlagellumMesh(0xef4444, idx * 0.85, 22, 0.18, 0.16);
+        flagellum.position.set(-1.35, offsetY, 0);
+        flagellum.rotation.z = Math.PI;
+        this.mesh.add(flagellum);
+        this.flagellaMeshes.push(flagellum);
       });
 
     } else {
@@ -469,7 +445,6 @@ export class Microorganism {
     if (isVisibleOnScreen) {
       const vel = this.body.linvel();
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      const angVel = this.body.angvel();
 
       // Inercia citoplasmática de orgánulos con blend aditivo
       if (this.internalOrganelles) {
@@ -480,10 +455,8 @@ export class Microorganism {
         this.internalOrganelles.update(dt, time, { x: localVx, y: localVy });
       }
 
-      // Ondulación de cadenas físicas Verlet con gradiente cromático
-      for (let i = 0; i < this.verletFlagella.length; i++) {
-        this.verletFlagella[i].update(dt, time, speed, speed > 0.4, angVel);
-      }
+      // Ondulación de flagelos con Math.sin puro sobre vértices existentes
+      OrganelleFactory.animateFlagella(this.flagellaMeshes, time, speed, speed > 0.4);
 
       // Ondulación de los micro-cilios perimetrales
       if (this.ciliaMesh) {
@@ -493,8 +466,7 @@ export class Microorganism {
   }
 
   public dispose(scene: THREE.Scene, physicsWorld: PhysicsWorld): void {
-    this.verletFlagella.forEach((vf) => vf.dispose());
-    this.verletFlagella = [];
+    this.flagellaMeshes = [];
     if (this.internalOrganelles) {
       this.internalOrganelles.dispose();
       this.internalOrganelles = undefined;

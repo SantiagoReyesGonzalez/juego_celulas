@@ -3,7 +3,7 @@ import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { HydrodynamicsSystem, Morphology, HydrodynamicProperties } from '../systems/HydrodynamicsSystem';
 import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology, CellRole } from '../data/MutationTree';
-import { OrganelleSocket, OrganelleFactory, OrganelleType, VerletFlagellum, InternalOrganelleCluster } from './Organelles';
+import { OrganelleSocket, OrganelleFactory, OrganelleType, InternalOrganelleCluster } from './Organelles';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
 import { getToroidalDelta } from '../physics/WorldTopology';
@@ -29,10 +29,9 @@ export class Player {
   public lastColliderScale = 1.0;
   public feedPulse = 1.0;
 
-  // Visuales Three.js, Orgánulos Internos y Flagelos Verlet
+  // Visuales Three.js, Orgánulos Internos y Flagelos
   public group: THREE.Group;
   private flagellaMeshes: THREE.Object3D[] = [];
-  private verletFlagella: VerletFlagellum[] = [];
   private internalOrganelles?: InternalOrganelleCluster;
   private ciliaMesh?: THREE.LineSegments;
 
@@ -191,8 +190,6 @@ export class Player {
       }
     }
     this.flagellaMeshes = [];
-    this.verletFlagella.forEach((vf) => vf.dispose());
-    this.verletFlagella = [];
     if (this.internalOrganelles) {
       this.internalOrganelles.dispose();
       this.internalOrganelles = undefined;
@@ -291,21 +288,16 @@ export class Player {
         organelleColor = FLAGELLA_PALETTE[flagellumIdx % FLAGELLA_PALETTE.length];
         flagellumIdx++;
 
-        // Flagelo Verlet físico con gradiente cromático continuo
-        const vf = new VerletFlagellum(
-          this.group,
-          socket.offset,
-          socket.angle,
-          0xffffff,       // Raíz blanca pura
-          organelleColor, // Cuerpo neón bioluminiscente
-          0xc084fc,       // Punta etérea
-          0.16,
-          24,
-          0.18,
+        // Flagelo orgánico animado exclusivamente con Math.sin sobre vértices existentes
+        const flagellumMesh = OrganelleFactory.createFlagellumMesh(
+          organelleColor,
           flagellumIdx * 0.85
         );
-        this.verletFlagella.push(vf);
-        socket.mesh = vf.group;
+        flagellumMesh.position.set(socket.offset.x, socket.offset.y, 0);
+        flagellumMesh.rotation.z = socket.angle;
+        this.group.add(flagellumMesh);
+        this.flagellaMeshes.push(flagellumMesh);
+        socket.mesh = flagellumMesh;
       } else {
         const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, organelleColor);
         organelleMesh.position.set(socket.offset.x, socket.offset.y, 0);
@@ -537,7 +529,6 @@ export class Player {
     // Ondulación hidrodinámica de los flagelos y física de orgánulos
     const vel = this.body.linvel();
     const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-    const angVel = this.body.angvel();
 
     // Actualización de orgánulos citoplasmáticos con inercia viscoelástica
     if (this.internalOrganelles) {
@@ -548,11 +539,7 @@ export class Player {
       this.internalOrganelles.update(dt, time, { x: localVx, y: localVy });
     }
 
-    // Actualización de cadenas Verlet para flagelos con gradiente cromático
-    for (let i = 0; i < this.verletFlagella.length; i++) {
-      this.verletFlagella[i].update(dt, time, speed, this.isThrusting, angVel);
-    }
-
+    // Ondulación fluida de flagelos sobre vértices existentes con Math.sin puro
     OrganelleFactory.animateFlagella(this.flagellaMeshes, time, speed, this.isThrusting);
 
     // Ondulación de los micro-cilios perimetrales (estilo Imagen 01)
