@@ -98,6 +98,7 @@ export class Stage0 {
   // Interacción y Mouse
   private mouseScreen = new THREE.Vector2(0, 0);
   private mouseWorld = new THREE.Vector2(0, 0);
+  private mouseUnprojectVec = new THREE.Vector3();
   private frustumSize = 42;
 
   // Telemetría y Tiempo
@@ -573,18 +574,20 @@ export class Stage0 {
     }
   }
 
-  private onMouseMove(e: MouseEvent): void {
-    this.mouseScreen.x = (e.clientX / window.innerWidth) * 2 - 1;
-    this.mouseScreen.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-    // Convertir a coordenadas mundiales Three.js
-    const vector = new THREE.Vector3(this.mouseScreen.x, this.mouseScreen.y, 0);
-    vector.unproject(this.camera);
-    this.mouseWorld.set(vector.x, vector.y);
+  public updateMouseWorld(): void {
+    this.mouseUnprojectVec.set(this.mouseScreen.x, this.mouseScreen.y, 0);
+    this.mouseUnprojectVec.unproject(this.camera);
+    this.mouseWorld.set(this.mouseUnprojectVec.x, this.mouseUnprojectVec.y);
 
     if (this.player) {
       this.player.mouseWorld.copy(this.mouseWorld);
     }
+  }
+
+  private onMouseMove(e: MouseEvent): void {
+    this.mouseScreen.x = (e.clientX / window.innerWidth) * 2 - 1;
+    this.mouseScreen.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    this.updateMouseWorld();
   }
 
   public update(): void {
@@ -594,6 +597,9 @@ export class Stage0 {
     // Actualizar sistema de Screen Shake y Hit-Stop
     const isHitStopped = this.cameraShake.isHitStopped();
     const shake = this.cameraShake.update(dt);
+
+    // 0. Sincronizar coordenadas mundiales del cursor con la cámara antes del step de físicas
+    this.updateMouseWorld();
 
     // 1. Simulación Física Determinista Rapier2D a 60 Hz con Hidrodinámica
     if (this.isWasmReady && this.physicsWorld && this.player) {
@@ -783,6 +789,9 @@ export class Stage0 {
         this.frustumSize += (targetFrustum - this.frustumSize) * Math.min(dt * 2.5, 1.0);
         this.onResize();
       }
+
+      // Re-proyectar coordenadas mundiales del cursor con la nueva posición de cámara
+      this.updateMouseWorld();
     }
 
     // 7. Actualización del Fondo Orgánico Cálido de Microscopía

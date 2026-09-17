@@ -50,7 +50,14 @@ export class Player {
   public isSprinting = false;
 
   // Estado de Controles
-  public isThrusting = false;
+  private isKeyThrusting = false;
+  private isRightMouseDown = false;
+  public get isThrusting(): boolean {
+    return this.isKeyThrusting || this.isRightMouseDown;
+  }
+  public set isThrusting(val: boolean) {
+    this.isRightMouseDown = val;
+  }
   public isBraking = false;
   public isSprintRequested = false;
   public isControlsLocked = false;
@@ -311,13 +318,13 @@ export class Player {
   private setupInputs(): void {
     window.addEventListener('keydown', (e) => {
       if (this.isControlsLocked) return;
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isThrusting = true;
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isKeyThrusting = true;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.isBraking = true;
       if (e.code === 'Space') this.isSprintRequested = true;
     });
 
     window.addEventListener('keyup', (e) => {
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isThrusting = false;
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.isKeyThrusting = false;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.isBraking = false;
       if (e.code === 'Space') this.isSprintRequested = false;
     });
@@ -329,13 +336,29 @@ export class Player {
         return;
       }
       if (this.isControlsLocked) return;
-      if (e.button === 2) this.isThrusting = true;
+      if (e.button === 2) this.isRightMouseDown = true;
       if (e.button === 0) this.isSprintRequested = true; // Clic izquierdo = Sprint de Caza
     });
 
     window.addEventListener('mouseup', (e) => {
-      if (e.button === 2) this.isThrusting = false;
+      if (e.button === 2) this.isRightMouseDown = false;
       if (e.button === 0) this.isSprintRequested = false;
+    });
+
+    // Monitoreo continuo del bitmask de botones (e.buttons) para evitar pérdidas de estado
+    window.addEventListener('mousemove', (e) => {
+      if ((e.buttons & 2) !== 0) {
+        if (!this.isControlsLocked) this.isRightMouseDown = true;
+      } else if (this.isRightMouseDown && (e.buttons & 2) === 0) {
+        this.isRightMouseDown = false;
+      }
+    });
+
+    window.addEventListener('blur', () => {
+      this.isKeyThrusting = false;
+      this.isRightMouseDown = false;
+      this.isBraking = false;
+      this.isSprintRequested = false;
     });
 
     window.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -427,15 +450,24 @@ export class Player {
     const currentRot = this.body.rotation();
 
     if (this.isControlsLocked) {
-      this.isThrusting = false;
+      this.isKeyThrusting = false;
+      this.isRightMouseDown = false;
       this.isSprintRequested = false;
       this.isBraking = false;
     }
 
-    // 1. Orientación hacia el cursor
-    const toMouseX = this.mouseWorld.x - pos.x;
-    const toMouseY = this.mouseWorld.y - pos.y;
-    this.targetAngle = Math.atan2(toMouseY, toMouseX);
+    // 1. Orientación hacia el cursor usando distancia toroidal mínima (evita giros erráticos al cruzar bordes)
+    const { dx: toMouseX, dy: toMouseY, dist: distToMouse } = getToroidalDelta(
+      pos.x,
+      pos.y,
+      this.mouseWorld.x,
+      this.mouseWorld.y
+    );
+
+    // Solo actualizar ángulo objetivo si el cursor está fuera de la zona muerta del núcleo celular (> 0.35u)
+    if (distToMouse > 0.35) {
+      this.targetAngle = Math.atan2(toMouseY, toMouseX);
+    }
 
     let angleDiff = this.targetAngle - currentRot;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -600,7 +632,8 @@ export class Player {
     if (this.isDead) return;
     this.isDead = true;
     this.isControlsLocked = true;
-    this.isThrusting = false;
+    this.isKeyThrusting = false;
+    this.isRightMouseDown = false;
     this.isBraking = false;
     this.isSprintRequested = false;
 
