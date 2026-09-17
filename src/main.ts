@@ -15,14 +15,18 @@ function init(): void {
 
   // Elementos de Telemetría Detallada (Depuración [F3])
   const debugHud = document.getElementById('telemetry-hud');
+  const playerBadgePill = document.getElementById('player-badge-pill');
   const toggleBtn = document.getElementById('toggle-debug-btn');
   const wasmEl = document.getElementById('wasm-status');
   const coordsEl = document.getElementById('coords-val');
   const speedEl = document.getElementById('speed-val');
   const scaleEl = document.getElementById('scale-val');
 
-  // Toggle para mostrar/ocultar consola técnica
+  // Toggle para mostrar/ocultar consola técnica y pill de depuración
   const toggleDebugPanel = () => {
+    if (playerBadgePill) {
+      playerBadgePill.classList.toggle('hidden');
+    }
     if (debugHud) {
       debugHud.classList.toggle('hidden');
     }

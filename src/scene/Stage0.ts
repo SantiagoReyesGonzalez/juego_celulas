@@ -860,7 +860,7 @@ export class Stage0 {
     }
 
     // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico (Cheat: Throttled a cada 3 frames para 0 GC stutter)
-    if (this.minimap && this.player && (this.frameCount % 3 === 0)) {
+    if (this.minimap && this.minimap.isVisible && this.player && (this.frameCount % 3 === 0)) {
       const pPos = this.player.body.translation();
       const pRot = this.player.body.rotation();
 

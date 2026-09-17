@@ -27,11 +27,11 @@
         height: 100%;
         display: block;
       }
-      /* Insignia de Jugador Superior Izquierda (Estilo Arcade) */
+      /* Insignia de Jugador (Oculta por defecto, alternable con F3) */
       #player-badge-pill {
         position: absolute;
-        top: 14px;
-        left: 16px;
+        top: 96px;
+        left: 28px;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -43,6 +43,9 @@
         box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), 0 0 10px rgba(16, 185, 129, 0.12);
         z-index: 45;
         user-select: none;
+      }
+      #player-badge-pill.hidden {
+        display: none !important;
       }
       .badge-item {
         display: flex;
@@ -97,8 +100,8 @@
       /* Panel de Telemetría Detallada de Depuración (Oculto por defecto [F3]) */
       #telemetry-hud {
         position: absolute;
-        top: 56px;
-        left: 16px;
+        top: 140px;
+        left: 28px;
         color: #e2e8f0;
         background: rgba(6, 9, 19, 0.90);
         backdrop-filter: blur(12px);
@@ -1567,135 +1570,48 @@
         }
       }
 
-      /* ================= MINI-MAPA RADAR BIOLÓGICO (ESTILO STARBLAST.IO) ================= */
+      /* ================= LENTE CIRCULAR DE MICROSCOPÍA CONFOCAL (BIO-RADAR) ================= */
       #bio-minimap-container {
         position: absolute;
-        top: 16px;
-        right: 16px;
-        background: rgba(6, 11, 24, 0.88);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(56, 189, 248, 0.25);
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.75), 0 0 16px rgba(56, 189, 248, 0.12);
+        top: 24px;
+        right: 24px;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at center,
+          rgba(16, 36, 26, 0.42) 0%,
+          rgba(6, 18, 14, 0.70) 75%,
+          rgba(3, 10, 8, 0.88) 100%
+        );
+        backdrop-filter: blur(10px);
+        border: 1.5px solid rgba(16, 185, 129, 0.45);
+        box-shadow:
+          0 0 16px rgba(16, 185, 129, 0.22),
+          inset 0 0 18px rgba(16, 185, 129, 0.15),
+          0 10px 35px rgba(0, 0, 0, 0.75);
         z-index: 45;
         overflow: hidden;
         user-select: none;
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: none;
+        transition: opacity 0.25s ease, transform 0.25s ease;
       }
-      #bio-minimap-container.collapsed .minimap-canvas-wrapper,
-      #bio-minimap-container.collapsed .minimap-footer {
-        display: none;
-      }
-      .minimap-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 6px 10px;
-        background: rgba(15, 23, 42, 0.75);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        cursor: pointer;
-      }
-      .radar-title-group {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .radar-live-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #10b981;
-        box-shadow: 0 0 6px #10b981;
-        animation: radarPulse 1.4s infinite;
-      }
-      @keyframes radarPulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.85); }
-      }
-      .radar-title {
-        font-size: 11px;
-        font-weight: 800;
-        color: #38bdf8;
-        letter-spacing: 0.5px;
-      }
-      .radar-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .minimap-sector-pill {
-        font-size: 9.5px;
-        font-weight: 700;
-        background: rgba(56, 189, 248, 0.15);
-        border: 1px solid rgba(56, 189, 248, 0.35);
-        color: #7dd3fc;
-        padding: 1px 6px;
-        border-radius: 6px;
-        font-family: monospace;
-      }
-      .minimap-btn {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        color: #94a3b8;
-        width: 18px;
-        height: 18px;
-        border-radius: 4px;
-        font-size: 12px;
-        line-height: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.15s ease;
-      }
-      .minimap-btn:hover {
-        background: rgba(56, 189, 248, 0.25);
-        color: #ffffff;
-      }
-      .minimap-btn.zoom-btn {
-        width: auto;
-        padding: 0 5px;
-        font-size: 10px;
-        font-weight: 700;
-        font-family: monospace;
-        color: #38bdf8;
-      }
-      .minimap-canvas-wrapper {
-        display: block;
-        padding: 4px;
-        line-height: 0;
+      #bio-minimap-container.hidden {
+        display: none !important;
       }
       #bio-minimap-canvas {
         display: block;
-        border-radius: 6px;
-      }
-      .minimap-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 4px 8px;
-        background: rgba(10, 15, 30, 0.85);
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-        font-size: 9px;
-        color: #64748b;
-        font-family: monospace;
-      }
-      .radar-coords {
-        color: #94a3b8;
-        font-weight: 600;
-      }
-      .radar-topology-badge {
-        color: #0ea5e9;
-        font-weight: 700;
-        letter-spacing: 0.3px;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
       }
     </style>
   </head>
   <body>
     <canvas id="game-canvas"></canvas>
 
-    <!-- Insignia Arcade Superior Izquierda: Célula y Masa -->
-    <div id="player-badge-pill">
+    <!-- Insignia Arcade Superior Izquierda: Célula y Masa (Oculta por defecto, alternable con F3) -->
+    <div id="player-badge-pill" class="hidden">
       <div class="badge-item cell-tier">
         <span class="badge-icon">🧫</span>
         <span id="tier-val" class="badge-text">Tier 1</span>

@@ -1,4 +1,4 @@
-import { getSectorLabel, getToroidalDelta } from '../physics/WorldTopology';
+import { getToroidalDelta } from '../physics/WorldTopology';
 
 export interface MinimapEntity {
   x: number;
@@ -38,13 +38,8 @@ export class Minimap {
   private container: HTMLDivElement;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private coordsLabel: HTMLSpanElement;
-  private sectorLabel: HTMLSpanElement;
-  private zoomBtn: HTMLButtonElement;
-  private toggleBtn: HTMLButtonElement;
 
-  private isExpanded = true;
-  private isVisible = true;
+  public isVisible = false;
   private radarAngle = 0;
 
   // Zoom del Radar: 2x (~70u) o 3x (~105u) respecto a la pantalla
@@ -57,48 +52,29 @@ export class Minimap {
     return this.zoomLevels[this.currentZoomIndex].range;
   }
 
-  // Dimensiones del lienzo del radar circular
-  private cssWidth = 190;
-  private cssHeight = 190;
+  // Dimensiones de la lente circular
+  private cssWidth = 180;
+  private cssHeight = 180;
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
 
   constructor() {
     this.container = document.createElement('div');
     this.container.id = 'bio-minimap-container';
-    this.container.className = 'minimap-panel';
+    this.container.className = 'bio-confocal-lens hidden';
+    this.container.style.display = 'none';
 
     this.container.innerHTML = `
-      <div class="minimap-header">
-        <div class="radar-title-group">
-          <span class="radar-live-dot"></span>
-          <span class="radar-title">📡 BIO-RADAR</span>
-        </div>
-        <div class="radar-actions">
-          <span id="minimap-sector" class="minimap-sector-pill">SEC: --</span>
-          <button id="minimap-zoom-btn" class="minimap-btn zoom-btn" title="Alternar Rango de Detección (2x / 3x)">2.0x</button>
-          <button id="minimap-toggle-btn" class="minimap-btn" title="Minimizar / Expandir (Tecla TAB o N)">−</button>
-        </div>
-      </div>
-      <div class="minimap-canvas-wrapper">
-        <canvas id="bio-minimap-canvas"></canvas>
-      </div>
-      <div class="minimap-footer">
-        <span id="minimap-coords" class="radar-coords">X: 0.0 | Y: 0.0</span>
-        <span class="radar-topology-badge">CENTRO: JUGADOR</span>
-      </div>
+      <canvas id="bio-minimap-canvas"></canvas>
     `;
 
     document.body.appendChild(this.container);
 
     this.canvas = this.container.querySelector('#bio-minimap-canvas') as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d', { alpha: true }) as CanvasRenderingContext2D;
-    this.coordsLabel = this.container.querySelector('#minimap-coords') as HTMLSpanElement;
-    this.sectorLabel = this.container.querySelector('#minimap-sector') as HTMLSpanElement;
-    this.zoomBtn = this.container.querySelector('#minimap-zoom-btn') as HTMLButtonElement;
-    this.toggleBtn = this.container.querySelector('#minimap-toggle-btn') as HTMLButtonElement;
 
     this.setupCanvas();
     this.bindEvents();
+    this.setVisible(false);
   }
 
   private setupCanvas(): void {
@@ -109,17 +85,7 @@ export class Minimap {
   }
 
   private bindEvents(): void {
-    this.toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggle();
-    });
-
-    this.zoomBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.cycleZoom();
-    });
-
-    // Teclas TAB o N para alternar colapso, Tecla Z para alternar zoom
+    // Teclas TAB o N para alternar visibilidad del radar orgánico, Tecla Z para alternar zoom
     window.addEventListener('keydown', (e) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
@@ -140,38 +106,35 @@ export class Minimap {
 
   public cycleZoom(): void {
     this.currentZoomIndex = (this.currentZoomIndex + 1) % this.zoomLevels.length;
-    this.zoomBtn.textContent = this.zoomLevels[this.currentZoomIndex].label;
   }
 
   public toggle(): boolean {
-    this.isExpanded = !this.isExpanded;
-    if (this.isExpanded) {
-      this.container.classList.remove('collapsed');
-      this.toggleBtn.textContent = '−';
-    } else {
-      this.container.classList.add('collapsed');
-      this.toggleBtn.textContent = '+';
-    }
-    return this.isExpanded;
+    this.isVisible = !this.isVisible;
+    this.setVisible(this.isVisible);
+    return this.isVisible;
   }
 
   public setVisible(visible: boolean): void {
     this.isVisible = visible;
-    this.container.style.display = visible ? 'block' : 'none';
+    if (visible) {
+      this.container.style.display = 'block';
+      this.container.classList.remove('hidden');
+    } else {
+      this.container.style.display = 'none';
+      this.container.classList.add('hidden');
+    }
   }
 
   /**
-   * Renderizado en tiempo real del radar de proximidad centrado en el jugador
+   * Renderizado en tiempo real de la retícula de microscopía confocal centrada en el jugador
    */
   public update(time: number, data: MinimapData): void {
-    const px = data.player.x;
-    const py = data.player.y;
-
-    if (!this.isVisible || !this.isExpanded) {
-      this.coordsLabel.textContent = `X: ${px.toFixed(1)} | Y: ${py.toFixed(1)}`;
-      this.sectorLabel.textContent = `SEC: ${getSectorLabel(px, py)}`;
+    if (!this.isVisible) {
       return;
     }
+
+    const px = data.player.x;
+    const py = data.player.y;
 
     const ctx = this.ctx;
     ctx.save();
@@ -192,35 +155,35 @@ export class Minimap {
     ctx.arc(centerX, centerY, radarRadius, 0, Math.PI * 2);
     ctx.clip();
 
-    // Fondo del radar con gradiente radial orgánico
+    // Fondo de la lente confocal con gradiente radial orgánico
     const bgGrad = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, radarRadius);
-    bgGrad.addColorStop(0, 'rgba(8, 20, 36, 0.95)');
-    bgGrad.addColorStop(0.7, 'rgba(4, 10, 22, 0.96)');
-    bgGrad.addColorStop(1, 'rgba(2, 6, 16, 0.98)');
+    bgGrad.addColorStop(0, 'rgba(6, 24, 18, 0.45)');
+    bgGrad.addColorStop(0.7, 'rgba(4, 16, 12, 0.65)');
+    bgGrad.addColorStop(1, 'rgba(2, 10, 8, 0.85)');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, renderW, renderH);
 
-    // 3. Anillos Concéntricos de Alcance
+    // 3. Retícula de Microscopía Confocal (Anillos Concéntricos y Cruz Sutil)
     // Anillo interior: Vista en Pantalla (1.0x pantalla ~32u)
     const screenRingR = (32.0 / this.radarRange) * radarRadius;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.22)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([3, 4]);
+    ctx.setLineDash([2, 4]);
     ctx.beginPath();
     ctx.arc(centerX, centerY, screenRingR, 0, Math.PI * 2);
     ctx.stroke();
 
     // Anillo intermedio (~60u)
     const midRingR = (60.0 / this.radarRange) * radarRadius;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
     ctx.beginPath();
     ctx.arc(centerX, centerY, midRingR, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Retícula en cruz (Eje X / Eje Y centrados en el jugador)
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
-    ctx.lineWidth = 1;
+    // Retícula confocal en cruz (Eje X / Eje Y muy sutiles)
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.moveTo(centerX - radarRadius, centerY);
     ctx.lineTo(centerX + radarRadius, centerY);
@@ -228,7 +191,7 @@ export class Minimap {
     ctx.lineTo(centerX, centerY + radarRadius);
     ctx.stroke();
 
-    // 3.5. Bio-Vesículas y Nodos Tisulares Redondeados (Estilo Spore)
+    // 3.5. Bio-Vesículas y Nodos Tisulares Redondeados
     if (data.bioVesicles && data.bioVesicles.length > 0) {
       ctx.save();
       data.bioVesicles.forEach((ves) => {
@@ -240,25 +203,25 @@ export class Minimap {
 
           ctx.beginPath();
           ctx.arc(rx, ry, rPixel, 0, Math.PI * 2);
-          ctx.fillStyle = ves.color ? `${ves.color}1c` : 'rgba(56, 189, 248, 0.12)';
+          ctx.fillStyle = ves.color ? `${ves.color}1c` : 'rgba(16, 185, 129, 0.12)';
           ctx.fill();
-          ctx.strokeStyle = ves.color ? `${ves.color}66` : 'rgba(56, 189, 248, 0.40)';
-          ctx.lineWidth = 1.3;
+          ctx.strokeStyle = ves.color ? `${ves.color}66` : 'rgba(16, 185, 129, 0.35)';
+          ctx.lineWidth = 1.2;
           ctx.stroke();
         }
       });
       ctx.restore();
     }
 
-    // 4. Haz Giratorio de Escáner Radar (Sonar Sweep)
-    this.radarAngle = (time * 2.2) % (Math.PI * 2);
+    // 4. Haz Giratorio de Escáner Confocal (Barrido Orgánico Esmeralda)
+    this.radarAngle = (time * 1.8) % (Math.PI * 2);
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(-this.radarAngle);
     const sweepGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, radarRadius);
-    sweepGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-    sweepGrad.addColorStop(0.8, 'rgba(56, 189, 248, 0.15)');
-    sweepGrad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+    sweepGrad.addColorStop(0, 'rgba(16, 185, 129, 0.30)');
+    sweepGrad.addColorStop(0.8, 'rgba(16, 185, 129, 0.08)');
+    sweepGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
     ctx.fillStyle = sweepGrad;
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -543,27 +506,13 @@ export class Minimap {
 
     ctx.restore(); // Termina clip circular
 
-    // 10. Borde Perimetral Metálico/Cian del Escáner
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
-    ctx.lineWidth = 2.0;
+    // 10. Aro Perimetral Tenue de Microscopía Confocal (Verde Biológico / Ámbar Sutil)
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.55)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radarRadius, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, radarRadius - 0.5, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Marcas cardinales sutiles en el bisel
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('N', centerX, centerY - radarRadius + 7);
-    ctx.fillText('S', centerX, centerY + radarRadius - 7);
-    ctx.fillText('E', centerX + radarRadius - 7, centerY);
-    ctx.fillText('O', centerX - radarRadius + 7, centerY);
-
     ctx.restore();
-
-    // 11. Textos Informativos del HUD
-    this.coordsLabel.textContent = `X: ${px.toFixed(1)} | Y: ${py.toFixed(1)}`;
-    this.sectorLabel.textContent = `SEC: ${getSectorLabel(px, py)}`;
   }
 }
