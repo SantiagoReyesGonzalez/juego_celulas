@@ -8,6 +8,13 @@ export interface MinimapEntity {
   color?: string;
 }
 
+export interface MinimapWallSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface MinimapData {
   player: {
     x: number;
@@ -23,6 +30,7 @@ export interface MinimapData {
   nutrients?: MinimapEntity[];
   biofilmHubs?: MinimapEntity[];
   biofilmChunks?: MinimapEntity[];
+  tissueWalls?: MinimapWallSegment[];
 }
 
 export class Minimap {
@@ -218,6 +226,32 @@ export class Minimap {
     ctx.moveTo(centerX, centerY - radarRadius);
     ctx.lineTo(centerX, centerY + radarRadius);
     ctx.stroke();
+
+    // 3.5. Paredes Celulares y Tabiques Tisulares (Conductos Vasculares y Criptas)
+    if (data.tissueWalls && data.tissueWalls.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = 'round';
+
+      data.tissueWalls.forEach((seg) => {
+        const d1 = getToroidalDelta(px, py, seg.x1, seg.y1);
+        const d2 = getToroidalDelta(px, py, seg.x2, seg.y2);
+
+        if (d1.dist <= this.radarRange * 1.25 || d2.dist <= this.radarRange * 1.25) {
+          const rx1 = centerX + (d1.dx / this.radarRange) * radarRadius;
+          const ry1 = centerY - (d1.dy / this.radarRange) * radarRadius;
+          const rx2 = centerX + (d2.dx / this.radarRange) * radarRadius;
+          const ry2 = centerY - (d2.dy / this.radarRange) * radarRadius;
+
+          ctx.beginPath();
+          ctx.moveTo(rx1, ry1);
+          ctx.lineTo(rx2, ry2);
+          ctx.stroke();
+        }
+      });
+      ctx.restore();
+    }
 
     // 4. Haz Giratorio de Escáner Radar (Sonar Sweep)
     this.radarAngle = (time * 2.2) % (Math.PI * 2);

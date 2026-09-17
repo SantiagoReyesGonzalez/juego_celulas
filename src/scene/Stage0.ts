@@ -16,6 +16,7 @@ import { AtpOrb } from '../entities/Resources';
 import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/WorldTopology';
 import { CameraShakeSystem } from '../systems/CameraShakeSystem';
 import { BioAudioSystem } from '../audio/BioAudioSystem';
+import { TissueArchitecture } from '../environment/TissueArchitecture';
 
 export interface TelemetryData {
   fps: number;
@@ -39,6 +40,9 @@ export class Stage0 {
   private hydroSystem!: HydrodynamicsSystem;
   private player!: Player;
   private isWasmReady = false;
+
+  // Arquitectura Tisular y Macro-Organismo
+  public tissueArchitecture!: TissueArchitecture;
 
   // Game Feel, Screen Shake y Audio Procedural
   public cameraShake = new CameraShakeSystem();
@@ -177,6 +181,9 @@ export class Stage0 {
       this.physicsWorld = new PhysicsWorld();
       this.hydroSystem = new HydrodynamicsSystem();
       this.player = new Player(this.physicsWorld, this.scene);
+
+      // Arquitectura Tisular del Macro-Organismo (Paredes Endoteliales, Colágeno, Células Somáticas Gigantes)
+      this.tissueArchitecture = new TissueArchitecture(this.scene, this.physicsWorld);
 
       // Inicialización de Economía Celular y Depredación (Agar.io + Spore)
       this.vacuoleManager = new VacuoleManager();
@@ -480,9 +487,20 @@ export class Stage0 {
           this.evolutionSystem.update(dt);
         }
 
-        // 3.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 60 Impactos - 3x Dificultad)
+        // 3.5. Arquitectura Tisular del Macro-Organismo (Paredes Endoteliales y Resonancia)
         const curPlayerPos = this.player.body.translation();
         const playerRadius = this.player.baseRadius * this.player.currentScale;
+
+        if (this.tissueArchitecture) {
+          this.tissueArchitecture.update(dt, time);
+          const wallProx = this.tissueArchitecture.checkWallProximity(curPlayerPos.x, curPlayerPos.y, playerRadius);
+          if (wallProx.hit && this.player.getSpeed() > 7.5) {
+            this.bioAudio.playImpactThud(0.5);
+            this.cameraShake.addTrauma(0.12, wallProx.nx, wallProx.ny);
+          }
+        }
+
+        // 3.6. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 60 Impactos - 3x Dificultad)
         let isPlayerInCausticField = false;
         let activeHubName = '';
         let activeHubHealth = 60;
@@ -726,6 +744,7 @@ export class Stage0 {
         nutrients: nutBlips,
         biofilmHubs: hubBlips,
         biofilmChunks: chunkBlips,
+        tissueWalls: this.tissueArchitecture ? this.tissueArchitecture.wallSegments : [],
       });
     }
 
