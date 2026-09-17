@@ -255,6 +255,34 @@ export class VacuoleManager {
     return true;
   }
 
+  /**
+   * Recarga directamente la presión osmótica (escudo) al consumir minerales o cristales de calcio
+   */
+  public rechargeShield(amount: number): number {
+    if (this.isDead) return 0;
+    const missing = this.maxOsmoticPressure - this.osmoticPressure;
+    const added = Math.min(amount, Math.max(0, missing));
+    this.osmoticPressure += added;
+    if (added > 0) {
+      this.notifyStats();
+    }
+    return added;
+  }
+
+  /**
+   * Cura directamente la integridad de membrana celular al consumir péptidos o biomasa reparadora
+   */
+  public healMembrane(amount: number): number {
+    if (this.isDead) return 0;
+    const missing = this.maxMembraneIntegrity - this.membraneIntegrity;
+    const added = Math.min(amount, Math.max(0, missing));
+    this.membraneIntegrity += added;
+    if (added > 0) {
+      this.notifyStats();
+    }
+    return added;
+  }
+
   public isInvulnerable = false;
 
   /**

@@ -5,6 +5,7 @@ export interface MinimapEntity {
   y: number;
   radius?: number;
   type?: string;
+  color?: string;
 }
 
 export interface MinimapData {
@@ -15,6 +16,7 @@ export interface MinimapData {
     color?: string;
   };
   adipocytes: MinimapEntity[];
+  bioStructures?: MinimapEntity[];
   microorganisms: MinimapEntity[];
   neutrophils: MinimapEntity[];
   macrophage?: MinimapEntity | null;
@@ -283,6 +285,34 @@ export class Minimap {
           ctx.beginPath();
           ctx.arc(rx, ry, r, 0, Math.PI * 2);
           ctx.fill();
+        }
+      });
+    }
+
+    // 7.1. Bio-Estructuras Especializadas (Cian, Violeta, Verde, Rojo)
+    if (data.bioStructures && data.bioStructures.length > 0) {
+      data.bioStructures.forEach((struct) => {
+        const { dx, dy, dist } = getToroidalDelta(px, py, struct.x, struct.y);
+        if (dist <= this.radarRange) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          const r = Math.max(2.8, ((struct.radius || 2.4) / this.radarRange) * radarRadius * 1.5);
+          const col = struct.color || '#38bdf8';
+
+          // Halo cromático translúcido
+          ctx.save();
+          ctx.fillStyle = col;
+          ctx.globalAlpha = 0.38;
+          ctx.beginPath();
+          ctx.arc(rx, ry, r + 2.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Núcleo brillante
+          ctx.globalAlpha = 0.95;
+          ctx.beginPath();
+          ctx.arc(rx, ry, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
       });
     }

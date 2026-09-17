@@ -3,6 +3,7 @@ import { PhysicsWorld } from '../physics/World';
 import { Player } from '../entities/Player';
 import { Microorganism, MicroorganismType } from '../entities/Microorganism';
 import { Adipocyte, AtpOrb } from '../entities/Resources';
+import { BioStructure, BioStructureType, SpecializedNutrient, SpecializedNutrientType } from '../entities/BioStructure';
 import { VacuoleManager } from './VacuoleManager';
 import { WORLD_BOUNDS, getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
 
@@ -58,13 +59,17 @@ export class PredationSystem {
   public nutrients: NutrientPellet[] = [];
   public microorganisms: Microorganism[] = [];
   public adipocytes: Adipocyte[] = [];
+  public bioStructures: BioStructure[] = [];
   public atpOrbs: AtpOrb[] = [];
+  public specializedNutrients: SpecializedNutrient[] = [];
 
   public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
+  public onSpecializedNutrientCollected?: (text: string, color: string) => void;
 
   private maxNutrients = 380;
   private maxMicroorganisms = 180;
-  private maxAdipocytes = 28;
+  private maxAdipocytes = 16;
+  private maxBioStructures = 26;
   private worldBounds = WORLD_BOUNDS;
 
   // Recursos compartidos para los gránulos de nutrientes
@@ -134,9 +139,14 @@ export class PredationSystem {
       this.spawnRandomMicroorganism();
     }
 
-    // 3. Depósitos lipídicos (Adipocitos) para digestión por contacto
+    // 3. Depósitos lipídicos (Adipocitos amarillos)
     for (let i = 0; i < this.maxAdipocytes; i++) {
       this.spawnRandomAdipocyte();
+    }
+
+    // 4. Bio-estructuras diversas para romper y comer (Cian, Violeta, Verde y Rojo)
+    for (let i = 0; i < this.maxBioStructures; i++) {
+      this.spawnRandomBioStructure();
     }
   }
 
@@ -181,6 +191,33 @@ export class PredationSystem {
     const radius = 2.0 + Math.random() * 1.8;
     const adipocyte = new Adipocyte(this.physicsWorld, this.scene, x, y, radius);
     this.adipocytes.push(adipocyte);
+  }
+
+  private spawnRandomBioStructure(): void {
+    let x = 0;
+    let y = 0;
+    let dist = 0;
+    do {
+      x = (Math.random() - 0.5) * (this.worldBounds.maxX - this.worldBounds.minX);
+      y = (Math.random() - 0.5) * (this.worldBounds.maxY - this.worldBounds.minY);
+      const playerPos = this.player.body.translation();
+      dist = Math.hypot(x - playerPos.x, y - playerPos.y);
+    } while (dist < 12.0);
+
+    const rand = Math.random();
+    let type = BioStructureType.CALCIUM_CRYSTAL;
+    if (rand < 0.32) {
+      type = BioStructureType.CALCIUM_CRYSTAL; // Cian
+    } else if (rand < 0.62) {
+      type = BioStructureType.PEPTIDE_VESICLE; // Violeta
+    } else if (rand < 0.85) {
+      type = BioStructureType.TOXIC_CYST; // Verde
+    } else {
+      type = BioStructureType.MITOCHONDRION; // Rojo Rubí
+    }
+
+    const structure = new BioStructure(this.physicsWorld, this.scene, x, y, type);
+    this.bioStructures.push(structure);
   }
 
   public update(dt: number, time: number): void {
@@ -323,6 +360,68 @@ export class PredationSystem {
       }
     }
 
+    // ================= 3.5. FRACTURA DE BIO-ESTRUCTURAS ESPECIALIZADAS (CIAN, VIOLETA, VERDE, ROJO) =================
+    for (let i = this.bioStructures.length - 1; i >= 0; i--) {
+      const struct = this.bioStructures[i];
+      struct.update(dt, time);
+
+      let sPos = struct.body.translation();
+
+      // Envolvente toroidal
+      if (isOutsideBounds(sPos.x, sPos.y)) {
+        const wrapped = wrapPosition(sPos.x, sPos.y);
+        struct.body.setTranslation(wrapped, true);
+        sPos = struct.body.translation();
+      }
+
+      const { dx, dy, dist } = getToroidalDelta(playerPos.x, playerPos.y, sPos.x, sPos.y);
+
+      if (dist <= playerRadius + struct.radius + 0.45) {
+        const isRamming = this.player.isSprinting || this.player.getSpeed() > 11.0;
+        if (isRamming && (time - struct.lastHitTime > 0.28)) {
+          struct.lastHitTime = time;
+
+          const angle = Math.atan2(dy, dx);
+          const impactForce = { x: Math.cos(angle) * 52.0, y: Math.sin(angle) * 52.0 };
+          const isDestroyed = struct.hit(1, impactForce);
+
+          this.player.feedBounce(1.20);
+
+          if (isDestroyed) {
+            const nuts = struct.breakApart(this.scene);
+            this.specializedNutrients.push(...nuts);
+            struct.dispose(this.scene, this.physicsWorld);
+            this.bioStructures.splice(i, 1);
+
+            if (this.onSpecializedNutrientCollected) {
+              this.onSpecializedNutrientCollected(
+                `💥 ¡${struct.config.name} Destruido!`,
+                struct.config.radarColor
+              );
+            }
+
+            setTimeout(() => {
+              if (this.bioStructures.length < this.maxBioStructures) {
+                this.spawnRandomBioStructure();
+              }
+            }, 6000);
+          } else {
+            // Golpe intermedio: desprende 1 nutriente especializado
+            const nutAngle = angle + (Math.random() - 0.5) * 1.5;
+            const singleNut = new SpecializedNutrient(
+              this.scene,
+              sPos.x + Math.cos(nutAngle) * (struct.radius + 0.6),
+              sPos.y + Math.sin(nutAngle) * (struct.radius + 0.6),
+              Math.cos(nutAngle) * 4.0,
+              Math.sin(nutAngle) * 4.0,
+              struct.config.nutrientType
+            );
+            this.specializedNutrients.push(singleNut);
+          }
+        }
+      }
+    }
+
     // ================= 4. RECOLECCIÓN Y CRECIMIENTO POR ORBES DE ATP =================
     // Solo se recolectan cuando la bacteria pasa físicamente por encima (sin imán)
     for (let i = this.atpOrbs.length - 1; i >= 0; i--) {
@@ -350,6 +449,62 @@ export class PredationSystem {
       if (orb.life >= orb.maxLife) {
         orb.dispose(this.scene);
         this.atpOrbs.splice(i, 1);
+      }
+    }
+
+    // ================= 4.5. RECOLECCIÓN DE NUTRIENTES ESPECIALIZADOS =================
+    for (let i = this.specializedNutrients.length - 1; i >= 0; i--) {
+      const nut = this.specializedNutrients[i];
+      nut.update(dt, time);
+
+      if (isOutsideBounds(nut.position.x, nut.position.y)) {
+        const wrapped = wrapPosition(nut.position.x, nut.position.y);
+        nut.position.x = wrapped.x;
+        nut.position.y = wrapped.y;
+      }
+
+      if (this.player.containsPoint(nut.position.x, nut.position.y, 1.15)) {
+        if (nut.type === SpecializedNutrientType.CALCIUM_SHARD) {
+          this.vacuoleManager.rechargeShield(18);
+          this.vacuoleManager.addAtp(4 * atpBonus);
+          this.player.triggerShieldPulse(this.scene);
+          if (this.onSpecializedNutrientCollected) {
+            this.onSpecializedNutrientCollected('+18 Escudo (Calcio) 🛡️', '#38bdf8');
+          }
+        } else if (nut.type === SpecializedNutrientType.PEPTIDE_PEARL) {
+          this.vacuoleManager.healMembrane(16);
+          this.player.grow(0.18 * biomassBonus);
+          this.player.triggerHealPulse(this.scene);
+          if (this.onSpecializedNutrientCollected) {
+            this.onSpecializedNutrientCollected('+16 HP & Biomasa 🌱', '#e879f9');
+          }
+        } else if (nut.type === SpecializedNutrientType.ENDOSPORE) {
+          this.vacuoleManager.addAtp(8 * atpBonus);
+          this.player.applySpeedBuff(5.0, 1.30);
+          this.player.feedBounce(1.25);
+          if (this.onSpecializedNutrientCollected) {
+            this.onSpecializedNutrientCollected('⚡ Sobrecarga (+30% Vel) 🟢', '#34d399');
+          }
+        } else if (nut.type === SpecializedNutrientType.MITO_COMPLEX) {
+          this.vacuoleManager.addAtp(35 * atpBonus);
+          this.vacuoleManager.healMembrane(20);
+          this.player.grow(0.32 * biomassBonus);
+          this.player.feedBounce(1.35);
+          if (this.onSpecializedNutrientCollected) {
+            this.onSpecializedNutrientCollected('🔥 Megacarga Mitocondrial (+35 ATP) 🔴', '#fb7185');
+          }
+        }
+
+        this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
+        nut.isCollected = true;
+        nut.dispose(this.scene);
+        this.specializedNutrients.splice(i, 1);
+        continue;
+      }
+
+      if (nut.life >= nut.maxLife) {
+        nut.dispose(this.scene);
+        this.specializedNutrients.splice(i, 1);
       }
     }
   }

@@ -199,6 +199,12 @@ export class Stage0 {
         }
       };
 
+      // Notificaciones de recolección de nutrientes de bio-estructuras (Calcio, Péptidos, Esporas, Mitocondrias)
+      this.predationSystem.onSpecializedNutrientCollected = (text, color) => {
+        this.hud.showCustomPopup(text, color);
+        this.threatDirector.addInflammation(0.008);
+      };
+
       this.hud.onMitosisClick = () => {
         this.mitosisModal.open();
       };
@@ -590,6 +596,18 @@ export class Stage0 {
           })
         : [];
 
+      const structBlips = this.predationSystem
+        ? this.predationSystem.bioStructures.map((s) => {
+            const pos = s.body.translation();
+            return {
+              x: pos.x,
+              y: pos.y,
+              radius: s.radius,
+              color: s.config.radarColor,
+            };
+          })
+        : [];
+
       const microBlips = this.predationSystem
         ? this.predationSystem.microorganisms.map((m) => {
             const pos = m.body.translation();
@@ -636,6 +654,7 @@ export class Stage0 {
       this.minimap.update(time, {
         player: { x: pPos.x, y: pPos.y, rotation: pRot },
         adipocytes: adBlips,
+        bioStructures: structBlips,
         microorganisms: microBlips,
         neutrophils: neutroBlips,
         macrophage: macroBlip,

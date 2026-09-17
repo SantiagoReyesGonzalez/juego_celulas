@@ -55,6 +55,16 @@ export class Player {
   public isControlsLocked = false;
   public mouseWorld = new THREE.Vector2(0, 0);
 
+  // Buffs Biológicos Temporales (Sobrecarga de Endosporas)
+  public speedBuffTimer = 0;
+  public speedBuffMultiplier = 1.0;
+
+  public applySpeedBuff(duration = 5.0, multiplier = 1.30): void {
+    this.speedBuffTimer = Math.max(this.speedBuffTimer, duration);
+    this.speedBuffMultiplier = multiplier;
+    this.feedBounce(1.25);
+  }
+
   // Ciclo de Vida y Muerte Celular
   public isDead = false;
   public invulnerabilityTimer = 0;
@@ -458,10 +468,19 @@ export class Player {
     const forwardX = Math.cos(newRot);
     const forwardY = Math.sin(newRot);
 
+    // Actualización de buff de velocidad
+    if (this.speedBuffTimer > 0) {
+      this.speedBuffTimer = Math.max(0, this.speedBuffTimer - fixedDt);
+      if (this.speedBuffTimer === 0) {
+        this.speedBuffMultiplier = 1.0;
+      }
+    }
+
     // 2. Propulsión Frontal Continua (Flagelar)
     if (this.isThrusting) {
-      const fx = forwardX * this.thrustForce * fixedDt;
-      const fy = forwardY * this.thrustForce * fixedDt;
+      const currentThrust = this.thrustForce * this.speedBuffMultiplier;
+      const fx = forwardX * currentThrust * fixedDt;
+      const fy = forwardY * currentThrust * fixedDt;
       this.body.applyImpulse({ x: fx, y: fy }, true);
     }
 
