@@ -350,7 +350,8 @@ export class OrganelleFactory {
   }
 
   /**
-   * Crea una corona perimetral de cilios/pelos bioluminiscentes (estilo Imagen de Referencia 01)
+   * Crea una corona perimetral de cilios/pelos bioluminiscentes adaptada fielmente
+   * a la morfología real de la célula (Coccus, Diplococcus, Streptococcus, Bacillus, etc.)
    */
   public static createCiliaFringe(
     radius: number,
@@ -358,72 +359,187 @@ export class OrganelleFactory {
     morphology: CellMorphology,
     color = 0x34d399
   ): THREE.LineSegments {
-    const ciliaCount = morphology === CellMorphology.COCCUS ? 36 : 48;
     const vertices: number[] = [];
     const basePoints: THREE.Vector3[] = [];
     const normals: THREE.Vector3[] = [];
     const lengths: number[] = [];
 
-    const halfL = (length * 0.8) * 0.5;
+    // Colección de puntos base y normales generados para el contorno específico de la célula
+    const contour: Array<{ bx: number; by: number; nx: number; ny: number }> = [];
 
-    for (let i = 0; i < ciliaCount; i++) {
-      const u = i / ciliaCount;
-      const angle = u * Math.PI * 2;
-      let bx = 0;
-      let by = 0;
-      let nx = Math.cos(angle);
-      let ny = Math.sin(angle);
+    if (morphology === CellMorphology.COCCUS) {
+      // 1. Coco: circunferencia perfecta
+      const count = 40;
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2;
+        contour.push({
+          bx: Math.cos(ang) * radius,
+          by: Math.sin(ang) * radius,
+          nx: Math.cos(ang),
+          ny: Math.sin(ang),
+        });
+      }
+    } else if (morphology === CellMorphology.DIPLOCOCCUS) {
+      // 2. Diplococo: dos esferas unidas en x = +0.6 y x = -0.6
+      const d = 0.6;
+      const r1 = radius * 0.95;
+      const cosCut = Math.min(0.99, d / r1);
+      const theta0 = Math.PI - Math.acos(cosCut); // Ángulo de arco expuesto
+      const countPerLobe = 24;
 
-      if (
-        morphology === CellMorphology.BACILLUS ||
-        morphology === CellMorphology.STREPTOCOCCUS ||
-        morphology === CellMorphology.VIBRIO ||
-        morphology === CellMorphology.SPIRILLUM
-      ) {
-        if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-          // Casquete frontal (+X)
-          const subAngle = angle * 2.0;
-          bx = halfL + radius * Math.cos(subAngle);
-          by = radius * Math.sin(subAngle);
-          nx = Math.cos(subAngle);
-          ny = Math.sin(subAngle);
-        } else if (angle > Math.PI / 4 && angle < (3 * Math.PI) / 4) {
-          // Lado superior (+Y)
-          const normX = (angle - Math.PI / 4) / (Math.PI / 2);
-          bx = halfL - normX * (halfL * 2);
-          by = radius;
-          nx = 0;
-          ny = 1;
-        } else if (angle >= (3 * Math.PI) / 4 && angle <= (5 * Math.PI) / 4) {
-          // Casquete posterior (-X)
-          const subAngle = Math.PI + (angle - Math.PI) * 2.0;
-          bx = -halfL + radius * Math.cos(subAngle);
-          by = radius * Math.sin(subAngle);
-          nx = Math.cos(subAngle);
-          ny = Math.sin(subAngle);
-        } else {
-          // Lado inferior (-Y)
-          const normX = (angle - (5 * Math.PI) / 4) / (Math.PI / 2);
-          bx = -halfL + normX * (halfL * 2);
-          by = -radius;
-          nx = 0;
-          ny = -1;
-        }
-      } else {
-        // Morfología circular
-        bx = radius * Math.cos(angle);
-        by = radius * Math.sin(angle);
+      // Lóbulo frontal (+d)
+      for (let i = 0; i < countPerLobe; i++) {
+        const a = -theta0 + (2 * theta0 * i) / (countPerLobe - 1);
+        contour.push({
+          bx: d + Math.cos(a) * r1,
+          by: Math.sin(a) * r1,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
       }
 
-      const cLen = 0.35 + Math.random() * 0.22;
-      lengths.push(cLen);
-      basePoints.push(new THREE.Vector3(bx, by, 0));
-      normals.push(new THREE.Vector3(nx, ny, 0));
+      // Lóbulo posterior (-d)
+      for (let i = 0; i < countPerLobe; i++) {
+        const a = (Math.PI - theta0) + (2 * theta0 * i) / (countPerLobe - 1);
+        contour.push({
+          bx: -d + Math.cos(a) * r1,
+          by: Math.sin(a) * r1,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+    } else if (morphology === CellMorphology.STREPTOCOCCUS) {
+      // 3. Estreptococo: tres esferas continuas en x = -0.95, 0, +0.95 (resuelve el error de cilios flotantes)
+      const d = 0.95;
+      const rS = radius * 0.85;
+      const halfD = d * 0.5;
+      const cosCut = Math.min(0.99, halfD / rS);
+      const thetaC = Math.acos(cosCut); // Ángulo de intersección cintura
+      const thetaEnd = Math.PI - thetaC;
 
-      // Vértice base
-      vertices.push(bx, by, 0);
+      // Arco frontal (Esfera frontal en +0.95): desde -thetaEnd hasta +thetaEnd
+      const frontCount = 22;
+      for (let i = 0; i < frontCount; i++) {
+        const a = -thetaEnd + (2 * thetaEnd * i) / (frontCount - 1);
+        contour.push({
+          bx: d + Math.cos(a) * rS,
+          by: Math.sin(a) * rS,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+
+      // Cintura superior (Esfera central en 0): desde thetaC hasta PI - thetaC
+      const waistTopCount = 8;
+      for (let i = 0; i < waistTopCount; i++) {
+        const a = thetaC + ((Math.PI - 2 * thetaC) * (i + 0.5)) / waistTopCount;
+        contour.push({
+          bx: Math.cos(a) * rS,
+          by: Math.sin(a) * rS,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+
+      // Arco posterior (Esfera posterior en -0.95): desde PI - thetaEnd hasta PI + thetaEnd
+      const rearCount = 22;
+      for (let i = 0; i < rearCount; i++) {
+        const a = (Math.PI - thetaEnd) + (2 * thetaEnd * i) / (rearCount - 1);
+        contour.push({
+          bx: -d + Math.cos(a) * rS,
+          by: Math.sin(a) * rS,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+
+      // Cintura inferior (Esfera central en 0): desde PI + thetaC hasta 2*PI - thetaC
+      const waistBottomCount = 8;
+      for (let i = 0; i < waistBottomCount; i++) {
+        const a = (Math.PI + thetaC) + ((Math.PI - 2 * thetaC) * (i + 0.5)) / waistBottomCount;
+        contour.push({
+          bx: Math.cos(a) * rS,
+          by: Math.sin(a) * rS,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+    } else {
+      // 4. Bacilo, Vibrio y Espirilo: cápsula regular distribuida estrictamente por longitud de arco
+      const halfL = (length * 0.8) * 0.5;
+      const arcCap = Math.PI * radius;
+      const flatSide = halfL * 2;
+      const totalPerimeter = 2 * arcCap + 2 * flatSide;
+      const totalCilia = 52;
+
+      const nCap = Math.max(12, Math.round(totalCilia * (arcCap / totalPerimeter)));
+      const nSide = Math.max(10, Math.round(totalCilia * (flatSide / totalPerimeter)));
+
+      // Casquete frontal (+X)
+      for (let i = 0; i < nCap; i++) {
+        const a = -Math.PI * 0.5 + (Math.PI * i) / (nCap - 1);
+        contour.push({
+          bx: halfL + Math.cos(a) * radius,
+          by: Math.sin(a) * radius,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+
+      // Lado superior (+Y, de +X hacia -X)
+      for (let i = 1; i <= nSide; i++) {
+        const t = i / (nSide + 1);
+        contour.push({
+          bx: halfL - t * (halfL * 2),
+          by: radius,
+          nx: 0,
+          ny: 1,
+        });
+      }
+
+      // Casquete posterior (-X)
+      for (let i = 0; i < nCap; i++) {
+        const a = Math.PI * 0.5 + (Math.PI * i) / (nCap - 1);
+        contour.push({
+          bx: -halfL + Math.cos(a) * radius,
+          by: Math.sin(a) * radius,
+          nx: Math.cos(a),
+          ny: Math.sin(a),
+        });
+      }
+
+      // Lado inferior (-Y, de -X hacia +X)
+      for (let i = 1; i <= nSide; i++) {
+        const t = i / (nSide + 1);
+        contour.push({
+          bx: -halfL + t * (halfL * 2),
+          by: -radius,
+          nx: 0,
+          ny: -1,
+        });
+      }
+    }
+
+    const ciliaCount = contour.length;
+
+    for (let i = 0; i < ciliaCount; i++) {
+      const pt = contour[i];
+      // Pequeña variación orgánica de longitud y orientación biológica
+      const lengthNoise = Math.sin(i * 3.7) * 0.5 + 0.5;
+      const cLen = 0.32 + lengthNoise * 0.18;
+
+      const angleJitter = Math.sin(i * 5.9) * 0.08;
+      const jnx = pt.nx * Math.cos(angleJitter) - pt.ny * Math.sin(angleJitter);
+      const jny = pt.nx * Math.sin(angleJitter) + pt.ny * Math.cos(angleJitter);
+
+      lengths.push(cLen);
+      basePoints.push(new THREE.Vector3(pt.bx, pt.by, 0));
+      normals.push(new THREE.Vector3(jnx, jny, 0));
+
+      // Vértice base (en la membrana)
+      vertices.push(pt.bx, pt.by, 0);
       // Vértice punta inicial
-      vertices.push(bx + nx * cLen, by + ny * cLen, 0);
+      vertices.push(pt.bx + jnx * cLen, pt.by + jny * cLen, 0);
     }
 
     const geo = new THREE.BufferGeometry();
@@ -432,7 +548,7 @@ export class OrganelleFactory {
     const mat = new THREE.LineBasicMaterial({
       color: color,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.90,
     });
 
     const ciliaMesh = new THREE.LineSegments(geo, mat);
