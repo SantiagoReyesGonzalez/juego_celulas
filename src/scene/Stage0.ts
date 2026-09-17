@@ -8,7 +8,7 @@ import { Hud } from '../ui/Hud';
 import { EvolutionSystem } from '../systems/EvolutionSystem';
 import { MitosisModal } from '../ui/MitosisModal';
 import { ThreatDirector } from '../systems/ThreatDirector';
-import { Minimap } from '../ui/Minimap';
+import { Minimap, MinimapData } from '../ui/Minimap';
 import { BiofilmHub } from '../entities/BiofilmHub';
 import { BiofilmChunk } from '../entities/BiofilmChunk';
 import { GameOverModal } from '../ui/GameOverModal';
@@ -61,6 +61,19 @@ export class Stage0 {
   public mitosisModal!: MitosisModal;
   public threatDirector!: ThreatDirector;
   public minimap!: Minimap;
+  private minimapData: MinimapData = {
+    player: { x: 0, y: 0, rotation: 0 },
+    adipocytes: [],
+    bioStructures: [],
+    microorganisms: [],
+    neutrophils: [],
+    macrophage: null,
+    nutrients: [],
+    biofilmHubs: [],
+    biofilmChunks: [],
+    tissueWalls: [],
+    bioVesicles: [],
+  };
   public gameOverModal!: GameOverModal;
   public biofilmHubs: BiofilmHub[] = [];
   public biofilmChunks: BiofilmChunk[] = [];
@@ -859,86 +872,32 @@ export class Stage0 {
       this.tissueArchitecture.update(dt, time, this.baseCameraPos);
     }
 
-    // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico (Cheat: Throttled a cada 3 frames para 0 GC stutter)
-    if (this.minimap && this.minimap.isVisible && this.player && (this.frameCount % 3 === 0)) {
+    // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico (60 FPS Nativos, Zero-GC por paso directo de referencias)
+    if (this.minimap && this.minimap.isVisible && this.player) {
       const pPos = this.player.body.translation();
       const pRot = this.player.body.rotation();
 
-      const adBlips = this.predationSystem
-        ? this.predationSystem.adipocytes.map((ad) => {
-            const pos = ad.body.translation();
-            return { x: pos.x, y: pos.y, radius: ad.radius };
-          })
-        : [];
+      this.minimapData.player.x = pPos.x;
+      this.minimapData.player.y = pPos.y;
+      this.minimapData.player.rotation = pRot;
 
-      const structBlips = this.predationSystem
-        ? this.predationSystem.bioStructures.map((s) => {
-            const pos = s.body.translation();
-            return {
-              x: pos.x,
-              y: pos.y,
-              radius: s.radius,
-              color: s.config.radarColor,
-            };
-          })
-        : [];
-
-      const microBlips = this.predationSystem
-        ? this.predationSystem.microorganisms.map((m) => {
-            const pos = m.body.translation();
-            return { x: pos.x, y: pos.y, type: m.type };
-          })
-        : [];
-
-      const neutroBlips = this.threatDirector
-        ? this.threatDirector.neutrophils.map((n) => {
-            const pos = n.body.translation();
-            return { x: pos.x, y: pos.y };
-          })
-        : [];
-
-      const macroBlip =
+      this.minimapData.adipocytes = this.predationSystem ? this.predationSystem.adipocytes : [];
+      this.minimapData.bioStructures = this.predationSystem ? this.predationSystem.bioStructures : [];
+      this.minimapData.microorganisms = this.predationSystem ? this.predationSystem.microorganisms : [];
+      this.minimapData.neutrophils = this.threatDirector ? this.threatDirector.neutrophils : [];
+      this.minimapData.macrophage =
         this.threatDirector &&
         this.threatDirector.macrophage &&
         !this.threatDirector.macrophage.isDead
-          ? {
-              x: this.threatDirector.macrophage.body.translation().x,
-              y: this.threatDirector.macrophage.body.translation().y,
-            }
+          ? this.threatDirector.macrophage
           : null;
+      this.minimapData.nutrients = this.predationSystem ? this.predationSystem.nutrients : [];
+      this.minimapData.biofilmHubs = this.biofilmHubs;
+      this.minimapData.biofilmChunks = this.biofilmChunks;
+      this.minimapData.tissueWalls = this.tissueArchitecture ? this.tissueArchitecture.wallSegments : [];
+      this.minimapData.bioVesicles = this.tissueArchitecture ? this.tissueArchitecture.vesiclesData : [];
 
-      const nutBlips = this.predationSystem
-        ? this.predationSystem.nutrients.map((nut) => ({
-            x: nut.position.x,
-            y: nut.position.y,
-          }))
-        : [];
-
-      const hubBlips = this.biofilmHubs.map((h) => ({
-        x: h.position.x,
-        y: h.position.y,
-        radius: h.radius,
-        type: 'biofilm',
-      }));
-
-      const chunkBlips = this.biofilmChunks.map((c) => {
-        const pos = c.body.translation();
-        return { x: pos.x, y: pos.y };
-      });
-
-      this.minimap.update(time, {
-        player: { x: pPos.x, y: pPos.y, rotation: pRot },
-        adipocytes: adBlips,
-        bioStructures: structBlips,
-        microorganisms: microBlips,
-        neutrophils: neutroBlips,
-        macrophage: macroBlip,
-        nutrients: nutBlips,
-        biofilmHubs: hubBlips,
-        biofilmChunks: chunkBlips,
-        tissueWalls: this.tissueArchitecture ? this.tissueArchitecture.wallSegments : [],
-        bioVesicles: this.tissueArchitecture ? this.tissueArchitecture.vesiclesData : [],
-      });
+      this.minimap.update(time, this.minimapData);
     }
 
     // 5. Telemetría y Estadísticas

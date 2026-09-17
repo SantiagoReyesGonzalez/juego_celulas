@@ -1,11 +1,15 @@
 import { getToroidalDelta } from '../physics/WorldTopology';
 
 export interface MinimapEntity {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
+  position?: { x: number; y: number; z?: number };
+  body?: { translation: () => { x: number; y: number } };
   radius?: number;
   type?: string;
   color?: string;
+  config?: { radarColor?: string };
+  [key: string]: any;
 }
 
 export interface MinimapWallSegment {
@@ -34,6 +38,17 @@ export interface MinimapData {
   bioVesicles?: { x: number; y: number; radius: number; color?: string }[];
 }
 
+function getPos(e: any): { x: number; y: number } {
+  if (!e) return { x: 0, y: 0 };
+  if (e.body && typeof e.body.translation === 'function') {
+    return e.body.translation();
+  }
+  if (e.position) {
+    return e.position;
+  }
+  return e;
+}
+
 export class Minimap {
   private container: HTMLDivElement;
   private canvas: HTMLCanvasElement;
@@ -56,6 +71,10 @@ export class Minimap {
   private cssWidth = 180;
   private cssHeight = 180;
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  // Gradientes pre-compilados en Canvas2D para Zero-GC a 60 FPS
+  private bgGrad!: CanvasGradient;
+  private sweepGrad!: CanvasGradient;
 
   constructor() {
     this.container = document.createElement('div');
@@ -82,6 +101,21 @@ export class Minimap {
     this.canvas.height = this.cssHeight * this.dpr;
     this.canvas.style.width = `${this.cssWidth}px`;
     this.canvas.style.height = `${this.cssHeight}px`;
+
+    const centerX = this.cssWidth / 2;
+    const centerY = this.cssHeight / 2;
+    const radarRadius = Math.min(this.cssWidth, this.cssHeight) * 0.46;
+
+    // Pre-construir gradientes una sola vez (Zero allocation en update)
+    this.bgGrad = this.ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, radarRadius);
+    this.bgGrad.addColorStop(0, 'rgba(6, 24, 18, 0.45)');
+    this.bgGrad.addColorStop(0.7, 'rgba(4, 16, 12, 0.65)');
+    this.bgGrad.addColorStop(1, 'rgba(2, 10, 8, 0.85)');
+
+    this.sweepGrad = this.ctx.createRadialGradient(0, 0, 0, 0, 0, radarRadius);
+    this.sweepGrad.addColorStop(0, 'rgba(16, 185, 129, 0.30)');
+    this.sweepGrad.addColorStop(0.8, 'rgba(16, 185, 129, 0.08)');
+    this.sweepGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
   }
 
   private bindEvents(): void {
@@ -166,12 +200,8 @@ export class Minimap {
     ctx.arc(centerX, centerY, radarRadius, 0, Math.PI * 2);
     ctx.clip();
 
-    // Fondo de la lente confocal con gradiente radial orgánico
-    const bgGrad = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, radarRadius);
-    bgGrad.addColorStop(0, 'rgba(6, 24, 18, 0.45)');
-    bgGrad.addColorStop(0.7, 'rgba(4, 16, 12, 0.65)');
-    bgGrad.addColorStop(1, 'rgba(2, 10, 8, 0.85)');
-    ctx.fillStyle = bgGrad;
+    // Fondo de la lente confocal con gradiente radial orgánico (Precacheado)
+    ctx.fillStyle = this.bgGrad;
     ctx.fillRect(0, 0, renderW, renderH);
 
     // 3. Retícula de Microscopía Confocal (Anillos Concéntricos y Cruz Sutil)
@@ -205,12 +235,16 @@ export class Minimap {
     // 3.5. Bio-Vesículas y Nodos Tisulares Redondeados
     if (data.bioVesicles && data.bioVesicles.length > 0) {
       ctx.save();
-      data.bioVesicles.forEach((ves) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, ves.x, ves.y);
-        if (dist <= this.radarRange + ves.radius) {
+      const vesLen = data.bioVesicles.length;
+      for (let i = 0; i < vesLen; i++) {
+        const ves = data.bioVesicles[i];
+        const pos = getPos(ves);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
+        const vRad = ves.radius || 2.5;
+        if (dist <= this.radarRange + vRad) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
-          const rPixel = Math.max((ves.radius / this.radarRange) * radarRadius, 2.5);
+          const rPixel = Math.max((vRad / this.radarRange) * radarRadius, 2.5);
 
           ctx.beginPath();
           ctx.arc(rx, ry, rPixel, 0, Math.PI * 2);
@@ -220,20 +254,16 @@ export class Minimap {
           ctx.lineWidth = 1.2;
           ctx.stroke();
         }
-      });
+      }
       ctx.restore();
     }
 
-    // 4. Haz Giratorio de Escáner Confocal (Barrido Orgánico Esmeralda)
+    // 4. Haz Giratorio de Escáner Confocal (Barrido Orgánico Esmeralda - Gradiente Precacheado)
     this.radarAngle = (time * 1.8) % (Math.PI * 2);
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(-this.radarAngle);
-    const sweepGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, radarRadius);
-    sweepGrad.addColorStop(0, 'rgba(16, 185, 129, 0.30)');
-    sweepGrad.addColorStop(0.8, 'rgba(16, 185, 129, 0.08)');
-    sweepGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
-    ctx.fillStyle = sweepGrad;
+    ctx.fillStyle = this.sweepGrad;
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, radarRadius, -0.35, 0.35);
@@ -244,9 +274,11 @@ export class Minimap {
     // 5. Gránulos de Nutrientes Cercanos (pequeños destellos dorados)
     if (data.nutrients && data.nutrients.length > 0) {
       ctx.fillStyle = 'rgba(251, 191, 36, 0.65)';
-      for (let i = 0; i < data.nutrients.length; i++) {
+      const nutLen = data.nutrients.length;
+      for (let i = 0; i < nutLen; i++) {
         const nut = data.nutrients[i];
-        const { dx, dy, dist } = getToroidalDelta(px, py, nut.x, nut.y);
+        const pos = getPos(nut);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius; // Y invertido para pantalla
@@ -256,9 +288,12 @@ export class Minimap {
     }
 
     // 6. Microorganismos Cercanos (Ecosistema Vivo)
-    if (data.microorganisms) {
-      data.microorganisms.forEach((m) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, m.x, m.y);
+    if (data.microorganisms && data.microorganisms.length > 0) {
+      const microLen = data.microorganisms.length;
+      for (let i = 0; i < microLen; i++) {
+        const m = data.microorganisms[i];
+        const pos = getPos(m);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
@@ -289,17 +324,20 @@ export class Minimap {
             ctx.fill();
           }
         }
-      });
+      }
     }
 
     // 7. Adipocitos (Grandes Reservas Lipídicas)
-    if (data.adipocytes) {
-      data.adipocytes.forEach((ad) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, ad.x, ad.y);
+    if (data.adipocytes && data.adipocytes.length > 0) {
+      const adLen = data.adipocytes.length;
+      for (let i = 0; i < adLen; i++) {
+        const ad = data.adipocytes[i];
+        const pos = getPos(ad);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
-          const r = Math.max(2.5, ((ad.radius || 2.5) / this.radarRange) * radarRadius * 1.5);
+          const r = Math.max(2.5, (((ad.radius as number) || 2.5) / this.radarRange) * radarRadius * 1.5);
 
           // Halo ámbar
           ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
@@ -313,18 +351,21 @@ export class Minimap {
           ctx.arc(rx, ry, r, 0, Math.PI * 2);
           ctx.fill();
         }
-      });
+      }
     }
 
     // 7.1. Bio-Estructuras Especializadas (Cian, Violeta, Verde, Rojo)
     if (data.bioStructures && data.bioStructures.length > 0) {
-      data.bioStructures.forEach((struct) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, struct.x, struct.y);
+      const structLen = data.bioStructures.length;
+      for (let i = 0; i < structLen; i++) {
+        const struct = data.bioStructures[i];
+        const pos = getPos(struct);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
-          const r = Math.max(2.8, ((struct.radius || 2.4) / this.radarRange) * radarRadius * 1.5);
-          const col = struct.color || '#38bdf8';
+          const r = Math.max(2.8, (((struct.radius as number) || 2.4) / this.radarRange) * radarRadius * 1.5);
+          const col = struct.color || struct.config?.radarColor || '#38bdf8';
 
           // Halo cromático translúcido
           ctx.save();
@@ -341,14 +382,17 @@ export class Minimap {
           ctx.fill();
           ctx.restore();
         }
-      });
+      }
     }
 
     // 7.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas: Campo + Núcleo)
     if (data.biofilmHubs && data.biofilmHubs.length > 0) {
-      data.biofilmHubs.forEach((hub) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, hub.x, hub.y);
-        const fieldWorldR = hub.radius || 19.0;
+      const hubLen = data.biofilmHubs.length;
+      for (let i = 0; i < hubLen; i++) {
+        const hub = data.biofilmHubs[i];
+        const pos = getPos(hub);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
+        const fieldWorldR = (hub.radius as number) || 19.0;
         const coreWorldR = 3.6;
 
         if (dist <= this.radarRange + fieldWorldR) {
@@ -403,14 +447,17 @@ export class Minimap {
           ctx.fill();
           ctx.restore();
         }
-      });
+      }
     }
 
     // 7.6. Fragmentos Comestibles de Biopelícula (Biofilm Chunks Flotantes)
     if (data.biofilmChunks && data.biofilmChunks.length > 0) {
       ctx.fillStyle = '#2dd4bf';
-      data.biofilmChunks.forEach((chunk) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, chunk.x, chunk.y);
+      const chunkLen = data.biofilmChunks.length;
+      for (let i = 0; i < chunkLen; i++) {
+        const chunk = data.biofilmChunks[i];
+        const pos = getPos(chunk);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
@@ -418,13 +465,16 @@ export class Minimap {
           ctx.arc(rx, ry, 2.2, 0, Math.PI * 2);
           ctx.fill();
         }
-      });
+      }
     }
 
     // 8. Amenazas Inmunológicas: Neutrófilos (Puntos Rojos)
-    if (data.neutrophils) {
-      data.neutrophils.forEach((n) => {
-        const { dx, dy, dist } = getToroidalDelta(px, py, n.x, n.y);
+    if (data.neutrophils && data.neutrophils.length > 0) {
+      const neutroLen = data.neutrophils.length;
+      for (let i = 0; i < neutroLen; i++) {
+        const n = data.neutrophils[i];
+        const pos = getPos(n);
+        const { dx, dy, dist } = getToroidalDelta(px, py, pos.x, pos.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
@@ -451,12 +501,13 @@ export class Minimap {
           ctx.arc(edgeX, edgeY, 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
-      });
+      }
     }
 
     // Macrófago Boss (Alerta Crítica)
     if (data.macrophage) {
-      const { dx, dy, dist } = getToroidalDelta(px, py, data.macrophage.x, data.macrophage.y);
+      const mPos = getPos(data.macrophage);
+      const { dx, dy, dist } = getToroidalDelta(px, py, mPos.x, mPos.y);
       if (dist <= this.radarRange) {
         const rx = centerX + (dx / this.radarRange) * radarRadius;
         const ry = centerY - (dy / this.radarRange) * radarRadius;
