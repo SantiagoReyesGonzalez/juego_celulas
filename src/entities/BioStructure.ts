@@ -209,6 +209,62 @@ export class SpecializedNutrient {
 }
 
 /**
+ * Esquirla balística de alta velocidad que estalla violentamente al fracturar
+ * bio-estructuras minerales y macromoleculares (Game Feel estilo Starblast.io)
+ */
+export class StructureShard {
+  public mesh: THREE.Mesh;
+  public vx: number;
+  public vy: number;
+  public life = 0;
+  public maxLife = 0.85;
+  public isDead = false;
+
+  constructor(
+    scene: THREE.Scene,
+    x: number,
+    y: number,
+    color: number,
+    vx: number,
+    vy: number,
+    scale = 1.0
+  ) {
+    const geo = Math.random() > 0.5
+      ? new THREE.TetrahedronGeometry(0.32 * scale)
+      : new THREE.ConeGeometry(0.24 * scale, 0.6 * scale, 4);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.position.set(x, y, 0);
+    this.vx = vx;
+    this.vy = vy;
+    scene.add(this.mesh);
+  }
+
+  public update(dt: number): void {
+    if (this.isDead) return;
+    this.life += dt;
+    this.mesh.position.x += this.vx * dt;
+    this.mesh.position.y += this.vy * dt;
+    this.vx *= 0.91;
+    this.vy *= 0.91;
+    this.mesh.rotation.x += 12.0 * dt;
+    this.mesh.rotation.y += 14.0 * dt;
+
+    const alpha = Math.max(0, 1.0 - this.life / this.maxLife);
+    (this.mesh.material as THREE.MeshBasicMaterial).opacity = alpha;
+    if (this.life >= this.maxLife) {
+      this.isDead = true;
+    }
+  }
+
+  public dispose(scene: THREE.Scene): void {
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+  }
+}
+
+/**
  * Bio-Estructura Rompible: Estructura biológica especializada con colisionador Rapier2D,
  * geometría procedural 3D diferenciada, indicador de salud y recompensas tácticas.
  */
@@ -438,13 +494,16 @@ export class BioStructure {
   }
 
   /**
-   * Genera los nutrientes especializados correspondientes al romperse.
+   * Genera los nutrientes especializados correspondientes y una dispersión balística
+   * de esquirlas minerales / macromoleculares al fracturarse.
    */
-  public breakApart(scene: THREE.Scene): SpecializedNutrient[] {
+  public breakApart(scene: THREE.Scene): { nutrients: SpecializedNutrient[]; shards: StructureShard[] } {
     const pos = this.body.translation();
     const count = this.config.nutrientCount;
     const nutrients: SpecializedNutrient[] = [];
+    const shards: StructureShard[] = [];
 
+    // 1. Nutrientes especializados recolectables
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
       const speed = 3.5 + Math.random() * 4.5;
@@ -462,7 +521,26 @@ export class BioStructure {
       nutrients.push(nut);
     }
 
-    return nutrients;
+    // 2. Esquirlas balísticas de alta velocidad (Game Feel estilo Starblast.io)
+    const shardCount = 14;
+    for (let s = 0; s < shardCount; s++) {
+      const sAngle = (s / shardCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.7;
+      const sSpeed = 11.0 + Math.random() * 10.0;
+      const svx = Math.cos(sAngle) * sSpeed;
+      const svy = Math.sin(sAngle) * sSpeed;
+      const shard = new StructureShard(
+        scene,
+        pos.x + Math.cos(sAngle) * (this.radius * 0.4),
+        pos.y + Math.sin(sAngle) * (this.radius * 0.4),
+        this.config.color,
+        svx,
+        svy,
+        0.8 + Math.random() * 0.6
+      );
+      shards.push(shard);
+    }
+
+    return { nutrients, shards };
   }
 
   public update(dt: number, time: number): void {

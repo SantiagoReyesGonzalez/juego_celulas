@@ -14,6 +14,8 @@ import { BiofilmChunk } from '../entities/BiofilmChunk';
 import { GameOverModal } from '../ui/GameOverModal';
 import { AtpOrb } from '../entities/Resources';
 import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/WorldTopology';
+import { CameraShakeSystem } from '../systems/CameraShakeSystem';
+import { BioAudioSystem } from '../audio/BioAudioSystem';
 
 export interface TelemetryData {
   fps: number;
@@ -37,6 +39,12 @@ export class Stage0 {
   private hydroSystem!: HydrodynamicsSystem;
   private player!: Player;
   private isWasmReady = false;
+
+  // Game Feel, Screen Shake y Audio Procedural
+  public cameraShake = new CameraShakeSystem();
+  public bioAudio = new BioAudioSystem();
+  private baseCameraPos = new THREE.Vector2(0, 0);
+  private wasSprintingLastFrame = false;
 
   // Depredación Celular, Evolución, Sistema Inmunológico y UI
   public vacuoleManager!: VacuoleManager;
@@ -177,6 +185,8 @@ export class Stage0 {
 
       this.evolutionSystem = new EvolutionSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
       this.evolutionSystem.onEvolved = (species) => {
+        this.bioAudio.playMutateSound();
+        this.cameraShake.addTrauma(0.35);
         this.hud.showCustomPopup(
           `🧬 ¡MUTACIÓN A TIER ${species.tier}: ${species.name.toUpperCase()}! Bio-Mejoras renovadas`,
           '#38bdf8'
@@ -196,10 +206,15 @@ export class Stage0 {
       // Notificar al Director de Amenazas cuando la bacteria consume tejido o presas
       this.predationSystem.onPredationActivity = (type) => {
         if (type === 'pellet') {
+          this.bioAudio.playEatPop(1.1);
           this.threatDirector.addInflammation(0.0035);
         } else if (type === 'microorganism') {
+          this.bioAudio.playEatPop(0.75);
+          this.cameraShake.addTrauma(0.18);
           this.threatDirector.addInflammation(0.016);
         } else if (type === 'adipocyte') {
+          this.bioAudio.playImpactThud(1.2);
+          this.cameraShake.addTrauma(0.25);
           this.threatDirector.addInflammation(0.022);
         }
       };
@@ -208,6 +223,22 @@ export class Stage0 {
       this.predationSystem.onSpecializedNutrientCollected = (text, color) => {
         this.hud.showCustomPopup(text, color);
         this.threatDirector.addInflammation(0.008);
+
+        if (text.includes('Destruido') || text.includes('Cristal')) {
+          this.bioAudio.playCrystalCrunch();
+          this.cameraShake.addTrauma(0.42);
+          this.cameraShake.triggerHitStop(45);
+        } else if (text.includes('Vibrión')) {
+          this.bioAudio.playLysisExplosion();
+          this.cameraShake.addTrauma(0.48);
+          this.cameraShake.triggerHitStop(45);
+        } else if (text.includes('Escudo') || text.includes('Calcio')) {
+          this.bioAudio.playCrystalCrunch();
+        } else if (text.includes('HP') || text.includes('Vitalidad') || text.includes('Mitocondrial')) {
+          this.bioAudio.playHealChime();
+        } else if (text.includes('Sobrecarga')) {
+          this.bioAudio.playSprintWoosh();
+        }
       };
 
       this.hud.onMitosisClick = () => {
@@ -406,6 +437,10 @@ export class Stage0 {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     const time = this.clock.getElapsedTime();
 
+    // Actualizar sistema de Screen Shake y Hit-Stop
+    const isHitStopped = this.cameraShake.isHitStopped();
+    const shake = this.cameraShake.update(dt);
+
     // 1. Simulación Física Determinista Rapier2D a 60 Hz con Hidrodinámica
     if (this.isWasmReady && this.physicsWorld && this.player) {
       this.vacuoleManager.isInvulnerable = this.player.invulnerabilityTimer > 0;
@@ -413,122 +448,139 @@ export class Stage0 {
         this.peakMass = this.player.currentMass;
       }
 
-      this.physicsWorld.step(dt, (fixedDt) => {
-        this.player.physicsUpdate(fixedDt, this.hydroSystem, this.vacuoleManager);
-      });
+      // Sonido reactivo de sprint
+      if (this.player.isSprinting && !this.wasSprintingLastFrame) {
+        this.bioAudio.playSprintWoosh();
+      }
+      this.wasSprintingLastFrame = this.player.isSprinting;
 
-      // 2. Actualización de Economía Celular y Depredación (Agar.io + Spore)
-      if (this.vacuoleManager) {
-        this.vacuoleManager.update(dt);
-        if (this.hud) {
-          this.hud.updateStats(this.vacuoleManager.getStats());
+      // Latido cardíaco en baja salud (< 35% HP)
+      const hpPercent = this.vacuoleManager.maxHp > 0 ? this.vacuoleManager.currentHp / this.vacuoleManager.maxHp : 1.0;
+      this.bioAudio.updateHeartbeat(hpPercent, time);
+
+      // Si hay un hit-stop activo (micro-pausa de 35-50ms), congelar simulación física para transmitir impacto
+      if (!isHitStopped) {
+        this.physicsWorld.step(dt, (fixedDt) => {
+          this.player.physicsUpdate(fixedDt, this.hydroSystem, this.vacuoleManager);
+        });
+
+        // 2. Actualización de Economía Celular y Depredación (Agar.io + Spore)
+        if (this.vacuoleManager) {
+          this.vacuoleManager.update(dt);
+          if (this.hud) {
+            this.hud.updateStats(this.vacuoleManager.getStats());
+          }
         }
-      }
-      if (this.predationSystem) {
-        this.predationSystem.update(dt, time);
-      }
-
-      // 3. Actualización de Evolución Celular y Mitosis
-      if (this.evolutionSystem) {
-        this.evolutionSystem.update(dt);
-      }
-
-      // 3.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 60 Impactos - 3x Dificultad)
-      const curPlayerPos = this.player.body.translation();
-      const playerRadius = this.player.baseRadius * this.player.currentScale;
-      let isPlayerInCausticField = false;
-      let activeHubName = '';
-      let activeHubHealth = 60;
-      let activeHubMaxHealth = 60;
-
-      for (const hub of this.biofilmHubs) {
-        const res = hub.update(dt, time, curPlayerPos, this.vacuoleManager);
-        if (res.inField) {
-          isPlayerInCausticField = true;
-          activeHubName = res.name;
-          activeHubHealth = res.health;
-          activeHubMaxHealth = res.maxHealth;
+        if (this.predationSystem) {
+          this.predationSystem.update(dt, time);
         }
 
-        // Contacto físico con el núcleo central blindado (60 impactos)
-        if (!hub.isDestroyed && this.predationSystem) {
-          const { dx, dy, dist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, hub.position.x, hub.position.y);
-          if (dist <= playerRadius + hub.coreRadius + 0.45) {
-            // Requiere Sprint real a alta velocidad para romper la coraza mineralizada
-            const isRamming = this.player.isSprinting && (this.player.getSpeed() > 11.2 || this.player.currentMass >= 1.35);
-            if (isRamming) {
-              const hitRes = hub.hitCore(
-                time,
-                this.scene,
-                this.physicsWorld,
-                this.predationSystem.atpOrbs,
-                this.biofilmChunks,
-                this.player,
-                this.vacuoleManager
-              );
+        // 3. Actualización de Evolución Celular y Mitosis
+        if (this.evolutionSystem) {
+          this.evolutionSystem.update(dt);
+        }
 
-              if (hitRes.recoilDamage > 0) {
-                // Impulso de retroceso elástico al jugador
-                const angle = Math.atan2(dy, dx);
-                this.player.body.applyImpulse({ x: -Math.cos(angle) * 48.0, y: -Math.sin(angle) * 48.0 }, true);
-                this.player.feedBounce(1.22);
-                this.hud.showCustomPopup(`💥 -7.5 HP (Retroceso Cáustico) | Núcleo: ${hub.health}/60`, '#ef4444');
+        // 3.5. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 60 Impactos - 3x Dificultad)
+        const curPlayerPos = this.player.body.translation();
+        const playerRadius = this.player.baseRadius * this.player.currentScale;
+        let isPlayerInCausticField = false;
+        let activeHubName = '';
+        let activeHubHealth = 60;
+        let activeHubMaxHealth = 60;
 
-                if (hitRes.destroyed) {
-                  this.hud.showCustomPopup('🌟 ¡MEGA-NÓDULO DESTRUIDO TRAS 60 GOLPES! FESTÍN COLOSAL', '#10b981');
+        for (const hub of this.biofilmHubs) {
+          const res = hub.update(dt, time, curPlayerPos, this.vacuoleManager);
+          if (res.inField) {
+            isPlayerInCausticField = true;
+            activeHubName = res.name;
+            activeHubHealth = res.health;
+            activeHubMaxHealth = res.maxHealth;
+          }
+
+          // Contacto físico con el núcleo central blindado (60 impactos)
+          if (!hub.isDestroyed && this.predationSystem) {
+            const { dx, dy, dist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, hub.position.x, hub.position.y);
+            if (dist <= playerRadius + hub.coreRadius + 0.45) {
+              const isRamming = this.player.isSprinting && (this.player.getSpeed() > 11.2 || this.player.currentMass >= 1.35);
+              if (isRamming) {
+                const hitRes = hub.hitCore(
+                  time,
+                  this.scene,
+                  this.physicsWorld,
+                  this.predationSystem.atpOrbs,
+                  this.biofilmChunks,
+                  this.player,
+                  this.vacuoleManager
+                );
+
+                if (hitRes.recoilDamage > 0) {
+                  this.bioAudio.playImpactThud(1.4);
+                  this.cameraShake.addTrauma(0.35);
+                  this.cameraShake.triggerHitStop(40);
+
+                  const angle = Math.atan2(dy, dx);
+                  this.player.body.applyImpulse({ x: -Math.cos(angle) * 48.0, y: -Math.sin(angle) * 48.0 }, true);
+                  this.player.feedBounce(1.22);
+                  this.hud.showCustomPopup(`💥 -7.5 HP (Retroceso Cáustico) | Núcleo: ${hub.health}/60`, '#ef4444');
+
+                  if (hitRes.destroyed) {
+                    this.bioAudio.playLysisExplosion();
+                    this.cameraShake.addTrauma(0.55);
+                    this.hud.showCustomPopup('🌟 ¡MEGA-NÓDULO DESTRUIDO TRAS 60 GOLPES! FESTÍN COLOSAL', '#10b981');
+                  }
                 }
+              } else {
+                this.vacuoleManager.takeDamage(9.0 * dt, 'Espículas Cáusticas de Núcleo');
+                const angle = Math.atan2(dy, dx);
+                this.player.body.applyImpulse({ x: -Math.cos(angle) * 12.0 * dt, y: -Math.sin(angle) * 12.0 * dt }, true);
               }
-            } else {
-              // Contacto pasivo sin sprint: las espículas cáusticas erosionan severamente la membrana
-              this.vacuoleManager.takeDamage(9.0 * dt, 'Espículas Cáusticas de Núcleo');
-              const angle = Math.atan2(dy, dx);
-              this.player.body.applyImpulse({ x: -Math.cos(angle) * 12.0 * dt, y: -Math.sin(angle) * 12.0 * dt }, true);
             }
           }
         }
-      }
 
-      if (this.hud) {
-        this.hud.setSanctuaryStatus(isPlayerInCausticField, activeHubName, activeHubHealth, activeHubMaxHealth);
-      }
-
-      // 3.6. Actualización y Engullimiento de Trozos de Biopelícula (BiofilmChunks)
-      for (let i = this.biofilmChunks.length - 1; i >= 0; i--) {
-        const chunk = this.biofilmChunks[i];
-        chunk.update(dt, time);
-
-        let cPos = chunk.body.translation();
-        if (isOutsideBounds(cPos.x, cPos.y)) {
-          const wrapped = wrapPosition(cPos.x, cPos.y);
-          chunk.body.setTranslation(wrapped, true);
-          cPos = chunk.body.translation();
+        if (this.hud) {
+          this.hud.setSanctuaryStatus(isPlayerInCausticField, activeHubName, activeHubHealth, activeHubMaxHealth);
         }
 
-        const { dist: cDist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, cPos.x, cPos.y);
-        if (cDist <= playerRadius + chunk.radius + 0.35) {
-          chunk.isConsumed = true;
-          this.player.grow(chunk.massValue);
-          this.vacuoleManager.addAtp(chunk.atpValue);
-          this.player.feedBounce(1.15);
-          this.hud.showCustomPopup(`+${chunk.massValue} µg (Trozo Biopelícula)`, '#14b8a6');
-          chunk.dispose(this.scene, this.physicsWorld);
-          this.biofilmChunks.splice(i, 1);
-        }
-      }
+        // 3.6. Actualización y Engullimiento de Trozos de Biopelícula (BiofilmChunks)
+        for (let i = this.biofilmChunks.length - 1; i >= 0; i--) {
+          const chunk = this.biofilmChunks[i];
+          chunk.update(dt, time);
 
-      // 4. Sistema Inmunológico y Depredación Hostil (Etapa 5)
-      if (this.threatDirector) {
-        this.threatDirector.update(
-          dt,
-          time,
-          this.player,
-          this.vacuoleManager,
-          this.predationSystem.atpOrbs,
-          (text, _x, _y, color) => {
-            this.hud.showCustomPopup(text, color);
-          },
-          false
-        );
+          let cPos = chunk.body.translation();
+          if (isOutsideBounds(cPos.x, cPos.y)) {
+            const wrapped = wrapPosition(cPos.x, cPos.y);
+            chunk.body.setTranslation(wrapped, true);
+            cPos = chunk.body.translation();
+          }
+
+          const { dist: cDist } = getToroidalDelta(curPlayerPos.x, curPlayerPos.y, cPos.x, cPos.y);
+          if (cDist <= playerRadius + chunk.radius + 0.35) {
+            chunk.isConsumed = true;
+            this.player.grow(chunk.massValue);
+            this.vacuoleManager.addAtp(chunk.atpValue);
+            this.player.feedBounce(1.15);
+            this.bioAudio.playEatPop(0.9);
+            this.hud.showCustomPopup(`+${chunk.massValue} µg (Trozo Biopelícula)`, '#14b8a6');
+            chunk.dispose(this.scene, this.physicsWorld);
+            this.biofilmChunks.splice(i, 1);
+          }
+        }
+
+        // 4. Sistema Inmunológico y Depredación Hostil (Etapa 5)
+        if (this.threatDirector) {
+          this.threatDirector.update(
+            dt,
+            time,
+            this.player,
+            this.vacuoleManager,
+            this.predationSystem.atpOrbs,
+            (text, _x, _y, color) => {
+              this.hud.showCustomPopup(text, color);
+            },
+            false
+          );
+        }
       }
 
       // 4. Actualización Visual del Jugador (Posición, Rotación y Flagelos)
@@ -543,19 +595,27 @@ export class Stage0 {
         playerPos = this.player.body.translation();
       }
 
-      // 6. Seguimiento Suave y Continuo de Cámara (Toroidal Seamless Follow)
+      // 6. Seguimiento Suave y Continuo de Cámara (Toroidal Seamless Follow) + Screen Shake
       const { dx, dy } = getToroidalDelta(
-        this.camera.position.x,
-        this.camera.position.y,
+        this.baseCameraPos.x,
+        this.baseCameraPos.y,
         playerPos.x,
         playerPos.y
       );
-      this.camera.position.x += dx * Math.min(dt * 3.5, 1.0);
-      this.camera.position.y += dy * Math.min(dt * 3.5, 1.0);
+      this.baseCameraPos.x += dx * Math.min(dt * 3.5, 1.0);
+      this.baseCameraPos.y += dy * Math.min(dt * 3.5, 1.0);
 
-      const wrappedCam = wrapPosition(this.camera.position.x, this.camera.position.y);
-      this.camera.position.x = wrappedCam.x;
-      this.camera.position.y = wrappedCam.y;
+      const wrappedCam = wrapPosition(this.baseCameraPos.x, this.baseCameraPos.y);
+      this.baseCameraPos.x = wrappedCam.x;
+      this.baseCameraPos.y = wrappedCam.y;
+
+      // Aplicar posición con sacudida no lineal y rotación Z
+      this.camera.position.set(
+        this.baseCameraPos.x + shake.x,
+        this.baseCameraPos.y + shake.y,
+        50
+      );
+      this.camera.rotation.z = shake.roll;
 
       // Zoom dinámico suave al crecer la bacteria
       const targetFrustum = 42.0 * Math.pow(this.player.currentScale, 0.28);
@@ -616,7 +676,7 @@ export class Stage0 {
       const microBlips = this.predationSystem
         ? this.predationSystem.microorganisms.map((m) => {
             const pos = m.body.translation();
-            return { x: pos.x, y: pos.y };
+            return { x: pos.x, y: pos.y, type: m.type };
           })
         : [];
 

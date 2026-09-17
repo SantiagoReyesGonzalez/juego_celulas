@@ -631,6 +631,14 @@ export class VacuoleManager {
     this.upgrades = createTierUpgrades(initialTier);
   }
 
+  public get currentHp(): number {
+    return this.membraneIntegrity;
+  }
+
+  public get maxHp(): number {
+    return this.maxMembraneIntegrity;
+  }
+
   /**
    * Reinicia a nivel 0 y genera un catálogo de bio-mejoras totalmente nuevo adaptado
    * a la taxonomía y nivel/Tier de la bacteria recién evolucionada.

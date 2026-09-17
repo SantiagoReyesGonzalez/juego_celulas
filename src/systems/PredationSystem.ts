@@ -3,7 +3,7 @@ import { PhysicsWorld } from '../physics/World';
 import { Player } from '../entities/Player';
 import { Microorganism, MicroorganismType } from '../entities/Microorganism';
 import { Adipocyte, AtpOrb } from '../entities/Resources';
-import { BioStructure, BioStructureType, SpecializedNutrient, SpecializedNutrientType } from '../entities/BioStructure';
+import { BioStructure, BioStructureType, SpecializedNutrient, SpecializedNutrientType, StructureShard } from '../entities/BioStructure';
 import { VacuoleManager } from './VacuoleManager';
 import { WORLD_BOUNDS, getToroidalDelta, wrapPosition, isOutsideBounds } from '../physics/WorldTopology';
 
@@ -62,6 +62,7 @@ export class PredationSystem {
   public bioStructures: BioStructure[] = [];
   public atpOrbs: AtpOrb[] = [];
   public specializedNutrients: SpecializedNutrient[] = [];
+  public shards: StructureShard[] = [];
 
   public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
   public onSpecializedNutrientCollected?: (text: string, color: string) => void;
@@ -167,10 +168,17 @@ export class PredationSystem {
 
     const rand = Math.random();
     let type = MicroorganismType.TINY_COCCUS;
-    if (rand < 0.35) {
+    if (rand < 0.26) {
       type = MicroorganismType.CELLULAR_DEBRIS;
-    } else if (rand > 0.8) {
+    } else if (rand < 0.65) {
+      type = MicroorganismType.TINY_COCCUS;
+    } else if (rand < 0.84) {
       type = MicroorganismType.SMALL_BACILLUS;
+    } else if (rand < 0.94) {
+      type = MicroorganismType.NIMBLE_NAYAD;
+    } else {
+      const currentApex = this.microorganisms.filter((m) => m.type === MicroorganismType.APEX_VIBRIO).length;
+      type = currentApex < 5 ? MicroorganismType.APEX_VIBRIO : MicroorganismType.NIMBLE_NAYAD;
     }
 
     const micro = new Microorganism(this.physicsWorld, this.scene, x, y, type);
@@ -256,42 +264,161 @@ export class PredationSystem {
       }
     }
 
-    // ================= 2. DEPREDACIÓN DE MICROORGANISMOS =================
+    // ================= 2. ECOSISTEMA VIVO Y DEPREDACIÓN DE MICROORGANISMOS =================
+    const playerHpPercent = this.vacuoleManager.maxHp > 0 ? this.vacuoleManager.currentHp / this.vacuoleManager.maxHp : 1.0;
+
     for (let i = this.microorganisms.length - 1; i >= 0; i--) {
       const micro = this.microorganisms[i];
-      micro.update(dt, time, playerPos, playerMass);
+      if (micro.isDead) continue;
 
       const microPos = micro.body.translation();
-      const { dist: microDist } = getToroidalDelta(playerPos.x, playerPos.y, microPos.x, microPos.y);
+
+      // Buscar presa cercana para cazadores autónomos (Ápex o Bacilos)
+      let targetPreyPos: { x: number; y: number } | null = null;
+      if (micro.type === MicroorganismType.APEX_VIBRIO || micro.type === MicroorganismType.SMALL_BACILLUS) {
+        let nearestDist = 20.0;
+        for (let j = 0; j < this.microorganisms.length; j++) {
+          if (i === j) continue;
+          const other = this.microorganisms[j];
+          if (!other.isDead && other.mass < micro.mass * 0.7) {
+            const oPos = other.body.translation();
+            const { dist } = getToroidalDelta(microPos.x, microPos.y, oPos.x, oPos.y);
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              targetPreyPos = { x: oPos.x, y: oPos.y };
+            }
+          }
+        }
+      }
+
+      micro.update(dt, time, playerPos, playerMass, playerHpPercent, targetPreyPos);
+
+      // --- Interacción Depredador-Presa entre Microorganismos (Ecosistema Autónomo) ---
+      if (micro.type === MicroorganismType.APEX_VIBRIO || micro.type === MicroorganismType.SMALL_BACILLUS) {
+        for (let j = this.microorganisms.length - 1; j >= 0; j--) {
+          if (i === j) continue;
+          const prey = this.microorganisms[j];
+          if (prey && !prey.isDead && prey.mass < micro.mass * 0.65) {
+            const pPos = prey.body.translation();
+            const { dist: preyDist } = getToroidalDelta(microPos.x, microPos.y, pPos.x, pPos.y);
+            if (preyDist <= micro.radius + prey.radius + 0.25) {
+              // El depredador devora a la presa y suelta restos orgánicos (carroña para el jugador)
+              prey.isDead = true;
+              prey.dispose(this.scene, this.physicsWorld);
+              this.microorganisms.splice(j, 1);
+              if (j < i) i--; // Ajustar índice actual
+
+              // Desprender 1 o 2 pellets de nutrientes en el sitio de caza
+              const dropX = (microPos.x + pPos.x) * 0.5;
+              const dropY = (microPos.y + pPos.y) * 0.5;
+              this.spawnNutrient(dropX, dropY);
+
+              micro.triggerHitFlash(0.06);
+              break;
+            }
+          }
+        }
+      }
+
+      // --- Interacción con el Jugador ---
+      const { dx, dy, dist: microDist } = getToroidalDelta(playerPos.x, playerPos.y, microPos.x, microPos.y);
       const contactDist = playerRadius + micro.radius;
 
-      // Contacto físico inmediato (elimina el bloqueo de rigid body)
       if (microDist <= contactDist + 0.45) {
-        // El jugador es mayor que los detritos (0.25), cocos (0.45) y bacilos (0.85) desde el nivel inicial
-        const canEngulf = (playerMass >= micro.mass * 0.80) || this.player.isSprinting;
-        if (canEngulf) {
-          // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
-          const atpGained = Math.round(micro.atpValue * atpBonus);
-          this.vacuoleManager.addAtp(atpGained);
-          this.vacuoleManager.healMembrane(Math.max(2.0, micro.mass * 3.0) * digestiveBonus);
-          this.player.feedBounce(1.22);
+        // A. Combate especial contra APEX_VIBRIO
+        if (micro.type === MicroorganismType.APEX_VIBRIO) {
+          const isRamming = this.player.isSprinting || this.player.getSpeed() > 11.0;
+          if (isRamming) {
+            // Embestida destructiva del jugador
+            const angle = Math.atan2(dy, dx);
+            micro.body.applyImpulse({ x: Math.cos(angle) * 45.0, y: Math.sin(angle) * 45.0 }, true);
+            this.player.body.applyImpulse({ x: -Math.cos(angle) * 22.0, y: -Math.sin(angle) * 22.0 }, true);
+            this.player.feedBounce(1.25);
 
-          micro.isDead = true;
-          micro.dispose(this.scene, this.physicsWorld);
-          this.microorganisms.splice(i, 1);
+            const isDead = micro.takeDamage(16);
+            if (this.onPredationActivity) {
+              this.onPredationActivity('microorganism');
+            }
 
-          if (this.onPredationActivity) {
-            this.onPredationActivity('microorganism');
+            if (isDead) {
+              // Lisis completa del Ápex: gran botín
+              const atpGained = Math.round(micro.atpValue * atpBonus);
+              this.vacuoleManager.addAtp(atpGained);
+              this.vacuoleManager.healMembrane(25.0 * digestiveBonus);
+
+              // Liberar 3 nutrientes y 1 orbe de ATP
+              for (let k = 0; k < 3; k++) {
+                const kAngle = (k / 3) * Math.PI * 2;
+                this.spawnNutrient(microPos.x + Math.cos(kAngle) * 1.5, microPos.y + Math.sin(kAngle) * 1.5);
+              }
+              const orb = new AtpOrb(this.scene, microPos.x, microPos.y, 0, 0, 8.0);
+              this.atpOrbs.push(orb);
+
+              if (this.onSpecializedNutrientCollected) {
+                this.onSpecializedNutrientCollected('🔥 ¡Vibrión Alfa Carmesí Destruido! (+45 ATP)', '#ef4444');
+              }
+
+              micro.dispose(this.scene, this.physicsWorld);
+              this.microorganisms.splice(i, 1);
+
+              setTimeout(() => {
+                if (this.microorganisms.length < this.maxMicroorganisms) {
+                  this.spawnRandomMicroorganism();
+                }
+              }, 4000);
+              continue;
+            }
+          } else if (playerMass < micro.mass * 1.25) {
+            // El Ápex muerde al jugador si no viene embistiendo
+            this.vacuoleManager.takeDamage(14.0 * dt, 'Mordedura de Vibrión Alfa Carmesí');
+            const angle = Math.atan2(dy, dx);
+            this.player.body.applyImpulse({ x: -Math.cos(angle) * 12.0 * dt, y: -Math.sin(angle) * 12.0 * dt }, true);
+          } else {
+            // El jugador creció tanto que fagocita al Ápex directamente
+            this.vacuoleManager.addAtp(Math.round(micro.atpValue * atpBonus));
+            this.vacuoleManager.healMembrane(25.0 * digestiveBonus);
+            this.player.feedBounce(1.30);
+
+            if (this.onSpecializedNutrientCollected) {
+              this.onSpecializedNutrientCollected('🧬 ¡Vibrión Alfa Asimilado!', '#ef4444');
+            }
+
+            micro.isDead = true;
+            micro.dispose(this.scene, this.physicsWorld);
+            this.microorganisms.splice(i, 1);
+            continue;
           }
 
-          setTimeout(() => {
-            if (this.microorganisms.length < this.maxMicroorganisms) {
-              this.spawnRandomMicroorganism();
+        } else {
+          // B. Engullimiento de Presas (Náyade, Bacilo, Coco, Detrito)
+          const canEngulf = (playerMass >= micro.mass * 0.80) || this.player.isSprinting;
+          if (canEngulf) {
+            const atpGained = Math.round(micro.atpValue * atpBonus);
+            this.vacuoleManager.addAtp(atpGained);
+            this.vacuoleManager.healMembrane(Math.max(2.0, micro.mass * 3.5) * digestiveBonus);
+            this.player.feedBounce(1.24);
+
+            if (micro.type === MicroorganismType.NIMBLE_NAYAD && this.onSpecializedNutrientCollected) {
+              this.onSpecializedNutrientCollected('✨ ¡Náyade Escurridiza Cazada! (+32 ATP)', '#2dd4bf');
             }
-          }, 1800);
-          continue;
-        } else if (playerMass < micro.mass * 0.75) {
-          this.vacuoleManager.takeDamage(10 * dt, 'Depredación por Microorganismo Gigante');
+
+            micro.isDead = true;
+            micro.dispose(this.scene, this.physicsWorld);
+            this.microorganisms.splice(i, 1);
+
+            if (this.onPredationActivity) {
+              this.onPredationActivity('microorganism');
+            }
+
+            setTimeout(() => {
+              if (this.microorganisms.length < this.maxMicroorganisms) {
+                this.spawnRandomMicroorganism();
+              }
+            }, 1800);
+            continue;
+          } else if (playerMass < micro.mass * 0.75) {
+            this.vacuoleManager.takeDamage(10 * dt, 'Depredación por Microorganismo Gigante');
+          }
         }
       }
     }
@@ -387,8 +514,9 @@ export class PredationSystem {
           this.player.feedBounce(1.20);
 
           if (isDestroyed) {
-            const nuts = struct.breakApart(this.scene);
+            const { nutrients: nuts, shards: newShards } = struct.breakApart(this.scene);
             this.specializedNutrients.push(...nuts);
+            this.shards.push(...newShards);
             struct.dispose(this.scene, this.physicsWorld);
             this.bioStructures.splice(i, 1);
 
@@ -501,6 +629,16 @@ export class PredationSystem {
       if (nut.life >= nut.maxLife) {
         nut.dispose(this.scene);
         this.specializedNutrients.splice(i, 1);
+      }
+    }
+
+    // ================= 5. ACTUALIZACIÓN DE ESQUIRLAS BALÍSTICAS CINÉTICAS =================
+    for (let s = this.shards.length - 1; s >= 0; s--) {
+      const shard = this.shards[s];
+      shard.update(dt);
+      if (shard.isDead) {
+        shard.dispose(this.scene);
+        this.shards.splice(s, 1);
       }
     }
   }

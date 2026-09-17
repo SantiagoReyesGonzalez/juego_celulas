@@ -250,17 +250,39 @@ export class Minimap {
       }
     }
 
-    // 6. Microorganismos Cercanos (puntos esmeralda)
+    // 6. Microorganismos Cercanos (Ecosistema Vivo)
     if (data.microorganisms) {
-      ctx.fillStyle = '#22c55e';
       data.microorganisms.forEach((m) => {
         const { dx, dy, dist } = getToroidalDelta(px, py, m.x, m.y);
         if (dist <= this.radarRange) {
           const rx = centerX + (dx / this.radarRange) * radarRadius;
           const ry = centerY - (dy / this.radarRange) * radarRadius;
-          ctx.beginPath();
-          ctx.arc(rx, ry, 1.8, 0, Math.PI * 2);
-          ctx.fill();
+
+          if (m.type === 'APEX_VIBRIO') {
+            // Cazador Alfa Carmesí: Blip rojo amenazante con halo pulsante
+            const aPulse = 1.0 + Math.sin(time * 7.0) * 0.25;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+            ctx.beginPath();
+            ctx.arc(rx, ry, 4.2 * aPulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(rx, ry, 2.6, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (m.type === 'NIMBLE_NAYAD') {
+            // Náyade Escurridiza: Blip cian bioluminiscente
+            ctx.fillStyle = '#2dd4bf';
+            ctx.beginPath();
+            ctx.arc(rx, ry, 2.0, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Microorganismos estándar
+            ctx.fillStyle = m.color || '#22c55e';
+            ctx.beginPath();
+            ctx.arc(rx, ry, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       });
     }
