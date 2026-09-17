@@ -55,7 +55,7 @@ export const BIO_STRUCTURE_CONFIGS: Record<BioStructureType, StructureConfig> = 
     restitution: 0.85,
     nutrientType: SpecializedNutrientType.PEPTIDE_PEARL,
     nutrientCount: 8,
-    description: 'Racimo macromolecular elástico. Al romperse cura la Membrana y otorga Biomasa.',
+    description: 'Racimo macromolecular elástico. Al romperse cura la Membrana y expande la salud celular.',
   },
   [BioStructureType.TOXIC_CYST]: {
     name: 'Quiste de Endosporas Energéticas',

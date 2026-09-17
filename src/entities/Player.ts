@@ -362,27 +362,27 @@ export class Player {
   }
 
   /**
-   * Sincroniza el tamaño y la masa de la célula directamente con la cantidad de ATP en la vacuola (estilo Agar.io / Spore).
-   * Al ganar ATP la célula crece; al gastar ATP en sprint o perderlo, la célula disminuye su volumen de inmediato.
+   * Sincroniza el tamaño y la escala física de la célula directamente con su cantidad de vida (Salud / HP).
+   * Al tener más vida (por curación, regeneración pasiva, mejoras de membrana o evolución de Tier),
+   * la célula crece visiblemente; al recibir daño y perder vida, disminuye su volumen de forma reactiva.
    */
-  public syncSizeWithAtp(atp: number, capacity: number): void {
-    const atpRatio = Math.max(0, Math.min(1.0, atp / Math.max(1, capacity)));
-    // Masa celular biológica: escala desde 1.0x hasta 2.8x baseMass según el ATP acumulado
-    this.currentMass = this.baseMass * (1.0 + atpRatio * 1.8);
-    // Escala dimensional Three.js: desde 1.0x (vacía) hasta 2.25x (100% llena)
-    this.targetScale = 1.0 + atpRatio * 1.25;
+  public syncSizeWithHealth(currentHp: number, _maxHp?: number): void {
+    const hp = Math.max(1, currentHp);
+    const hpRatio = hp / 100.0; // 100 HP como referencia canónica (escala 1.0)
+
+    // Escala continua directamente vinculada a la cantidad de vida
+    this.targetScale = Math.max(0.65, Math.min(3.6, Math.pow(hpRatio, 0.42)));
+
+    // Masa física inercial en Rapier2D proporcional a la vida
+    this.currentMass = this.baseMass * Math.max(0.6, Math.pow(hpRatio, 0.55));
     this.body.setAdditionalMass(this.currentMass * 2.0, true);
   }
 
   /**
-   * Crecimiento por depredación y asimilación de biomasa (estilo Agar.io)
+   * Método de compatibilidad: pulso elástico de absorción
    */
-  public grow(massGain: number): void {
-    this.currentMass += massGain;
-    const massRatio = Math.max(1.0, this.currentMass / this.baseMass);
-    this.targetScale = Math.min(3.2, Math.pow(massRatio, 0.45));
-    this.body.setAdditionalMass(this.currentMass * 2.0, true);
-    this.feedPulse = 1.15; // Pulso elástico inmediato al engullir
+  public grow(_amount = 1.0): void {
+    this.feedPulse = 1.15; // Pulso elástico inmediato al absorber
   }
 
   public feedBounce(intensity = 1.12): void {
@@ -422,9 +422,8 @@ export class Player {
     this.lastSprintTime = timeNow;
     this.isSprinting = true;
 
-    // Reducción inmediata de tamaño y masa celular por el gasto de ATP
-    this.syncSizeWithAtp(vacuoleManager.atp, vacuoleManager.atpCapacity);
-    this.feedPulse = 0.88; // Contracción elástica inmediata visible al eyectar ATP/masa
+    // Contracción elástica reactiva inmediata visible al acelerar
+    this.feedPulse = 0.92;
 
     // Vector de empuje frontal instantáneo
     const currentRot = this.body.rotation();

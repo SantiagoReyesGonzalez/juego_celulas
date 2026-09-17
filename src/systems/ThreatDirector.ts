@@ -165,12 +165,11 @@ export class ThreatDirector {
           neutro.burstLysis(this.physicsWorld, this.scene, atpList);
           this.neutrophils.splice(i, 1);
 
-          player.grow(1.35); // Ganancia masiva de biomasa
-          player.feedBounce(1.22);
+          player.feedBounce(1.25);
           this.addInflammation(-0.04); // Erradicar el leucocito apacigua el tejido local
 
           if (onPopup) {
-            onPopup('+1.35 µg (Leucocito Lisado)', nPos.x, nPos.y, '#38bdf8');
+            onPopup('⚔️ Leucocito Lisado (+ATP)', nPos.x, nPos.y, '#38bdf8');
           }
         } else if (!isPlayerInSanctuary) {
           // El neutrófilo ataca / erosiona la membrana solo si la bacteria está fuera del nido

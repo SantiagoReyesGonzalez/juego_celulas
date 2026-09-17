@@ -219,7 +219,7 @@ export class Stage0 {
       };
 
       this.vacuoleManager.addStatsListener((stats) => {
-        this.player.syncSizeWithAtp(stats.atp, stats.atpCapacity);
+        this.player.syncSizeWithHealth(stats.membraneIntegrity, stats.maxMembraneIntegrity);
       });
       this.vacuoleManager.addUpgradePurchasedListener((upId, up) => {
         this.player.applyUpgrades(this.vacuoleManager.upgrades);
@@ -232,7 +232,7 @@ export class Stage0 {
         }
         this.hud.showCustomPopup(`🧬 ${up.name} Niv. ${up.level}/5!`, '#10b981');
       });
-      this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
+      this.player.syncSizeWithHealth(this.vacuoleManager.membraneIntegrity, this.vacuoleManager.maxMembraneIntegrity);
       this.player.applyUpgrades(this.vacuoleManager.upgrades);
 
       // 5. Inicialización del Mini-Mapa Radar Biológico (Estilo Starblast.io)

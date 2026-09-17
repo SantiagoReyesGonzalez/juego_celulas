@@ -36,7 +36,7 @@ const UPGRADE_META: Record<string, { icon: string; shortName: string; fullName: 
     icon: '🧬',
     shortName: 'Digestión',
     fullName: 'Eficiencia Enzimática',
-    benefit: '+25% Biomasa Asimilada',
+    benefit: '+25% Curación y Salud',
   },
   chemotaxis: {
     icon: '🧲',

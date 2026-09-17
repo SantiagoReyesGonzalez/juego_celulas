@@ -49,7 +49,7 @@ export class GameOverModal {
             <div class="stat-info">
               <span class="stat-label">Masa Celular</span>
               <b id="game-over-mass" class="stat-value">1.00 µg</b>
-              <span class="stat-sub">Biomasa asimilada</span>
+              <span class="stat-sub">Volumen e integridad celular</span>
             </div>
           </div>
 

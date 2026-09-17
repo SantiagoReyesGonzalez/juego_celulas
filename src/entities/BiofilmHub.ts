@@ -282,7 +282,7 @@ export class BiofilmHub {
     this.isDestroyed = true;
     this.respawnTimer = 95.0; // 95 segundos para regenerarse
 
-    // Explosión masiva 3x: 26 orbes de ATP + 12 fragmentos grandes de biomasa
+    // Explosión masiva 3x: 26 orbes de ATP + 12 fragmentos grandes de nutrientes
     for (let i = 0; i < 26; i++) {
       const ang = (i * Math.PI * 2) / 26 + (Math.random() - 0.5) * 0.3;
       const speed = 7.0 + Math.random() * 9.5;

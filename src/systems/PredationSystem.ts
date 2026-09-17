@@ -227,7 +227,7 @@ export class PredationSystem {
     const chemoLevel = this.vacuoleManager.upgrades.chemotaxis?.level || 0;
     const atpBonus = 1.0 + chemoLevel * 0.2;
     const digestiveLevel = this.vacuoleManager.upgrades.digestiveEfficiency?.level || 0;
-    const biomassBonus = 1.0 + digestiveLevel * 0.25;
+    const digestiveBonus = 1.0 + digestiveLevel * 0.25;
 
     // ================= 1. CONSUMO DE GRÁNULOS DE NUTRIENTES (Agar.io) =================
     // La bacteria SOLO se alimenta cuando el cuerpo celular pasa exactamente por encima (sin efecto imán)
@@ -238,7 +238,7 @@ export class PredationSystem {
       const { dist: nutDist } = getToroidalDelta(playerPos.x, playerPos.y, nut.position.x, nut.position.y);
       if (nutDist <= playerRadius + nut.radius + 0.35) {
         this.vacuoleManager.addAtp(nut.atpValue * atpBonus);
-        this.player.grow(nut.massGain * biomassBonus);
+        this.vacuoleManager.healMembrane(0.20 * digestiveBonus);
         this.player.feedBounce(1.08);
 
         if (this.onPredationActivity) {
@@ -273,8 +273,7 @@ export class PredationSystem {
           // ENGULLIMIENTO / FAGOCITOSIS COMPLETA
           const atpGained = Math.round(micro.atpValue * atpBonus);
           this.vacuoleManager.addAtp(atpGained);
-          const massGain = Math.max(0.35, micro.mass * 0.85) * biomassBonus;
-          this.player.grow(massGain);
+          this.vacuoleManager.healMembrane(Math.max(2.0, micro.mass * 3.0) * digestiveBonus);
           this.player.feedBounce(1.22);
 
           micro.isDead = true;
@@ -333,7 +332,7 @@ export class PredationSystem {
           }
 
           if (isLysed) {
-            // Lisis celular completa: libera cascada masiva de ATP y biomasa (>3x el coste de los 3 saltos)
+            // Lisis celular completa: libera cascada masiva de ATP y nutrientes (>3x el coste de los 3 saltos)
             this.triggerAdipocyteLysis(ad);
             ad.dispose(this.scene, this.physicsWorld);
             this.adipocytes.splice(i, 1);
@@ -437,7 +436,6 @@ export class PredationSystem {
 
       if (this.player.containsPoint(orb.position.x, orb.position.y, 1.0)) {
         this.vacuoleManager.addAtp(orb.atpValue * atpBonus);
-        this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
         this.player.feedBounce(1.10);
 
         orb.isCollected = true;
@@ -473,10 +471,10 @@ export class PredationSystem {
           }
         } else if (nut.type === SpecializedNutrientType.PEPTIDE_PEARL) {
           this.vacuoleManager.healMembrane(16);
-          this.player.grow(0.18 * biomassBonus);
+          this.player.feedBounce(1.22);
           this.player.triggerHealPulse(this.scene);
           if (this.onSpecializedNutrientCollected) {
-            this.onSpecializedNutrientCollected('+16 HP & Biomasa 🌱', '#e879f9');
+            this.onSpecializedNutrientCollected('+16 HP & Vitalidad 🌱', '#e879f9');
           }
         } else if (nut.type === SpecializedNutrientType.ENDOSPORE) {
           this.vacuoleManager.addAtp(8 * atpBonus);
@@ -488,14 +486,12 @@ export class PredationSystem {
         } else if (nut.type === SpecializedNutrientType.MITO_COMPLEX) {
           this.vacuoleManager.addAtp(35 * atpBonus);
           this.vacuoleManager.healMembrane(20);
-          this.player.grow(0.32 * biomassBonus);
           this.player.feedBounce(1.35);
           if (this.onSpecializedNutrientCollected) {
             this.onSpecializedNutrientCollected('🔥 Megacarga Mitocondrial (+35 ATP) 🔴', '#fb7185');
           }
         }
 
-        this.player.syncSizeWithAtp(this.vacuoleManager.atp, this.vacuoleManager.atpCapacity);
         nut.isCollected = true;
         nut.dispose(this.scene);
         this.specializedNutrients.splice(i, 1);

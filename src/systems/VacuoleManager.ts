@@ -108,8 +108,8 @@ export function createTierUpgrades(tier: number): Record<string, BioUpgrade> {
           maxLevel: 5,
           baseCost: 18,
           costMultiplier: 1.45,
-          description: '+25% Biomasa Asimilada por Engullimiento',
-          benefit: '+25% Biomasa al Absorber',
+          description: '+25% Curación y Salud por Engullimiento',
+          benefit: '+25% Curación al Absorber',
           statBonus: 0.25,
         },
         chemotaxis: {
@@ -216,8 +216,8 @@ export function createTierUpgrades(tier: number): Record<string, BioUpgrade> {
           maxLevel: 5,
           baseCost: 32,
           costMultiplier: 1.45,
-          description: '+30% Biomasa Asimilada por Engullimiento',
-          benefit: '+30% Biomasa al Absorber',
+          description: '+30% Curación y Salud por Engullimiento',
+          benefit: '+30% Curación al Absorber',
           statBonus: 0.30,
         },
         chemotaxis: {
@@ -324,8 +324,8 @@ export function createTierUpgrades(tier: number): Record<string, BioUpgrade> {
           maxLevel: 5,
           baseCost: 65,
           costMultiplier: 1.45,
-          description: '+35% Biomasa Asimilada por Engullimiento',
-          benefit: '+35% Biomasa al Absorber',
+          description: '+35% Curación y Salud por Engullimiento',
+          benefit: '+35% Curación al Absorber',
           statBonus: 0.35,
         },
         chemotaxis: {
@@ -432,8 +432,8 @@ export function createTierUpgrades(tier: number): Record<string, BioUpgrade> {
           maxLevel: 5,
           baseCost: 115,
           costMultiplier: 1.45,
-          description: '+40% Biomasa Asimilada por Engullimiento',
-          benefit: '+40% Biomasa al Absorber',
+          description: '+40% Curación y Salud por Engullimiento',
+          benefit: '+40% Curación al Absorber',
           statBonus: 0.40,
         },
         chemotaxis: {
@@ -541,8 +541,8 @@ export function createTierUpgrades(tier: number): Record<string, BioUpgrade> {
           maxLevel: 5,
           baseCost: 230,
           costMultiplier: 1.50,
-          description: '+50% Biomasa Asimilada por Engullimiento',
-          benefit: '+50% Biomasa al Absorber',
+          description: '+50% Curación y Salud por Engullimiento',
+          benefit: '+50% Curación al Absorber',
           statBonus: 0.50,
         },
         chemotaxis: {
@@ -801,7 +801,7 @@ export class VacuoleManager {
   }
 
   /**
-   * Cura directamente la integridad de membrana celular al consumir péptidos o biomasa reparadora
+   * Cura directamente la integridad de membrana celular al consumir péptidos o nutrientes reparadores
    */
   public healMembrane(amount: number): number {
     if (this.isDead) return 0;

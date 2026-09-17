@@ -12,7 +12,7 @@ export class BiofilmChunk {
   public mesh: THREE.Mesh;
   public radius: number;
   public isConsumed = false;
-  public massValue = 0.55; // Ganancia de biomasa
+  public massValue = 0.55; // Nutriente celular
   public atpValue = 16;    // Ganancia de ATP
 
   private originalColor = 0x14b8a6;

@@ -264,7 +264,7 @@ export class NeutrophilCell {
   }
 
   /**
-   * Lisis celular del neutrófilo: desprende orbes de ATP y biomasa
+   * Lisis celular del neutrófilo: desprende orbes de ATP y nutrientes
    */
   public burstLysis(
     physicsWorld: PhysicsWorld,
