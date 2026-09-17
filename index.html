@@ -145,99 +145,206 @@
         font-variant-numeric: tabular-nums;
       }
 
-      /* Medidores Arcade Superiores */
-      #cellular-meters {
+      /* ================= PROBETA BIOLÓGICA (HUD SUPERIOR IZQUIERDO - COPIA FIEL DE REF_01) ================= */
+      .bio-vial-dock {
         position: absolute;
-        top: 14px;
-        left: 50%;
-        transform: translateX(-50%);
+        top: 26px;
+        left: 28px;
         display: flex;
-        gap: 10px;
-        z-index: 45;
+        flex-direction: column;
+        z-index: 50;
         pointer-events: auto;
+        user-select: none;
+        filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.75));
       }
-      .arcade-meter {
-        background: rgba(6, 11, 24, 0.88);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 12px;
-        padding: 6px 12px;
-        min-width: 145px;
+
+      .bio-vial-wrapper {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 9px;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65);
-        transition: transform 0.15s ease, border-color 0.15s ease;
-        cursor: default;
       }
-      .arcade-meter:hover {
-        transform: translateY(-2px);
-        border-color: rgba(255, 255, 255, 0.25);
+
+      /* Cilios orgánicos ondulantes en la base posterior izquierda de la probeta */
+      .vial-cilia-cluster {
+        position: absolute;
+        left: -13px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 3.5px;
+        pointer-events: none;
+        z-index: 1;
       }
-      .meter-icon-wrap {
-        font-size: 18px;
-        line-height: 1;
+      .vial-cilium {
+        height: 2.5px;
+        background: linear-gradient(270deg, #d97706, rgba(217, 119, 6, 0.15));
+        border-radius: 3px;
+        transform-origin: right center;
+        animation: vial-cilium-wave 2.2s ease-in-out infinite alternate;
+        transition: background 0.4s ease;
+      }
+      .vial-cilium.c1 { width: 9px; transform: rotate(-24deg); animation-delay: 0s; }
+      .vial-cilium.c2 { width: 14px; transform: rotate(-8deg); animation-delay: 0.35s; }
+      .vial-cilium.c3 { width: 12px; transform: rotate(10deg); animation-delay: 0.7s; }
+      .vial-cilium.c4 { width: 8px; transform: rotate(26deg); animation-delay: 1.05s; }
+
+      @keyframes vial-cilium-wave {
+        0% { transform: scaleX(0.85) rotate(-2deg); opacity: 0.75; }
+        100% { transform: scaleX(1.15) rotate(4deg); opacity: 1; }
+      }
+
+      /* Bulbo orgánico basal izquierdo */
+      .vial-bulb-node {
+        position: absolute;
+        left: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, rgba(70, 12, 20, 0.88), rgba(20, 3, 7, 0.96));
+        border: 1.5px solid rgba(217, 119, 6, 0.85);
+        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.85), 0 0 12px rgba(180, 83, 9, 0.3);
+        z-index: 3;
+        transition: border-color 0.4s ease, box-shadow 0.4s ease;
+      }
+
+      /* Cápsula / Tubo de Vidrio Orgánico */
+      .vial-capsule {
+        position: relative;
+        width: 215px;
+        height: 28px;
+        border-radius: 9999px;
+        background: linear-gradient(180deg, rgba(45, 9, 15, 0.85) 0%, rgba(18, 3, 6, 0.94) 100%);
+        border: 1.5px solid rgba(217, 119, 6, 0.85);
+        box-shadow:
+          inset 0 3px 8px rgba(0, 0, 0, 0.95),
+          inset 0 -2px 6px rgba(0, 0, 0, 0.8),
+          0 6px 20px rgba(0, 0, 0, 0.65),
+          0 0 10px rgba(180, 83, 9, 0.25);
+        backdrop-filter: blur(8px);
+        overflow: hidden;
+        transition: border-color 0.4s ease, box-shadow 0.4s ease;
+        z-index: 2;
+        padding-left: 2px;
+      }
+
+      /* Sombra interna cilíndrica profunda */
+      .vial-deep-shadow {
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.95), inset 0 -3px 8px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+        z-index: 4;
+      }
+
+      /* Fluido Interno Bioluminiscente Esmeralda */
+      .vial-liquid {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        border-radius: 9999px;
+        background: linear-gradient(90deg, #047857 0%, #059669 35%, #10b981 70%, #34d399 90%, #a7f3d0 100%);
+        box-shadow:
+          0 0 16px rgba(16, 185, 129, 0.9),
+          0 0 30px rgba(52, 211, 153, 0.45);
+        transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 2;
+        overflow: hidden;
+      }
+
+      /* Menisco redondeado en el frente del líquido */
+      .liquid-meniscus {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 14px;
+        height: 100%;
+        border-radius: 50%;
+        background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.95) 0%, rgba(167, 243, 208, 0.6) 45%, transparent 80%);
+        filter: blur(0.8px);
+      }
+
+      /* Brillo Especular de Cristal Húmedo (Reflejo Superior Curvo) */
+      .vial-glass-specular {
+        position: absolute;
+        top: 2px;
+        left: 10px;
+        right: 10px;
+        height: 42%;
+        border-radius: 9999px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.18) 45%, rgba(255, 255, 255, 0.0) 100%);
+        pointer-events: none;
+        z-index: 5;
+      }
+
+      /* Lectura numérica sutil integrada */
+      .vial-hp-readout {
+        position: absolute;
+        inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.25));
-      }
-      .meter-body {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        flex: 1;
-      }
-      .meter-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-      }
-      .meter-name {
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.6px;
-        text-transform: uppercase;
-      }
-      .hp-meter .meter-name { color: #34d399; }
-      .shield-meter .meter-name { color: #38bdf8; }
-      .atp-meter .meter-name { color: #fbbf24; }
-      .threat-meter .meter-name { color: #f43f5e; }
-
-      .meter-val {
+        font-family: 'Space Grotesk', system-ui, sans-serif;
         font-size: 11px;
         font-weight: 800;
-        color: #f1f5f9;
+        letter-spacing: 0.6px;
+        color: #ffffff;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.9);
+        pointer-events: none;
+        z-index: 6;
+        opacity: 0.92;
         font-variant-numeric: tabular-nums;
       }
-      .meter-track {
-        width: 100%;
-        height: 6.5px;
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 6px;
-        overflow: hidden;
+
+      /* Estado: Activación de Escudo Osmótico (Halo Cian Eléctrico Brillante) */
+      .bio-vial-dock.shield-active .vial-capsule,
+      .bio-vial-dock.shield-active .vial-bulb-node {
+        border-color: #06b6d4;
+        box-shadow:
+          inset 0 3px 8px rgba(0, 0, 0, 0.92),
+          inset 0 0 14px rgba(6, 182, 212, 0.55),
+          0 0 20px rgba(6, 182, 212, 0.85),
+          0 0 35px rgba(56, 189, 248, 0.45);
       }
-      .meter-fill {
-        height: 100%;
-        border-radius: 6px;
-        transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      .bio-vial-dock.shield-active .vial-cilium {
+        background: linear-gradient(270deg, #06b6d4, rgba(6, 182, 212, 0.2));
       }
-      .hp-fill {
-        background: linear-gradient(90deg, #059669, #10b981);
-        box-shadow: 0 0 8px #10b981;
+
+      /* Fila de Energía ATP (Orb bioluminiscente dorado y contador como en ref_01) */
+      .bio-atp-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        margin-left: 14px;
       }
-      .shield-fill {
-        background: linear-gradient(90deg, #0284c7, #38bdf8);
-        box-shadow: 0 0 8px #38bdf8;
+      .atp-orb-gem {
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, #ffffff 0%, #fef08a 25%, #f59e0b 65%, #b45309 100%);
+        box-shadow:
+          0 0 10px #f59e0b,
+          0 0 22px rgba(245, 158, 11, 0.6),
+          inset 0 1px 2px rgba(255, 255, 255, 0.8);
+        animation: atp-orb-pulse 2.4s ease-in-out infinite alternate;
       }
-      .atp-fill {
-        background: linear-gradient(90deg, #d97706, #fbbf24);
-        box-shadow: 0 0 10px #fbbf24;
+      @keyframes atp-orb-pulse {
+        0% { transform: scale(0.94); box-shadow: 0 0 8px #f59e0b, 0 0 16px rgba(245, 158, 11, 0.45); }
+        100% { transform: scale(1.08); box-shadow: 0 0 14px #f59e0b, 0 0 26px rgba(245, 158, 11, 0.75); }
       }
-      .threat-fill {
-        background: linear-gradient(90deg, #10b981, #f59e0b);
-        box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+      .atp-readout-text {
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+        font-size: 15px;
+        font-weight: 800;
+        color: #fef08a;
+        text-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 1px 3px rgba(0, 0, 0, 0.9);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.5px;
       }
 
       /* Banner de Mitosis */
@@ -1053,7 +1160,7 @@
         pointer-events: none;
         z-index: 50;
       }
-      #cellular-meters,
+      #bio-vial-dock,
       #bio-upgrades-dock,
       .mitosis-alert,
       .threat-alert,

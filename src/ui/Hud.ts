@@ -66,19 +66,13 @@ export class Hud {
   private vacuoleManager: VacuoleManager;
   private container: HTMLDivElement;
 
-  // Elementos de los Medidores Arcade
-  private hpBarFill!: HTMLDivElement;
-  private hpText!: HTMLSpanElement;
-  private shieldBarFill!: HTMLDivElement;
-  private shieldText!: HTMLSpanElement;
-  private atpBarFill!: HTMLDivElement;
-  private atpText!: HTMLSpanElement;
+  // Probeta Biológica Horizontal de Salud de Membrana (Copia Fiel de ref_01)
+  private vialDock!: HTMLDivElement;
+  private vialLiquid!: HTMLDivElement;
+  private vialHpText!: HTMLDivElement;
+  private atpDisplayVal!: HTMLSpanElement;
 
-  // Medidor de Inflamación Tisular
-  private threatBarFill!: HTMLDivElement;
-  private threatTitle!: HTMLSpanElement;
-  private threatText!: HTMLSpanElement;
-  private threatIcon!: HTMLDivElement;
+  // Banners y Alertas Reactivas
   private threatAlertBanner!: HTMLDivElement;
   private threatAlertTitle!: HTMLElement;
   private threatAlertDesc!: HTMLSpanElement;
@@ -125,62 +119,42 @@ export class Hud {
 
   private buildHudElements(): void {
     this.container.innerHTML = `
-      <!-- 1. Los 4 Medidores Biológicos Superiores (Estilo Arcade) -->
-      <div id="cellular-meters">
-        <!-- Vida (Membrana) -->
-        <div class="arcade-meter hp-meter" title="Salud de la membrana bacteriana">
-          <div class="meter-icon-wrap">❤️</div>
-          <div class="meter-body">
-            <div class="meter-info">
-              <span class="meter-name">VIDA</span>
-              <span id="hp-val" class="meter-val">100 / 100</span>
+      <!-- 1. Probeta Biológica Horizontal de Membrana (Esquina Superior Izquierda - Copia Fiel de ref_01) -->
+      <div id="bio-vial-dock" class="bio-vial-dock" title="Integridad de Membrana">
+        <div class="bio-vial-wrapper">
+          <!-- Cilios orgánicos ondulantes en la base posterior izquierda -->
+          <div class="vial-cilia-cluster">
+            <span class="vial-cilium c1"></span>
+            <span class="vial-cilium c2"></span>
+            <span class="vial-cilium c3"></span>
+            <span class="vial-cilium c4"></span>
+          </div>
+
+          <!-- Bulbo orgánico basal izquierdo -->
+          <div class="vial-bulb-node"></div>
+
+          <!-- Cápsula / Tubo de Vidrio Orgánico -->
+          <div id="vial-capsule" class="vial-capsule">
+            <!-- Sombra cilíndrica profunda -->
+            <div class="vial-deep-shadow"></div>
+
+            <!-- Fluido bioluminiscente esmeralda (salud de membrana) -->
+            <div id="vial-liquid" class="vial-liquid" style="width: 100%;">
+              <div class="liquid-meniscus"></div>
             </div>
-            <div class="meter-track">
-              <div id="hp-bar" class="meter-fill hp-fill" style="width: 100%;"></div>
-            </div>
+
+            <!-- Brillo especular superior curvo de cristal húmedo -->
+            <div class="vial-glass-specular"></div>
+
+            <!-- Lectura numérica sutil integrada -->
+            <div id="vial-hp-text" class="vial-hp-readout">100 / 100</div>
           </div>
         </div>
 
-        <!-- Escudo Osmótico -->
-        <div class="arcade-meter shield-meter" title="Presión osmótica que absorbe impactos antes de dañar la membrana">
-          <div class="meter-icon-wrap">🛡️</div>
-          <div class="meter-body">
-            <div class="meter-info">
-              <span class="meter-name">ESCUDO</span>
-              <span id="shield-val" class="meter-val">50 / 50</span>
-            </div>
-            <div class="meter-track">
-              <div id="shield-bar" class="meter-fill shield-fill" style="width: 100%;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ATP (Energía) -->
-        <div class="arcade-meter atp-meter" title="Reserva energética de ATP para Sprint y Bio-Mejoras">
-          <div class="meter-icon-wrap">⚡</div>
-          <div class="meter-body">
-            <div class="meter-info">
-              <span class="meter-name">ATP</span>
-              <span id="atp-val" class="meter-val">0 / 80</span>
-            </div>
-            <div class="meter-track">
-              <div id="atp-bar" class="meter-fill atp-fill" style="width: 0%;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Alerta Inmunológica -->
-        <div class="arcade-meter threat-meter" title="Nivel de alerta del sistema inmunitario del huésped">
-          <div class="meter-icon-wrap" id="threat-icon">🟢</div>
-          <div class="meter-body">
-            <div class="meter-info">
-              <span id="threat-title" class="meter-name">CALMA</span>
-              <span id="threat-val" class="meter-val">5%</span>
-            </div>
-            <div class="meter-track">
-              <div id="threat-bar" class="meter-fill threat-fill" style="width: 5%;"></div>
-            </div>
-          </div>
+        <!-- Fila de Energía ATP (Orb bioluminiscente dorado y contador como en la Imagen de Referencia) -->
+        <div class="bio-atp-row" title="Reserva Energética de ATP">
+          <div class="atp-orb-gem"></div>
+          <span id="atp-display-val" class="atp-readout-text">0</span>
         </div>
       </div>
 
@@ -229,16 +203,11 @@ export class Hud {
       <div id="floating-popups"></div>
     `;
 
-    this.hpBarFill = document.getElementById('hp-bar') as HTMLDivElement;
-    this.hpText = document.getElementById('hp-val') as HTMLSpanElement;
-    this.shieldBarFill = document.getElementById('shield-bar') as HTMLDivElement;
-    this.shieldText = document.getElementById('shield-val') as HTMLSpanElement;
-    this.atpBarFill = document.getElementById('atp-bar') as HTMLDivElement;
-    this.atpText = document.getElementById('atp-val') as HTMLSpanElement;
-    this.threatBarFill = document.getElementById('threat-bar') as HTMLDivElement;
-    this.threatTitle = document.getElementById('threat-title') as HTMLSpanElement;
-    this.threatText = document.getElementById('threat-val') as HTMLSpanElement;
-    this.threatIcon = document.getElementById('threat-icon') as HTMLDivElement;
+    this.vialDock = document.getElementById('bio-vial-dock') as HTMLDivElement;
+    this.vialLiquid = document.getElementById('vial-liquid') as HTMLDivElement;
+    this.vialHpText = document.getElementById('vial-hp-text') as HTMLDivElement;
+    this.atpDisplayVal = document.getElementById('atp-display-val') as HTMLSpanElement;
+
     this.threatAlertBanner = document.getElementById('threat-alert') as HTMLDivElement;
     this.threatAlertTitle = document.getElementById('threat-alert-title') as HTMLElement;
     this.threatAlertDesc = document.getElementById('threat-alert-desc') as HTMLSpanElement;
@@ -297,31 +266,40 @@ export class Hud {
   }
 
   public updateStats(stats: CellStats): void {
-    // Membrana (HP)
+    // Membrana (HP) -> Drenado suave de derecha a izquierda del fluido esmeralda
     if (stats.membraneIntegrity !== this.lastHp || stats.maxMembraneIntegrity !== this.lastMaxHp) {
       this.lastHp = stats.membraneIntegrity;
       this.lastMaxHp = stats.maxMembraneIntegrity;
       const hpPct = Math.max(0, Math.min(100, (stats.membraneIntegrity / stats.maxMembraneIntegrity) * 100));
-      this.hpBarFill.style.width = `${hpPct}%`;
-      this.hpText.textContent = `${stats.membraneIntegrity} / ${stats.maxMembraneIntegrity}`;
+      if (this.vialLiquid) {
+        this.vialLiquid.style.width = `${hpPct}%`;
+      }
+      if (this.vialHpText) {
+        this.vialHpText.textContent = `${stats.membraneIntegrity} / ${stats.maxMembraneIntegrity}`;
+      }
     }
 
-    // Presión Osmótica (Escudo)
+    // Presión Osmótica (Escudo) -> Transición a halo cian eléctrico brillante en el borde
     if (stats.osmoticPressure !== this.lastShield || stats.maxOsmoticPressure !== this.lastMaxShield) {
       this.lastShield = stats.osmoticPressure;
       this.lastMaxShield = stats.maxOsmoticPressure;
-      const shieldPct = Math.max(0, Math.min(100, (stats.osmoticPressure / stats.maxOsmoticPressure) * 100));
-      this.shieldBarFill.style.width = `${shieldPct}%`;
-      this.shieldText.textContent = `${stats.osmoticPressure} / ${stats.maxOsmoticPressure}`;
+      const hasShield = stats.osmoticPressure > 0;
+      if (this.vialDock) {
+        if (hasShield) {
+          this.vialDock.classList.add('shield-active');
+        } else {
+          this.vialDock.classList.remove('shield-active');
+        }
+      }
     }
 
-    // Vacuola ATP
+    // Vacuola ATP -> Contador numérico junto al orbe dorado
     if (stats.atp !== this.lastAtp || stats.atpCapacity !== this.lastAtpCap) {
       this.lastAtp = stats.atp;
       this.lastAtpCap = stats.atpCapacity;
-      const atpPct = Math.max(0, Math.min(100, (stats.atp / stats.atpCapacity) * 100));
-      this.atpBarFill.style.width = `${atpPct}%`;
-      this.atpText.textContent = `${stats.atp} / ${stats.atpCapacity} (${Math.round(atpPct)}%)`;
+      if (this.atpDisplayVal) {
+        this.atpDisplayVal.textContent = `${Math.round(stats.atp)}`;
+      }
     }
 
     // Estado de Mitosis
@@ -568,30 +546,10 @@ export class Hud {
   }
 
   public updateThreat(threat: ThreatTelemetry): void {
-    const pct = Math.max(0, Math.min(100, Math.round(threat.inflammation * 100)));
-    this.threatBarFill.style.width = `${pct}%`;
-
     if (threat.alertLevel === 'CRITICAL') {
-      this.threatTitle.textContent = 'TORMENTA';
-      this.threatTitle.style.color = '#ef4444';
-      this.threatText.textContent = `${pct}%`;
-      if (this.threatIcon) this.threatIcon.textContent = '🚨';
-      this.threatBarFill.style.background = 'linear-gradient(90deg, #e11d48, #ef4444)';
-      this.threatBarFill.style.boxShadow = '0 0 10px #ef4444';
+      this.showThreatAlert('¡RESPUESTA INMUNITARIA CRÍTICA!', 'Los macrófagos y neutrófilos te cercan', 'danger');
     } else if (threat.alertLevel === 'ALERT') {
-      this.threatTitle.textContent = 'ALERTA';
-      this.threatTitle.style.color = '#f59e0b';
-      this.threatText.textContent = `${pct}%`;
-      if (this.threatIcon) this.threatIcon.textContent = '⚠️';
-      this.threatBarFill.style.background = 'linear-gradient(90deg, #d97706, #f59e0b)';
-      this.threatBarFill.style.boxShadow = '0 0 8px #f59e0b';
-    } else {
-      this.threatTitle.textContent = 'CALMA';
-      this.threatTitle.style.color = '#10b981';
-      this.threatText.textContent = `${pct}%`;
-      if (this.threatIcon) this.threatIcon.textContent = '🟢';
-      this.threatBarFill.style.background = 'linear-gradient(90deg, #059669, #10b981)';
-      this.threatBarFill.style.boxShadow = '0 0 8px #10b981';
+      this.showThreatAlert('¡RESPUESTA INMUNITARIA!', 'Los neutrófilos te persiguen por quimiotaxis', 'warn');
     }
   }
 
