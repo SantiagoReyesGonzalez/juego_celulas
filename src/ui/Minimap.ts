@@ -39,7 +39,7 @@ export class Minimap {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
 
-  public isVisible = false;
+  public isVisible = true;
   private radarAngle = 0;
 
   // Zoom del Radar: 2x (~70u) o 3x (~105u) respecto a la pantalla
@@ -60,8 +60,8 @@ export class Minimap {
   constructor() {
     this.container = document.createElement('div');
     this.container.id = 'bio-minimap-container';
-    this.container.className = 'bio-confocal-lens hidden';
-    this.container.style.display = 'none';
+    this.container.className = 'bio-confocal-lens';
+    this.container.style.display = 'block';
 
     this.container.innerHTML = `
       <canvas id="bio-minimap-canvas"></canvas>
@@ -74,7 +74,7 @@ export class Minimap {
 
     this.setupCanvas();
     this.bindEvents();
-    this.setVisible(false);
+    this.setVisible(true);
   }
 
   private setupCanvas(): void {
@@ -90,12 +90,23 @@ export class Minimap {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
 
-      if (e.code === 'Tab' || e.code === 'KeyN') {
+      const isTab = e.code === 'Tab' || e.key === 'Tab';
+      const isN = e.code === 'KeyN' || e.key === 'n' || e.key === 'N';
+      const isZ = e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z';
+
+      if (isTab || isN) {
         e.preventDefault();
+        e.stopPropagation();
         this.toggle();
-      } else if (e.code === 'KeyZ') {
+      } else if (isZ) {
         this.cycleZoom();
       }
+    });
+
+    // Clic en la lente para alternar zoom (2x / 3x)
+    this.container.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.cycleZoom();
     });
 
     window.addEventListener('resize', () => {

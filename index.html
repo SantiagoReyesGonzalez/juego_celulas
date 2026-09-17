@@ -1590,10 +1590,12 @@
           0 0 16px rgba(16, 185, 129, 0.22),
           inset 0 0 18px rgba(16, 185, 129, 0.15),
           0 10px 35px rgba(0, 0, 0, 0.75);
-        z-index: 45;
+        z-index: 100;
         overflow: hidden;
         user-select: none;
-        pointer-events: none;
+        pointer-events: auto;
+        cursor: pointer;
+        display: block;
         transition: opacity 0.25s ease, transform 0.25s ease;
       }
       #bio-minimap-container.hidden {
@@ -1604,6 +1606,7 @@
         width: 100%;
         height: 100%;
         border-radius: 50%;
+        pointer-events: none;
       }
     </style>
   </head>
@@ -1659,6 +1662,8 @@
       <span class="inst-item">⚡ <b>Sprint:</b> Espacio / Clic Izq</span>
       <span class="inst-dot">•</span>
       <span class="inst-item">🧬 <b>Mitosis:</b> [M]</span>
+      <span class="inst-dot">•</span>
+      <span class="inst-item">📡 <b>Radar:</b> [TAB]</span>
       <span class="inst-dot">•</span>
       <span class="inst-item">☣️ <b>Nódulo:</b> Golpea Núcleo</span>
     </div>
