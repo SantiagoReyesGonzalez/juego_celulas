@@ -3,7 +3,7 @@ import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
 import { HydrodynamicsSystem, Morphology, HydrodynamicProperties } from '../systems/HydrodynamicsSystem';
 import { BacteriaSpecies, SPECIES_CATALOG, CellMorphology, CellRole } from '../data/MutationTree';
-import { OrganelleSocket, OrganelleFactory, OrganelleType } from './Organelles';
+import { OrganelleSocket, OrganelleFactory, OrganelleType, VerletFlagellum, InternalOrganelleCluster } from './Organelles';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
 import { getToroidalDelta } from '../physics/WorldTopology';
@@ -29,9 +29,11 @@ export class Player {
   public lastColliderScale = 1.0;
   public feedPulse = 1.0;
 
-  // Visuales Three.js
+  // Visuales Three.js, Orgánulos Internos y Flagelos Verlet
   public group: THREE.Group;
   private flagellaMeshes: THREE.Object3D[] = [];
+  private verletFlagella: VerletFlagellum[] = [];
+  private internalOrganelles?: InternalOrganelleCluster;
   private ciliaMesh?: THREE.LineSegments;
 
   // Parámetros de Rendimiento Celular
@@ -189,45 +191,38 @@ export class Player {
       }
     }
     this.flagellaMeshes = [];
+    this.verletFlagella.forEach((vf) => vf.dispose());
+    this.verletFlagella = [];
+    if (this.internalOrganelles) {
+      this.internalOrganelles.dispose();
+      this.internalOrganelles = undefined;
+    }
 
+    // 1. Membrana translúcida gelatinosa con deformación Simplex 3D y Fresnel confocal
     this.membraneMaterial = createMembraneShaderMaterial(
       species.color,
       species.emissive,
-      0.88
+      0.38, // Centro translúcido para visibilidad de orgánulos internos
+      0.96  // Borde confocal hiperbrillante
     );
     const membraneMat = this.membraneMaterial;
 
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
-      transparent: true,
-      opacity: 0.9,
-    });
-
     switch (species.morphology) {
       case CellMorphology.COCCUS: {
-        const geo = new THREE.SphereGeometry(radius, 24, 24);
+        const geo = new THREE.SphereGeometry(radius, 28, 28);
         const mesh = new THREE.Mesh(geo, membraneMat);
         this.group.add(mesh);
-        const core = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.5, 16, 16), coreMat);
-        this.group.add(core);
         break;
       }
 
       case CellMorphology.DIPLOCOCCUS: {
         const r1 = radius * 0.95;
-        const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(r1, 20, 20), membraneMat);
+        const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(r1, 22, 22), membraneMat);
         sphere1.position.set(0.6, 0, 0);
-        const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(r1, 20, 20), membraneMat);
+        const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(r1, 22, 22), membraneMat);
         sphere2.position.set(-0.6, 0, 0);
         this.group.add(sphere1);
         this.group.add(sphere2);
-
-        const core1 = new THREE.Mesh(new THREE.SphereGeometry(r1 * 0.45, 12, 12), coreMat);
-        core1.position.set(0.6, 0, 0);
-        const core2 = new THREE.Mesh(new THREE.SphereGeometry(r1 * 0.45, 12, 12), coreMat);
-        core2.position.set(-0.6, 0, 0);
-        this.group.add(core1);
-        this.group.add(core2);
         break;
       }
 
@@ -235,43 +230,33 @@ export class Player {
         const rS = radius * 0.85;
         const offsets = [-0.95, 0, 0.95];
         offsets.forEach((ox) => {
-          const sphere = new THREE.Mesh(new THREE.SphereGeometry(rS, 18, 18), membraneMat);
+          const sphere = new THREE.Mesh(new THREE.SphereGeometry(rS, 20, 20), membraneMat);
           sphere.position.set(ox, 0, 0);
           this.group.add(sphere);
-          const core = new THREE.Mesh(new THREE.SphereGeometry(rS * 0.45, 12, 12), coreMat);
-          core.position.set(ox, 0, 0);
-          this.group.add(core);
         });
         break;
       }
 
       case CellMorphology.BACILLUS:
       default: {
-        const capGeo = new THREE.CapsuleGeometry(radius, length * 0.8, 16, 24);
+        const capGeo = new THREE.CapsuleGeometry(radius, length * 0.8, 18, 26);
         const mesh = new THREE.Mesh(capGeo, membraneMat);
         mesh.rotation.z = Math.PI / 2;
         this.group.add(mesh);
-
-        // Núcleo celular interno alargado con bioluminiscencia intensa (estilo Imagen 01)
-        const coreGeo = new THREE.CapsuleGeometry(radius * 0.45, length * 0.5, 12, 16);
-        const core = new THREE.Mesh(coreGeo, coreMat);
-        core.rotation.z = Math.PI / 2;
-        this.group.add(core);
-
-        // Hilos y gránulos cromosómicos fluorescentes internos
-        for (let k = 0; k < 4; k++) {
-          const thread = new THREE.Mesh(
-            new THREE.SphereGeometry(0.18, 8, 8),
-            new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 })
-          );
-          thread.position.set((k - 1.5) * (length * 0.20), (k % 2 === 0 ? 0.14 : -0.14), 0.1);
-          this.group.add(thread);
-        }
         break;
       }
     }
 
-    // Corona perimetral de micro-cilios radiantes (estilo Imagen de Referencia 01)
+    // 2. Clúster de Orgánulos Internos Bioluminiscentes (Macronúcleo y Vacuolas aditivas)
+    this.internalOrganelles = new InternalOrganelleCluster(
+      this.group,
+      radius,
+      species.color,
+      species.emissive,
+      4 // 1 Macronúcleo + 3 Vacuolas/Mitocondrias
+    );
+
+    // 3. Corona perimetral de micro-cilios radiantes
     this.ciliaMesh = OrganelleFactory.createCiliaFringe(radius, length, species.morphology, species.color);
     this.group.add(this.ciliaMesh);
 
@@ -289,17 +274,7 @@ export class Player {
       this.group.add(haloMesh);
     }
 
-    // Vacuolas internas de nutrientes
-    for (let i = 0; i < 3; i++) {
-      const vac = new THREE.Mesh(
-        new THREE.SphereGeometry(0.26, 10, 10),
-        new THREE.MeshBasicMaterial({ color: 0xffd700 })
-      );
-      vac.position.set((Math.random() - 0.5) * (length * 0.5), (Math.random() - 0.5) * 0.6, 0.2);
-      this.group.add(vac);
-    }
-
-    // Sockets Modulares y Organelos con Paleta de Colores de Neón Contrastantes
+    // 4. Sockets Modulares y Flagelos Físicos Verlet con Gradiente Cromático
     this.sockets = OrganelleFactory.generateSocketsForSpecies(
       species.sockets,
       radius,
@@ -315,15 +290,28 @@ export class Player {
       if (socket.equippedOrganelle === OrganelleType.FLAGELLUM) {
         organelleColor = FLAGELLA_PALETTE[flagellumIdx % FLAGELLA_PALETTE.length];
         flagellumIdx++;
-      }
-      const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, organelleColor);
-      organelleMesh.position.set(socket.offset.x, socket.offset.y, 0);
-      organelleMesh.rotation.z = socket.angle;
-      this.group.add(organelleMesh);
-      socket.mesh = organelleMesh;
 
-      if (socket.equippedOrganelle === OrganelleType.FLAGELLUM) {
-        this.flagellaMeshes.push(organelleMesh);
+        // Flagelo Verlet físico con gradiente cromático continuo
+        const vf = new VerletFlagellum(
+          this.group,
+          socket.offset,
+          socket.angle,
+          0xffffff,       // Raíz blanca pura
+          organelleColor, // Cuerpo neón bioluminiscente
+          0xc084fc,       // Punta etérea
+          0.16,
+          24,
+          0.18,
+          flagellumIdx * 0.85
+        );
+        this.verletFlagella.push(vf);
+        socket.mesh = vf.group;
+      } else {
+        const organelleMesh = OrganelleFactory.createMesh(socket.equippedOrganelle, organelleColor);
+        organelleMesh.position.set(socket.offset.x, socket.offset.y, 0);
+        organelleMesh.rotation.z = socket.angle;
+        this.group.add(organelleMesh);
+        socket.mesh = organelleMesh;
       }
     });
   }
@@ -556,9 +544,25 @@ export class Player {
         (targetFresnel - this.membraneMaterial.uniforms.uFresnelIntensity.value) * Math.min(dt * 6.0, 1.0);
     }
 
-    // Ondulación hidrodinámica de los flagelos
+    // Ondulación hidrodinámica de los flagelos y física de orgánulos
     const vel = this.body.linvel();
     const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+    const angVel = this.body.angvel();
+
+    // Actualización de orgánulos citoplasmáticos con inercia viscoelástica
+    if (this.internalOrganelles) {
+      const cosR = Math.cos(-rot);
+      const sinR = Math.sin(-rot);
+      const localVx = vel.x * cosR - vel.y * sinR;
+      const localVy = vel.x * sinR + vel.y * cosR;
+      this.internalOrganelles.update(dt, time, { x: localVx, y: localVy });
+    }
+
+    // Actualización de cadenas Verlet para flagelos con gradiente cromático
+    for (let i = 0; i < this.verletFlagella.length; i++) {
+      this.verletFlagella[i].update(dt, time, speed, this.isThrusting, angVel);
+    }
+
     OrganelleFactory.animateFlagella(this.flagellaMeshes, time, speed, this.isThrusting);
 
     // Ondulación de los micro-cilios perimetrales (estilo Imagen 01)

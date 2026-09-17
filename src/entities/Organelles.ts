@@ -594,3 +594,425 @@ export class OrganelleFactory {
     positions.needsUpdate = true;
   }
 }
+
+/**
+ * Cadena física de flagelo mediante Integración Verlet con deformación fluida,
+ * amortiguamiento viscoso y gradiente cromático continuo por vértice (vertexColors).
+ */
+export class VerletFlagellum {
+  public group: THREE.Group;
+  private nodes: Array<{ x: number; y: number; prevX: number; prevY: number }> = [];
+  private ribbonMesh: THREE.Mesh;
+  private lineMesh: THREE.Line;
+  private segments: number;
+  private segmentLength: number;
+  private baseWidth: number;
+  public socketOffset: THREE.Vector2;
+  public socketAngle: number;
+  public phaseOffset: number;
+
+  constructor(
+    parent: THREE.Group,
+    socketOffset: THREE.Vector2,
+    socketAngle: number,
+    colorBaseHex = 0xffffff,
+    colorMidHex = 0x38bdf8,
+    colorTipHex = 0xc084fc,
+    baseWidth = 0.16,
+    segments = 24,
+    segmentLength = 0.18,
+    phaseOffset = 0
+  ) {
+    this.group = new THREE.Group();
+    parent.add(this.group);
+
+    this.socketOffset = socketOffset.clone();
+    this.socketAngle = socketAngle;
+    this.phaseOffset = phaseOffset;
+    this.segments = segments;
+    this.segmentLength = segmentLength;
+    this.baseWidth = baseWidth;
+
+    // 1. Inicializar nodos Verlet en línea recta desde el socket
+    const startX = socketOffset.x;
+    const startY = socketOffset.y;
+    for (let i = 0; i < segments; i++) {
+      const px = startX + Math.cos(socketAngle) * (i * segmentLength);
+      const py = startY + Math.sin(socketAngle) * (i * segmentLength);
+      this.nodes.push({ x: px, y: py, prevX: px, prevY: py });
+    }
+
+    // 2. Anillo Motor Basal en la membrana
+    const motorGeo = new THREE.CylinderGeometry(baseWidth * 0.9, baseWidth * 0.9, 0.08, 12);
+    motorGeo.rotateZ(socketAngle);
+    motorGeo.translate(socketOffset.x, socketOffset.y, 0.05);
+    const motorMat = new THREE.MeshBasicMaterial({
+      color: colorBaseHex,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const motor = new THREE.Mesh(motorGeo, motorMat);
+    this.group.add(motor);
+
+    // 3. Malla Ribbon con Gradiente Cromático por Vértice (vertexColors)
+    const vertexCount = segments * 2;
+    const positions = new Float32Array(vertexCount * 3);
+    const colors = new Float32Array(vertexCount * 3);
+    const indices: number[] = [];
+
+    const cBase = new THREE.Color(colorBaseHex);
+    const cMid = new THREE.Color(colorMidHex);
+    const cTip = new THREE.Color(colorTipHex);
+
+    for (let i = 0; i < segments; i++) {
+      const norm = i / (segments - 1);
+
+      // Interpolación suave del gradiente: Base (blanco/oro) -> Medio (neón) -> Punta (etéreo)
+      const vertColor = new THREE.Color();
+      if (norm < 0.4) {
+        const t = norm / 0.4;
+        vertColor.lerpColors(cBase, cMid, t);
+      } else {
+        const t = (norm - 0.4) / 0.6;
+        vertColor.lerpColors(cMid, cTip, t);
+      }
+
+      const v0 = i * 2;
+      const v1 = i * 2 + 1;
+
+      colors[v0 * 3] = vertColor.r;
+      colors[v0 * 3 + 1] = vertColor.g;
+      colors[v0 * 3 + 2] = vertColor.b;
+
+      colors[v1 * 3] = vertColor.r;
+      colors[v1 * 3 + 1] = vertColor.g;
+      colors[v1 * 3 + 2] = vertColor.b;
+
+      if (i < segments - 1) {
+        const a = i * 2;
+        const b = i * 2 + 1;
+        const c = (i + 1) * 2;
+        const d = (i + 1) * 2 + 1;
+        indices.push(a, b, c);
+        indices.push(c, b, d);
+      }
+    }
+
+    const ribbonGeo = new THREE.BufferGeometry();
+    ribbonGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    ribbonGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    ribbonGeo.setIndex(indices);
+
+    const ribbonMat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.88,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    this.ribbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
+    this.group.add(this.ribbonMesh);
+
+    // 4. Filamento Axial Central de Alta Luminiscencia
+    const linePositions = new Float32Array(segments * 3);
+    const lineColors = new Float32Array(segments * 3);
+    for (let i = 0; i < segments; i++) {
+      const norm = i / (segments - 1);
+      const vertColor = new THREE.Color();
+      if (norm < 0.4) {
+        vertColor.lerpColors(cBase, cMid, norm / 0.4);
+      } else {
+        vertColor.lerpColors(cMid, cTip, (norm - 0.4) / 0.6);
+      }
+      lineColors[i * 3] = vertColor.r;
+      lineColors[i * 3 + 1] = vertColor.g;
+      lineColors[i * 3 + 2] = vertColor.b;
+    }
+
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+    lineGeo.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+    const lineMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95,
+      linewidth: 2.0,
+    });
+    this.lineMesh = new THREE.Line(lineGeo, lineMat);
+    this.group.add(this.lineMesh);
+  }
+
+  /**
+   * Simulación física Verlet por tick de animación
+   */
+  public update(
+    _dt: number,
+    time: number,
+    speed: number,
+    isThrusting: boolean,
+    angularVel = 0
+  ): void {
+    const waveFreq = 10.0 + Math.min(speed * 2.4, 20.0);
+    const baseAmp = isThrusting ? 0.38 : 0.20;
+
+    // 1. Nodo 0 fijado en el socket de la membrana
+    this.nodes[0].x = this.socketOffset.x;
+    this.nodes[0].y = this.socketOffset.y;
+
+    // 2. Nodo 1 accionado por el motor flagelar con desplazamiento ondulatorio
+    const motorWobble = Math.sin(time * waveFreq + this.phaseOffset) * baseAmp;
+    const motorAngle = this.socketAngle + motorWobble;
+    this.nodes[1].x = this.nodes[0].x + Math.cos(motorAngle) * this.segmentLength;
+    this.nodes[1].y = this.nodes[0].y + Math.sin(motorAngle) * this.segmentLength;
+
+    // 3. Integración Verlet en los nodos restantes con arrastre viscoso (0.91)
+    const damping = 0.91;
+    const lateralInertia = -angularVel * 0.08;
+
+    for (let i = 2; i < this.segments; i++) {
+      const node = this.nodes[i];
+      const vx = (node.x - node.prevX) * damping;
+      const vy = (node.y - node.prevY) * damping;
+
+      node.prevX = node.x;
+      node.prevY = node.y;
+
+      // Fuerza hidrodinámica transversal amortiguada
+      node.x += vx;
+      node.y += vy + lateralInertia * (i / this.segments);
+    }
+
+    // 4. Resolución de restricciones de distancia (4 iteraciones de relajación)
+    for (let iter = 0; iter < 4; iter++) {
+      for (let i = 1; i < this.segments; i++) {
+        const nA = this.nodes[i - 1];
+        const nB = this.nodes[i];
+
+        const dx = nB.x - nA.x;
+        const dy = nB.y - nA.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const diff = (dist - this.segmentLength) / dist;
+
+        if (i === 1) {
+          // nA está fijo
+          nB.x -= dx * diff;
+          nB.y -= dy * diff;
+        } else {
+          nB.x -= dx * diff * 0.5;
+          nB.y -= dy * diff * 0.5;
+          nA.x += dx * diff * 0.5;
+          nA.y += dy * diff * 0.5;
+        }
+      }
+    }
+
+    // 5. Actualizar BufferGeometries de la cinta Ribbon y filamento Line
+    const ribbonPos = this.ribbonMesh.geometry.attributes.position as THREE.BufferAttribute;
+    const linePos = this.lineMesh.geometry.attributes.position as THREE.BufferAttribute;
+
+    for (let i = 0; i < this.segments; i++) {
+      const node = this.nodes[i];
+      const norm = i / (this.segments - 1);
+      const halfW = this.baseWidth * (1.0 - 0.85 * norm) * 0.5;
+
+      // Vector tangente para calcular la normal perpendicular
+      let tx = 0;
+      let ty = 0;
+      if (i < this.segments - 1) {
+        tx = this.nodes[i + 1].x - node.x;
+        ty = this.nodes[i + 1].y - node.y;
+      } else {
+        tx = node.x - this.nodes[i - 1].x;
+        ty = node.y - this.nodes[i - 1].y;
+      }
+      const len = Math.hypot(tx, ty) || 1;
+      const nx = -ty / len;
+      const ny = tx / len;
+
+      // Asignar vértices superior e inferior
+      const v0 = i * 2;
+      const v1 = i * 2 + 1;
+      ribbonPos.setXYZ(v0, node.x + nx * halfW, node.y + ny * halfW, 0.05);
+      ribbonPos.setXYZ(v1, node.x - nx * halfW, node.y - ny * halfW, 0.05);
+
+      linePos.setXYZ(i, node.x, node.y, 0.06);
+    }
+
+    ribbonPos.needsUpdate = true;
+    linePos.needsUpdate = true;
+  }
+
+  public dispose(): void {
+    if (this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
+    this.ribbonMesh.geometry.dispose();
+    (this.ribbonMesh.material as THREE.Material).dispose();
+    this.lineMesh.geometry.dispose();
+    (this.lineMesh.material as THREE.Material).dispose();
+  }
+}
+
+export interface InternalOrganelleItem {
+  mesh: THREE.Mesh;
+  baseOffset: THREE.Vector2;
+  currentLag: THREE.Vector2;
+  frequency: number;
+  phase: number;
+  amplitude: number;
+  baseScale: number;
+  isCore: boolean;
+}
+
+/**
+ * Clúster de 2 a 5 orgánulos internos bioluminiscentes (Macronúcleo y Vacuolas)
+ * con blend aditivo, pulsación respiratoria y oscilación inercial citoplasmática.
+ */
+export class InternalOrganelleCluster {
+  public group: THREE.Group;
+  private organelles: InternalOrganelleItem[] = [];
+  private bodyRadius: number;
+
+  constructor(
+    parent: THREE.Group,
+    bodyRadius: number,
+    primaryColor: number,
+    secondaryColor: number = 0xf59e0b,
+    count: number = 4
+  ) {
+    this.group = new THREE.Group();
+    parent.add(this.group);
+    this.bodyRadius = bodyRadius;
+
+    this.buildCluster(primaryColor, secondaryColor, Math.max(2, Math.min(count, 5)));
+  }
+
+  private buildCluster(primaryColor: number, secondaryColor: number, count: number): void {
+    // 1. Macronúcleo central bioluminiscente de alta densidad
+    const coreRadius = this.bodyRadius * 0.44;
+    const coreGeo = new THREE.SphereGeometry(coreRadius, 16, 16);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: primaryColor,
+      transparent: true,
+      opacity: 0.90,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreMesh.position.set(0, 0, 0.05);
+    this.group.add(coreMesh);
+
+    // Centro hiperbrillante del núcleo
+    const innerCoreGeo = new THREE.SphereGeometry(coreRadius * 0.48, 12, 12);
+    const innerCoreMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const innerCoreMesh = new THREE.Mesh(innerCoreGeo, innerCoreMat);
+    innerCoreMesh.position.set(0, 0, 0.06);
+    this.group.add(innerCoreMesh);
+
+    this.organelles.push({
+      mesh: coreMesh,
+      baseOffset: new THREE.Vector2(0, 0),
+      currentLag: new THREE.Vector2(0, 0),
+      frequency: 1.8,
+      phase: 0,
+      amplitude: 0.06,
+      baseScale: 1.0,
+      isCore: true,
+    });
+
+    // 2. Vacuolas y Mitocondrias orbitales (de 1 a 4 orgánulos adicionales)
+    const vacCount = count - 1;
+    const vacPalette = [secondaryColor, 0x38bdf8, 0xf43f5e, 0xfacc15];
+
+    for (let i = 0; i < vacCount; i++) {
+      const angle = (i * Math.PI * 2) / vacCount + 0.55;
+      const dist = this.bodyRadius * (0.38 + (i % 2) * 0.14);
+      const vRadius = this.bodyRadius * (0.16 + (i % 3) * 0.05);
+
+      const vGeo = new THREE.SphereGeometry(vRadius, 12, 12);
+      const vMat = new THREE.MeshBasicMaterial({
+        color: vacPalette[i % vacPalette.length],
+        transparent: true,
+        opacity: 0.78,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const vMesh = new THREE.Mesh(vGeo, vMat);
+      const bx = Math.cos(angle) * dist;
+      const by = Math.sin(angle) * dist;
+      vMesh.position.set(bx, by, 0.08);
+      this.group.add(vMesh);
+
+      this.organelles.push({
+        mesh: vMesh,
+        baseOffset: new THREE.Vector2(bx, by),
+        currentLag: new THREE.Vector2(0, 0),
+        frequency: 2.2 + i * 0.45,
+        phase: i * 1.25,
+        amplitude: 0.09 + i * 0.03,
+        baseScale: 1.0,
+        isCore: false,
+      });
+    }
+  }
+
+  /**
+   * Actualiza la oscilación inercial citoplasmática y pulsación respiratoria
+   */
+  public update(
+    dt: number,
+    time: number,
+    localVel?: { x: number; y: number }
+  ): void {
+    const vx = localVel ? localVel.x : 0;
+    const vy = localVel ? localVel.y : 0;
+
+    for (let i = 0; i < this.organelles.length; i++) {
+      const org = this.organelles[i];
+
+      // 1. Inercia de fluidos: los orgánulos quedan rezagados respecto a la aceleración
+      const targetLagX = -vx * 0.035;
+      const targetLagY = -vy * 0.035;
+      org.currentLag.x += (targetLagX - org.currentLag.x) * Math.min(dt * 7.0, 1.0);
+      org.currentLag.y += (targetLagY - org.currentLag.y) * Math.min(dt * 7.0, 1.0);
+
+      // 2. Micro-oscilación streaming de citoplasma (Brownian oscillation)
+      const brownX = Math.sin(time * org.frequency + org.phase) * org.amplitude;
+      const brownY = Math.cos(time * org.frequency * 0.88 + org.phase) * org.amplitude;
+
+      let ox = org.baseOffset.x + org.currentLag.x + brownX;
+      let oy = org.baseOffset.y + org.currentLag.y + brownY;
+
+      // Delimitar dentro de la membrana celular
+      const dist = Math.hypot(ox, oy);
+      const maxDist = this.bodyRadius * 0.72;
+      if (dist > maxDist) {
+        ox = (ox / dist) * maxDist;
+        oy = (oy / dist) * maxDist;
+      }
+
+      org.mesh.position.x = ox;
+      org.mesh.position.y = oy;
+
+      // 3. Respiración bioluminiscente sinusoidal
+      const pulse = 1.0 + Math.sin(time * 2.0 + org.phase) * (org.isCore ? 0.06 : 0.12);
+      org.mesh.scale.set(pulse, pulse, pulse);
+    }
+  }
+
+  public dispose(): void {
+    if (this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
+    this.organelles.forEach((org) => {
+      org.mesh.geometry.dispose();
+      (org.mesh.material as THREE.Material).dispose();
+    });
+  }
+}
