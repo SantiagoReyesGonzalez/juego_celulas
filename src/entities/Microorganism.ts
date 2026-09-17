@@ -353,10 +353,14 @@ export class Microorganism {
     const isApex = this.type === MicroorganismType.APEX_VIBRIO;
     const isNimble = this.type === MicroorganismType.NIMBLE_NAYAD;
 
+    // Distance / Frustum Culling: Si está fuera de la pantalla (> 38u), ocultar malla y pausar animaciones costosas
+    const isVisibleOnScreen = distToPlayer < 38.0;
+    this.mesh.visible = isVisibleOnScreen;
+
     // ================= IA BIOLÓGICA SEGÚN ARQUETIPO =================
     if (isApex) {
       // Pulsación del halo de acecho
-      if (this.apexGlowMesh) {
+      if (this.apexGlowMesh && isVisibleOnScreen) {
         const pulse = 1.0 + Math.sin(time * 7.0) * 0.14;
         this.apexGlowMesh.scale.set(pulse, pulse, 1.0);
       }
@@ -461,28 +465,30 @@ export class Microorganism {
       }
     }
 
-    // Dinámica física de orgánulos internos y flagelos Verlet
-    const vel = this.body.linvel();
-    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-    const angVel = this.body.angvel();
+    // Cheat: Solo simular dinámicas de orgánulos, flagelos Verlet y micro-cilios si es visible en pantalla
+    if (isVisibleOnScreen) {
+      const vel = this.body.linvel();
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      const angVel = this.body.angvel();
 
-    // Inercia citoplasmática de orgánulos con blend aditivo
-    if (this.internalOrganelles) {
-      const cosR = Math.cos(-rot);
-      const sinR = Math.sin(-rot);
-      const localVx = vel.x * cosR - vel.y * sinR;
-      const localVy = vel.x * sinR + vel.y * cosR;
-      this.internalOrganelles.update(dt, time, { x: localVx, y: localVy });
-    }
+      // Inercia citoplasmática de orgánulos con blend aditivo
+      if (this.internalOrganelles) {
+        const cosR = Math.cos(-rot);
+        const sinR = Math.sin(-rot);
+        const localVx = vel.x * cosR - vel.y * sinR;
+        const localVy = vel.x * sinR + vel.y * cosR;
+        this.internalOrganelles.update(dt, time, { x: localVx, y: localVy });
+      }
 
-    // Ondulación de cadenas físicas Verlet con gradiente cromático
-    for (let i = 0; i < this.verletFlagella.length; i++) {
-      this.verletFlagella[i].update(dt, time, speed, speed > 0.4, angVel);
-    }
+      // Ondulación de cadenas físicas Verlet con gradiente cromático
+      for (let i = 0; i < this.verletFlagella.length; i++) {
+        this.verletFlagella[i].update(dt, time, speed, speed > 0.4, angVel);
+      }
 
-    // Ondulación de los cilios perimetrales
-    if (this.ciliaMesh) {
-      OrganelleFactory.animateCilia(this.ciliaMesh, time);
+      // Ondulación de los micro-cilios perimetrales
+      if (this.ciliaMesh) {
+        OrganelleFactory.animateCilia(this.ciliaMesh, time);
+      }
     }
   }
 

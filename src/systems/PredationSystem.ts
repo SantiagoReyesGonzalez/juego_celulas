@@ -9,44 +9,25 @@ import { WORLD_BOUNDS, getToroidalDelta, wrapPosition, isOutsideBounds } from '.
 
 /**
  * Gránulo de Nutriente / Glucógeno comestible (estilo puntos de Agar.io)
+ * Optimizado con InstancedMesh (1 solo Draw Call para todo el ecosistema)
  */
 export class NutrientPellet {
   public position: THREE.Vector2;
-  public mesh: THREE.Mesh;
   public radius = 0.4;
   public atpValue = 4.0;
   public massGain = 0.12;
   public isCollected = false;
-  private floatOffset = Math.random() * Math.PI * 2;
-  private floatSpeed = 1.3 + Math.random() * 0.8;
+  public instanceId: number;
 
-  constructor(
-    scene: THREE.Scene,
-    x: number,
-    y: number,
-    geometry: THREE.BufferGeometry,
-    material: THREE.Material
-  ) {
+  constructor(x: number, y: number, instanceId: number) {
     this.position = new THREE.Vector2(x, y);
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.set(x, y, 0);
-    scene.add(this.mesh);
+    this.instanceId = instanceId;
   }
 
-  public update(dt: number, time: number): void {
-    if (this.isCollected) return;
-    const wave = Math.sin(time * this.floatSpeed + this.floatOffset);
-    this.mesh.position.x = this.position.x + wave * 0.14;
-    this.mesh.position.y = this.position.y + Math.cos(time * this.floatSpeed + this.floatOffset) * 0.14;
-    this.mesh.rotation.y += dt * 1.8;
-    this.mesh.rotation.z += dt * 1.2;
-    const pulse = 1.0 + wave * 0.15;
-    this.mesh.scale.set(pulse, pulse, pulse);
-  }
+  public update(_dt: number, _time: number): void {}
 
-  public dispose(scene: THREE.Scene): void {
+  public dispose(_scene?: THREE.Scene): void {
     this.isCollected = true;
-    scene.remove(this.mesh);
   }
 }
 
@@ -67,15 +48,17 @@ export class PredationSystem {
   public onPredationActivity?: (type: 'pellet' | 'microorganism' | 'adipocyte') => void;
   public onSpecializedNutrientCollected?: (text: string, color: string) => void;
 
-  private maxNutrients = 380;
-  private maxMicroorganisms = 180;
+  private maxNutrients = 350;
+  private maxMicroorganisms = 36;
   private maxAdipocytes = 16;
-  private maxBioStructures = 26;
+  private maxBioStructures = 24;
   private worldBounds = WORLD_BOUNDS;
 
-  // Recursos compartidos para los gránulos de nutrientes
-  private nutGeo: THREE.BufferGeometry;
-  private nutMat: THREE.Material;
+  // Recursos de alto rendimiento: InstancedMesh y textura 2D pre-renderizada
+  private nutInstancedMesh!: THREE.InstancedMesh;
+  private availableNutrientIndices: number[] = [];
+  private dummyObj = new THREE.Object3D();
+  private frameCount = 0;
 
   constructor(
     physicsWorld: PhysicsWorld,
@@ -88,17 +71,8 @@ export class PredationSystem {
     this.player = player;
     this.vacuoleManager = vacuoleManager;
 
-    // Geometría dorada brillante compartida para optimizar el rendimiento
-    this.nutGeo = new THREE.DodecahedronGeometry(0.38);
-    this.nutMat = new THREE.MeshStandardMaterial({
-      color: 0xfbbf24,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 2.8,
-      roughness: 0.1,
-      metalness: 0.05,
-      transparent: true,
-      opacity: 0.95,
-    });
+    // Inicializar InstancedMesh con impostor pre-renderizado en canvas
+    this.initNutrientInstancing();
 
     this.vacuoleManager.addAtpLeakListener((amount) => {
       this.spawnAtpLeak(amount);
@@ -108,22 +82,78 @@ export class PredationSystem {
     this.populateEcosystem();
   }
 
+  /**
+   * Cheat de Optimización: Pre-renderiza la gota de nutriente bioluminiscente en un canvas 2D
+   */
+  private createPreRenderedNutrientTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    const cx = 32;
+    const cy = 32;
+
+    // 1. Corona dorada exterior suave
+    const halo = ctx.createRadialGradient(cx, cy, 10, cx, cy, 31);
+    halo.addColorStop(0.0, 'rgba(251, 191, 36, 0.95)');
+    halo.addColorStop(0.55, 'rgba(245, 158, 11, 0.40)');
+    halo.addColorStop(1.0, 'rgba(245, 158, 11, 0.0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 31, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Gotícula esférica con volumen 3D pre-renderizado y especular brillante
+    const core = ctx.createRadialGradient(cx - 5, cy - 6, 2, cx, cy, 16);
+    core.addColorStop(0.0, '#ffffff');  // Punto especular central
+    core.addColorStop(0.25, '#fef08a'); // Amarillo pálido incandescente
+    core.addColorStop(0.65, '#f59e0b'); // Miel dorada
+    core.addColorStop(0.92, '#b45309'); // Ribete ámbar
+    core.addColorStop(1.0, 'rgba(180, 83, 9, 0)');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  private initNutrientInstancing(): void {
+    const nutTexture = this.createPreRenderedNutrientTexture();
+    const nutGeo = new THREE.PlaneGeometry(1.0, 1.0);
+    const nutMat = new THREE.MeshBasicMaterial({
+      map: nutTexture,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    this.nutInstancedMesh = new THREE.InstancedMesh(nutGeo, nutMat, this.maxNutrients);
+    this.scene.add(this.nutInstancedMesh);
+
+    for (let i = 0; i < this.maxNutrients; i++) {
+      this.availableNutrientIndices.push(i);
+      this.dummyObj.position.set(99999, 99999, 0);
+      this.dummyObj.scale.set(0, 0, 0);
+      this.dummyObj.updateMatrix();
+      this.nutInstancedMesh.setMatrixAt(i, this.dummyObj.matrix);
+    }
+    this.nutInstancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
   private populateEcosystem(): void {
     // 1. Gránulos de Glucógeno / Nutrientes (Agar.io Dots)
-    // Agrupar 35 gránulos cerca del jugador para alimentación inmediata desde el segundo 0
     for (let i = 0; i < 35; i++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = 3.5 + Math.random() * 20.0;
       this.spawnNutrient(Math.cos(angle) * dist, Math.sin(angle) * dist);
     }
-    // El resto distribuidos por todo el mapa
     while (this.nutrients.length < this.maxNutrients) {
       this.spawnRandomNutrient();
     }
 
-    // 2. Microorganismos (Cocos, Bacilos, Desechos)
-    // Generar 20 organismos accesibles en el entorno cercano (distancia 5 a 26)
-    for (let i = 0; i < 20; i++) {
+    // 2. Microorganismos (Población calibrada a 36 para 60 FPS estables)
+    for (let i = 0; i < 12; i++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = 5.0 + Math.random() * 21.0;
       const rand = Math.random();
@@ -152,8 +182,17 @@ export class PredationSystem {
   }
 
   private spawnNutrient(x: number, y: number): void {
-    const nut = new NutrientPellet(this.scene, x, y, this.nutGeo, this.nutMat);
+    if (this.availableNutrientIndices.length === 0) return;
+    const instanceId = this.availableNutrientIndices.pop()!;
+    const nut = new NutrientPellet(x, y, instanceId);
     this.nutrients.push(nut);
+
+    this.dummyObj.position.set(x, y, 0.05);
+    this.dummyObj.rotation.z = Math.random() * Math.PI * 2;
+    this.dummyObj.scale.set(1.0, 1.0, 1.0);
+    this.dummyObj.updateMatrix();
+    this.nutInstancedMesh.setMatrixAt(instanceId, this.dummyObj.matrix);
+    this.nutInstancedMesh.instanceMatrix.needsUpdate = true;
   }
 
   private spawnRandomNutrient(): void {
@@ -238,10 +277,12 @@ export class PredationSystem {
     const digestiveBonus = 1.0 + digestiveLevel * 0.25;
 
     // ================= 1. CONSUMO DE GRÁNULOS DE NUTRIENTES (Agar.io) =================
-    // La bacteria SOLO se alimenta cuando el cuerpo celular pasa exactamente por encima (sin efecto imán)
+    // ================= 1. CONSUMO DE GRÁNULOS DE NUTRIENTES (Agar.io) =================
+    this.frameCount++;
+    let instanceNeedsUpdate = false;
+
     for (let i = this.nutrients.length - 1; i >= 0; i--) {
       const nut = this.nutrients[i];
-      nut.update(dt, time);
 
       const { dist: nutDist } = getToroidalDelta(playerPos.x, playerPos.y, nut.position.x, nut.position.y);
       if (nutDist <= playerRadius + nut.radius + 0.35) {
@@ -253,6 +294,14 @@ export class PredationSystem {
           this.onPredationActivity('pellet');
         }
 
+        // Liberar slot de InstancedMesh (Cheat de 1 Solo Draw Call)
+        this.availableNutrientIndices.push(nut.instanceId);
+        this.dummyObj.position.set(99999, 99999, 0);
+        this.dummyObj.scale.set(0, 0, 0);
+        this.dummyObj.updateMatrix();
+        this.nutInstancedMesh.setMatrixAt(nut.instanceId, this.dummyObj.matrix);
+        instanceNeedsUpdate = true;
+
         nut.dispose(this.scene);
         this.nutrients.splice(i, 1);
 
@@ -262,6 +311,9 @@ export class PredationSystem {
           }
         }, 2200);
       }
+    }
+    if (instanceNeedsUpdate) {
+      this.nutInstancedMesh.instanceMatrix.needsUpdate = true;
     }
 
     // ================= 2. ECOSISTEMA VIVO Y DEPREDACIÓN DE MICROORGANISMOS =================
@@ -274,9 +326,11 @@ export class PredationSystem {
       const microPos = micro.body.translation();
 
       // Buscar presa cercana para cazadores autónomos (Ápex o Bacilos)
+      // Cheat: Búsqueda throttled cada 8 frames por cazador para evitar saturar la CPU
       let targetPreyPos: { x: number; y: number } | null = null;
-      if (micro.type === MicroorganismType.APEX_VIBRIO || micro.type === MicroorganismType.SMALL_BACILLUS) {
-        let nearestDist = 20.0;
+      const isHunter = micro.type === MicroorganismType.APEX_VIBRIO || micro.type === MicroorganismType.SMALL_BACILLUS;
+      if (isHunter && (this.frameCount + i) % 8 === 0) {
+        let nearestDist = 18.0;
         for (let j = 0; j < this.microorganisms.length; j++) {
           if (i === j) continue;
           const other = this.microorganisms[j];
@@ -293,8 +347,8 @@ export class PredationSystem {
 
       micro.update(dt, time, playerPos, playerMass, playerHpPercent, targetPreyPos);
 
-      // --- Interacción Depredador-Presa entre Microorganismos (Ecosistema Autónomo) ---
-      if (micro.type === MicroorganismType.APEX_VIBRIO || micro.type === MicroorganismType.SMALL_BACILLUS) {
+      // --- Interacción Depredador-Presa entre Microorganismos (Throttled cada 4 frames) ---
+      if (isHunter && (this.frameCount + i) % 4 === 0) {
         for (let j = this.microorganisms.length - 1; j >= 0; j--) {
           if (i === j) continue;
           const prey = this.microorganisms[j];
@@ -308,7 +362,7 @@ export class PredationSystem {
               this.microorganisms.splice(j, 1);
               if (j < i) i--; // Ajustar índice actual
 
-              // Desprender 1 o 2 pellets de nutrientes en el sitio de caza
+              // Desprender 1 pellet de nutrientes en el sitio de caza
               const dropX = (microPos.x + pPos.x) * 0.5;
               const dropY = (microPos.y + pPos.y) * 0.5;
               this.spawnNutrient(dropX, dropY);

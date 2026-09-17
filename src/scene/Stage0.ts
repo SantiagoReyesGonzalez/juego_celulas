@@ -67,26 +67,32 @@ export class Stage0 {
   private sessionStartTime = performance.now();
   private peakMass = 1.0;
 
-  // Fondo Tisular y Entorno Biológico de Microscopía Cálida
+  // Fondo Tisular y Entorno Biológico de Microscopía Cálida (Optimizado con Impostors / InstancedMesh)
   private backgroundMesh!: THREE.Mesh;
   private backgroundMat!: THREE.MeshBasicMaterial;
   private particlesGroup: THREE.Group;
-  private erythrocyteGroup: THREE.Group;
-  private deepVesicleGroup: THREE.Group;
+  private erythrocyteInstancedMesh!: THREE.InstancedMesh;
+  private deepVesicleInstancedMesh!: THREE.InstancedMesh;
   private sporeParticles?: THREE.Points;
+  private dummyObj = new THREE.Object3D();
   private erythrocyteData: {
-    mesh: THREE.Mesh;
+    x: number;
+    y: number;
+    z: number;
+    baseScale: number;
+    rotZ: number;
     rotSpeedX: number;
-    rotSpeedY: number;
     rotSpeedZ: number;
     driftPhase: number;
     driftSpeed: number;
   }[] = [];
   private deepVesicleData: {
-    mesh: THREE.Mesh;
+    x: number;
+    y: number;
+    z: number;
+    baseScale: number;
     pulsePhase: number;
     pulseSpeed: number;
-    baseScale: number;
   }[] = [];
 
   // Interacción y Mouse
@@ -104,14 +110,14 @@ export class Stage0 {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
 
-    // 1. Renderizador WebGL 2.0
+    // 1. Renderizador WebGL 2.0 (Cheat: antialias false y pixelRatio 1.0 para max FPS)
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: false,
       powerPreference: 'high-performance',
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(1.0);
     this.renderer.setClearColor(0x1c0407, 1.0); // Fondo cálido capilar tipo rojito-vino (#1c0407)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -136,12 +142,8 @@ export class Stage0 {
     // 4. Iluminación Biológica Cálida (Miel, Ámbar y Refracción Celular)
     this.setupLighting();
 
-    // 5. Entorno: Fondo Cálido, Glóbulos Rojos, Vesículas y Esporas Bioluminiscentes
+    // 5. Entorno: Fondo Cálido, Glóbulos Rojos Impostor, Vesículas y Esporas Bioluminiscentes
     this.particlesGroup = new THREE.Group();
-    this.erythrocyteGroup = new THREE.Group();
-    this.deepVesicleGroup = new THREE.Group();
-    this.scene.add(this.deepVesicleGroup);
-    this.scene.add(this.erythrocyteGroup);
     this.scene.add(this.particlesGroup);
     this.createWarmMicroscopeBackdrop();
     this.createBackgroundElements();
@@ -353,67 +355,114 @@ export class Stage0 {
     }
   }
 
+  /**
+   * Cheat de Alto Rendimiento: Pre-renderiza un eritrocito bicóncavo con sombreado 3D
+   * toroidal y depresión cóncava central directamente sobre un lienzo 2D en memoria.
+   */
+  private createPreRenderedErythrocyteTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    const cx = 64;
+    const cy = 64;
+
+    // 1. Sombra volumétrica exterior difusa
+    const shadowGrad = ctx.createRadialGradient(cx, cy, 38, cx, cy, 62);
+    shadowGrad.addColorStop(0.0, 'rgba(40, 6, 8, 0.55)');
+    shadowGrad.addColorStop(0.85, 'rgba(40, 6, 8, 0.15)');
+    shadowGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = shadowGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 62, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Disco toroide exterior (curvatura bicóncava de hemoglobina)
+    const bodyGrad = ctx.createRadialGradient(cx - 10, cy - 10, 8, cx, cy, 54);
+    bodyGrad.addColorStop(0.0, '#dc2626');  // Brillo volumétrico esférico arterial
+    bodyGrad.addColorStop(0.40, '#b91c1c'); // Rojo eritrocito cálido
+    bodyGrad.addColorStop(0.75, '#7f1d1d'); // Sombra de curvatura somática
+    bodyGrad.addColorStop(0.95, '#450a0a'); // Borde perimetral denso
+    bodyGrad.addColorStop(1.0, 'rgba(69, 10, 10, 0)');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 54, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Depresión cóncava central característica (sin agujero)
+    const dimpleGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 25);
+    dimpleGrad.addColorStop(0.0, '#2a0507'); // Pozo cóncavo profundo
+    dimpleGrad.addColorStop(0.65, '#5c0d11');
+    dimpleGrad.addColorStop(1.0, 'rgba(185, 28, 28, 0)');
+    ctx.fillStyle = dimpleGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Especular sutil en el reborde superior
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx - 12, cy - 16, 22, 9, -0.4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(254, 202, 202, 0.28)';
+    ctx.fill();
+    ctx.restore();
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
   private createBackgroundElements(): void {
-    // 1. Capa densa de fondo (Z entre -30 y -60) de Eritrocitos Bicóncavos
-    // Geometría fidedigna Evans & Fung (1972) con material translúcido y desenfoque simulado (DoF)
-    const rbcGeo = this.createBiconcaveErythrocyteGeometry(1.65);
-    const rbcMat = new THREE.MeshStandardMaterial({
-      color: 0x8a1c18,          // Rojo eritrocito cálido
-      emissive: 0x3d0b0d,       // Resplandor somático cálido
-      emissiveIntensity: 0.55,
-      roughness: 0.52,          // Superficie difusa para simular desenfoque óptico (DoF)
-      metalness: 0.04,
+    // 1. Capa densa de fondo: Glóbulos Rojos con Impostor Pre-renderizado e InstancedMesh (1 Solo Draw Call)
+    const rbcTexture = this.createPreRenderedErythrocyteTexture();
+    const rbcMat = new THREE.MeshBasicMaterial({
+      map: rbcTexture,
       transparent: true,
-      opacity: 0.80,           // Translúcido para ver el fluido y gradiente a través de ellos
+      opacity: 0.85,
       depthWrite: false,
     });
 
-    const erythrocyteCount = 45;
+    const erythrocyteCount = 40;
+    const rbcGeo = new THREE.PlaneGeometry(6.5, 6.5);
+    this.erythrocyteInstancedMesh = new THREE.InstancedMesh(rbcGeo, rbcMat, erythrocyteCount);
+    this.scene.add(this.erythrocyteInstancedMesh);
     this.erythrocyteData = [];
 
     for (let i = 0; i < erythrocyteCount; i++) {
-      const rbc = new THREE.Mesh(rbcGeo, rbcMat);
-      // Distribución densa en Z entre -30 y -60
       const z = -30 - Math.random() * 30;
-      rbc.position.set(
-        (Math.random() - 0.5) * 750,
-        (Math.random() - 0.5) * 650,
-        z
-      );
+      const x = (Math.random() - 0.5) * 750;
+      const y = (Math.random() - 0.5) * 650;
+      const scale = 1.0 + Math.random() * 1.4;
+      const rotZ = Math.random() * Math.PI * 2;
 
-      // Inclinación 3D natural y aleatoria para apreciar la curvatura bicóncava
-      rbc.rotation.set(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2
-      );
-
-      // Variación de escala orgánica (1.1x a 2.6x)
-      const scale = 1.1 + Math.random() * 1.5;
-      rbc.scale.set(scale, scale, scale);
-      this.erythrocyteGroup.add(rbc);
+      this.dummyObj.position.set(x, y, z);
+      this.dummyObj.rotation.z = rotZ;
+      this.dummyObj.scale.set(scale, scale, 1);
+      this.dummyObj.updateMatrix();
+      this.erythrocyteInstancedMesh.setMatrixAt(i, this.dummyObj.matrix);
 
       this.erythrocyteData.push({
-        mesh: rbc,
-        rotSpeedX: (Math.random() - 0.5) * 0.25,
-        rotSpeedY: (Math.random() - 0.5) * 0.30,
-        rotSpeedZ: (Math.random() - 0.5) * 0.20,
+        x,
+        y,
+        z,
+        baseScale: scale,
+        rotZ,
+        rotSpeedX: (Math.random() - 0.5) * 0.45,
+        rotSpeedZ: (Math.random() - 0.5) * 0.25,
         driftPhase: Math.random() * Math.PI * 2,
         driftSpeed: 0.25 + Math.random() * 0.35,
       });
     }
+    this.erythrocyteInstancedMesh.instanceMatrix.needsUpdate = true;
 
-    // 2. Capa densa de Vesículas Lipídicas y Vacuolas en Z entre -30 y -60
-    // Material translúcido con ribete lipídico y desenfoque simulado
+    // 2. Capa densa de Vesículas Lipídicas y Vacuolas en Z (-30 a -60) con InstancedMesh (1 Solo Draw Call)
     const canvasVes = document.createElement('canvas');
     canvasVes.width = 128;
     canvasVes.height = 128;
     const vctx = canvasVes.getContext('2d')!;
     const vgrad = vctx.createRadialGradient(64, 64, 4, 64, 64, 60);
-    vgrad.addColorStop(0.0, 'rgba(254, 240, 138, 0.12)'); // Centro miel translúcido
-    vgrad.addColorStop(0.55, 'rgba(245, 158, 11, 0.25)'); // Manto ámbar
-    vgrad.addColorStop(0.85, 'rgba(244, 63, 94, 0.45)');  // Tinte capilar
-    vgrad.addColorStop(0.96, 'rgba(255, 235, 175, 0.85)'); // Ribete lipídico brillante
+    vgrad.addColorStop(0.0, 'rgba(254, 240, 138, 0.14)');
+    vgrad.addColorStop(0.55, 'rgba(245, 158, 11, 0.28)');
+    vgrad.addColorStop(0.85, 'rgba(244, 63, 94, 0.45)');
+    vgrad.addColorStop(0.96, 'rgba(255, 235, 175, 0.88)');
     vgrad.addColorStop(1.0, 'rgba(255, 235, 175, 0.0)');
     vctx.fillStyle = vgrad;
     vctx.beginPath();
@@ -422,63 +471,64 @@ export class Stage0 {
     const vesTexture = new THREE.CanvasTexture(canvasVes);
 
     const vesGeo = new THREE.PlaneGeometry(1, 1);
-    const vesicleColors = [0xf59e0b, 0xfbbf24, 0xf43f5e, 0x38bdf8, 0xf97316];
-    const vesicleCount = 25;
+    const vesicleCount = 20;
+    const vMat = new THREE.MeshBasicMaterial({
+      map: vesTexture,
+      transparent: true,
+      opacity: 0.65,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    this.deepVesicleInstancedMesh = new THREE.InstancedMesh(vesGeo, vMat, vesicleCount);
+    this.scene.add(this.deepVesicleInstancedMesh);
     this.deepVesicleData = [];
 
     for (let i = 0; i < vesicleCount; i++) {
-      const vMat = new THREE.MeshBasicMaterial({
-        map: vesTexture,
-        color: vesicleColors[i % vesicleColors.length],
-        transparent: true,
-        opacity: 0.60,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-
-      const vMesh = new THREE.Mesh(vesGeo, vMat);
-      // Z entre -30 y -60
       const z = -30 - Math.random() * 30;
-      vMesh.position.set(
-        (Math.random() - 0.5) * 750,
-        (Math.random() - 0.5) * 650,
-        z
-      );
+      const x = (Math.random() - 0.5) * 750;
+      const y = (Math.random() - 0.5) * 650;
+      const baseScale = 14 + Math.random() * 22;
 
-      const baseScale = 14 + Math.random() * 24;
-      vMesh.scale.set(baseScale, baseScale, 1);
-      this.deepVesicleGroup.add(vMesh);
+      this.dummyObj.position.set(x, y, z);
+      this.dummyObj.rotation.z = Math.random() * Math.PI * 2;
+      this.dummyObj.scale.set(baseScale, baseScale, 1);
+      this.dummyObj.updateMatrix();
+      this.deepVesicleInstancedMesh.setMatrixAt(i, this.dummyObj.matrix);
 
       this.deepVesicleData.push({
-        mesh: vMesh,
-        pulsePhase: Math.random() * Math.PI * 2,
-        pulseSpeed: 0.5 + Math.random() * 0.6,
+        x,
+        y,
+        z,
         baseScale,
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulseSpeed: 0.5 + Math.random() * 0.5,
       });
     }
+    this.deepVesicleInstancedMesh.instanceMatrix.needsUpdate = true;
 
-    // 3. Partículas de Esporas Doradas Bioluminiscentes Flotantes que emiten luz en el medio
+    // 3. Partículas de Esporas Doradas Bioluminiscentes Flotantes (Points - 1 Solo Draw Call)
     const sporeCanvas = document.createElement('canvas');
     sporeCanvas.width = 64;
     sporeCanvas.height = 64;
     const sctx = sporeCanvas.getContext('2d')!;
     const sgrad = sctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-    sgrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');  // Núcleo blanco radiante
-    sgrad.addColorStop(0.22, 'rgba(254, 240, 138, 0.95)'); // Corona oro claro
-    sgrad.addColorStop(0.60, 'rgba(245, 158, 11, 0.70)');  // Miel / Ámbar dorado
-    sgrad.addColorStop(1.0, 'rgba(180, 83, 9, 0.0)');      // Difuminado suave
+    sgrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    sgrad.addColorStop(0.22, 'rgba(254, 240, 138, 0.95)');
+    sgrad.addColorStop(0.60, 'rgba(245, 158, 11, 0.70)');
+    sgrad.addColorStop(1.0, 'rgba(180, 83, 9, 0.0)');
     sctx.fillStyle = sgrad;
     sctx.beginPath();
     sctx.arc(32, 32, 30, 0, Math.PI * 2);
     sctx.fill();
     const sporeTexture = new THREE.CanvasTexture(sporeCanvas);
 
-    const sporeCount = 520;
+    const sporeCount = 400;
     const sporePositions = new Float32Array(sporeCount * 3);
     for (let i = 0; i < sporeCount; i++) {
       sporePositions[i * 3] = (Math.random() - 0.5) * 750;
       sporePositions[i * 3 + 1] = (Math.random() - 0.5) * 650;
-      sporePositions[i * 3 + 2] = -25 + Math.random() * 35; // Z de -25 a +10
+      sporePositions[i * 3 + 2] = -25 + Math.random() * 35;
     }
 
     const sporeGeo = new THREE.BufferGeometry();
@@ -486,9 +536,9 @@ export class Stage0 {
     const sporeMat = new THREE.PointsMaterial({
       map: sporeTexture,
       color: 0xffea75,
-      size: 1.6,
+      size: 1.5,
       transparent: true,
-      opacity: 0.92,
+      opacity: 0.90,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -497,44 +547,14 @@ export class Stage0 {
   }
 
   /**
-   * Genera la morfología biológica de un eritrocito humano (disco bicóncavo sólido sin agujero central).
-   * Implementación basada en la formulación de Evans & Fung (1972).
-   */
-  private createBiconcaveErythrocyteGeometry(radius = 1.6): THREE.BufferGeometry {
-    const points: THREE.Vector2[] = [];
-    const numSteps = 24;
-
-    // Perfil superior: del centro cóncavo (r = 0) hacia el borde exterior grueso (r = radius)
-    for (let i = 0; i <= numSteps; i++) {
-      const t = i / numSteps;
-      const r = t * radius;
-      const factor = Math.sqrt(Math.max(0, 1.0 - t * t * 0.96));
-      const h = (0.18 + 0.95 * t * t - 0.75 * Math.pow(t, 4)) * factor;
-      points.push(new THREE.Vector2(r, Math.max(h, 0.04)));
-    }
-
-    // Perfil inferior: del borde exterior grueso de regreso al centro cóncavo inferior
-    for (let i = numSteps; i >= 0; i--) {
-      const t = i / numSteps;
-      const r = t * radius;
-      const factor = Math.sqrt(Math.max(0, 1.0 - t * t * 0.96));
-      const h = (0.18 + 0.95 * t * t - 0.75 * Math.pow(t, 4)) * factor;
-      points.push(new THREE.Vector2(r, -Math.max(h, 0.04)));
-    }
-
-    const geo = new THREE.LatheGeometry(points, 32);
-    // Orientar para que la concavidad apunte hacia el plano de la cámara (Z)
-    geo.rotateX(Math.PI / 2);
-    geo.computeVertexNormals();
-    return geo;
-  }
-
-  /**
    * Permite alternar la visibilidad de los eritrocitos del fondo en tiempo real
    */
   public toggleErythrocytes(): boolean {
-    this.erythrocyteGroup.visible = !this.erythrocyteGroup.visible;
-    return this.erythrocyteGroup.visible;
+    if (this.erythrocyteInstancedMesh) {
+      this.erythrocyteInstancedMesh.visible = !this.erythrocyteInstancedMesh.visible;
+      return this.erythrocyteInstancedMesh.visible;
+    }
+    return false;
   }
 
   private onResize(): void {
@@ -549,6 +569,7 @@ export class Stage0 {
       this.lastWindowWidth = window.innerWidth;
       this.lastWindowHeight = window.innerHeight;
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(1.0);
     }
   }
 
@@ -769,36 +790,53 @@ export class Stage0 {
       this.backgroundMesh.position.set(this.baseCameraPos.x, this.baseCameraPos.y, -78);
     }
 
-    // 7.2. Deriva y Tumbling 3D de la Capa Densa de Glóbulos Rojos (Z entre -30 y -60)
-    for (let i = 0; i < this.erythrocyteData.length; i++) {
-      const ed = this.erythrocyteData[i];
-      ed.mesh.rotation.x += ed.rotSpeedX * dt;
-      ed.mesh.rotation.y += ed.rotSpeedY * dt;
-      ed.mesh.rotation.z += ed.rotSpeedZ * dt;
-      ed.mesh.position.x += Math.sin(time * ed.driftSpeed + ed.driftPhase) * 0.03;
-      ed.mesh.position.y += Math.cos(time * ed.driftSpeed * 0.85 + ed.driftPhase) * 0.025;
+    // 7.2. Deriva y Tumbling 3D Simulado de Glóbulos Rojos (InstancedMesh - 1 Solo Draw Call)
+    if (this.erythrocyteInstancedMesh && this.erythrocyteInstancedMesh.visible) {
+      for (let i = 0; i < this.erythrocyteData.length; i++) {
+        const ed = this.erythrocyteData[i];
+        ed.rotZ += ed.rotSpeedZ * dt;
+        ed.x += Math.sin(time * ed.driftSpeed + ed.driftPhase) * 0.03;
+        ed.y += Math.cos(time * ed.driftSpeed * 0.85 + ed.driftPhase) * 0.025;
 
-      if (isOutsideBounds(ed.mesh.position.x, ed.mesh.position.y, 25)) {
-        const wrapped = wrapPosition(ed.mesh.position.x, ed.mesh.position.y);
-        ed.mesh.position.x = wrapped.x;
-        ed.mesh.position.y = wrapped.y;
+        if (isOutsideBounds(ed.x, ed.y, 25)) {
+          const wrapped = wrapPosition(ed.x, ed.y);
+          ed.x = wrapped.x;
+          ed.y = wrapped.y;
+        }
+
+        // Tumbling simulado con oscilación de escala para simular giro 3D
+        const tumble = 0.82 + Math.sin(time * ed.rotSpeedX + ed.driftPhase) * 0.28;
+        this.dummyObj.position.set(ed.x, ed.y, ed.z);
+        this.dummyObj.rotation.z = ed.rotZ;
+        this.dummyObj.scale.set(ed.baseScale * tumble, ed.baseScale, 1.0);
+        this.dummyObj.updateMatrix();
+        this.erythrocyteInstancedMesh.setMatrixAt(i, this.dummyObj.matrix);
       }
+      this.erythrocyteInstancedMesh.instanceMatrix.needsUpdate = true;
     }
 
-    // 7.4. Pulsación Hidrodinámica y Deriva de Vesículas Densas de Fondo (Z entre -30 y -60)
-    for (let i = 0; i < this.deepVesicleData.length; i++) {
-      const vd = this.deepVesicleData[i];
-      const pulse = 1.0 + Math.sin(time * vd.pulseSpeed + vd.pulsePhase) * 0.045;
-      const s = vd.baseScale * pulse;
-      vd.mesh.scale.set(s, s, 1);
-      vd.mesh.position.x += Math.cos(time * 0.22 + vd.pulsePhase) * 0.02;
-      vd.mesh.position.y += Math.sin(time * 0.26 + vd.pulsePhase) * 0.018;
+    // 7.4. Pulsación Hidrodinámica y Deriva de Vesículas Densas (InstancedMesh - 1 Solo Draw Call)
+    if (this.deepVesicleInstancedMesh) {
+      for (let i = 0; i < this.deepVesicleData.length; i++) {
+        const vd = this.deepVesicleData[i];
+        const pulse = 1.0 + Math.sin(time * vd.pulseSpeed + vd.pulsePhase) * 0.05;
+        const s = vd.baseScale * pulse;
+        vd.x += Math.cos(time * 0.22 + vd.pulsePhase) * 0.02;
+        vd.y += Math.sin(time * 0.26 + vd.pulsePhase) * 0.018;
 
-      if (isOutsideBounds(vd.mesh.position.x, vd.mesh.position.y, 30)) {
-        const wrapped = wrapPosition(vd.mesh.position.x, vd.mesh.position.y);
-        vd.mesh.position.x = wrapped.x;
-        vd.mesh.position.y = wrapped.y;
+        if (isOutsideBounds(vd.x, vd.y, 30)) {
+          const wrapped = wrapPosition(vd.x, vd.y);
+          vd.x = wrapped.x;
+          vd.y = wrapped.y;
+        }
+
+        this.dummyObj.position.set(vd.x, vd.y, vd.z);
+        this.dummyObj.rotation.z = vd.pulsePhase;
+        this.dummyObj.scale.set(s, s, 1.0);
+        this.dummyObj.updateMatrix();
+        this.deepVesicleInstancedMesh.setMatrixAt(i, this.dummyObj.matrix);
       }
+      this.deepVesicleInstancedMesh.instanceMatrix.needsUpdate = true;
     }
 
     // 7.5. Deriva fluida de las micro-esporas doradas bioluminiscentes (sin sobrecarga CPU ni re-subida de buffers)
@@ -812,8 +850,8 @@ export class Stage0 {
       this.tissueArchitecture.update(dt, time, this.baseCameraPos);
     }
 
-    // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico
-    if (this.minimap && this.player) {
+    // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico (Cheat: Throttled a cada 3 frames para 0 GC stutter)
+    if (this.minimap && this.player && (this.frameCount % 3 === 0)) {
       const pPos = this.player.body.translation();
       const pRot = this.player.body.rotation();
 
