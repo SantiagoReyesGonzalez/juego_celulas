@@ -31,6 +31,7 @@ export interface MinimapData {
   biofilmHubs?: MinimapEntity[];
   biofilmChunks?: MinimapEntity[];
   tissueWalls?: MinimapWallSegment[];
+  bioVesicles?: { x: number; y: number; radius: number; color?: string }[];
 }
 
 export class Minimap {
@@ -227,26 +228,22 @@ export class Minimap {
     ctx.lineTo(centerX, centerY + radarRadius);
     ctx.stroke();
 
-    // 3.5. Paredes Celulares y Tabiques Tisulares (Conductos Vasculares y Criptas)
-    if (data.tissueWalls && data.tissueWalls.length > 0) {
+    // 3.5. Bio-Vesículas y Nodos Tisulares Redondeados (Estilo Spore)
+    if (data.bioVesicles && data.bioVesicles.length > 0) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
-      ctx.lineWidth = 2.4;
-      ctx.lineCap = 'round';
-
-      data.tissueWalls.forEach((seg) => {
-        const d1 = getToroidalDelta(px, py, seg.x1, seg.y1);
-        const d2 = getToroidalDelta(px, py, seg.x2, seg.y2);
-
-        if (d1.dist <= this.radarRange * 1.25 || d2.dist <= this.radarRange * 1.25) {
-          const rx1 = centerX + (d1.dx / this.radarRange) * radarRadius;
-          const ry1 = centerY - (d1.dy / this.radarRange) * radarRadius;
-          const rx2 = centerX + (d2.dx / this.radarRange) * radarRadius;
-          const ry2 = centerY - (d2.dy / this.radarRange) * radarRadius;
+      data.bioVesicles.forEach((ves) => {
+        const { dx, dy, dist } = getToroidalDelta(px, py, ves.x, ves.y);
+        if (dist <= this.radarRange + ves.radius) {
+          const rx = centerX + (dx / this.radarRange) * radarRadius;
+          const ry = centerY - (dy / this.radarRange) * radarRadius;
+          const rPixel = Math.max((ves.radius / this.radarRange) * radarRadius, 2.5);
 
           ctx.beginPath();
-          ctx.moveTo(rx1, ry1);
-          ctx.lineTo(rx2, ry2);
+          ctx.arc(rx, ry, rPixel, 0, Math.PI * 2);
+          ctx.fillStyle = ves.color ? `${ves.color}1c` : 'rgba(56, 189, 248, 0.12)';
+          ctx.fill();
+          ctx.strokeStyle = ves.color ? `${ves.color}66` : 'rgba(56, 189, 248, 0.40)';
+          ctx.lineWidth = 1.3;
           ctx.stroke();
         }
       });

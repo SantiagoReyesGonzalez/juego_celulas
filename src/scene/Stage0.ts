@@ -92,11 +92,11 @@ export class Stage0 {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x090306, 1.0);
+    this.renderer.setClearColor(0x0a040e, 1.0);
 
-    // 2. Escena y Niebla Tisular Cálida ("Dark Capillary", estilo Imagen de Referencia 01)
+    // 2. Escena y Niebla del Caldo Primigenio ("Spore Primordial Broth")
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x090306, 38, 120);
+    this.scene.fog = new THREE.Fog(0x0a040e, 45, 160);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;
@@ -349,30 +349,6 @@ export class Stage0 {
     });
     this.sporeParticles = new THREE.Points(sporeGeo, sporeMat);
     this.particlesGroup.add(this.sporeParticles);
-
-    // 3. Estructuras Orgánicas de Tejido Vascular Capilar de Fondo ("Dark Capillary")
-    const tissueGeo = new THREE.TorusGeometry(32.0, 4.5, 12, 32, Math.PI);
-    const tissueMat = new THREE.MeshStandardMaterial({
-      color: 0x36060f,
-      emissive: 0x1d0207,
-      emissiveIntensity: 0.4,
-      roughness: 0.55,
-      transparent: true,
-      opacity: 0.72,
-      side: THREE.DoubleSide,
-    });
-    for (let i = 0; i < 8; i++) {
-      const wall = new THREE.Mesh(tissueGeo, tissueMat);
-      wall.position.set(
-        (Math.random() - 0.5) * 650,
-        (Math.random() - 0.5) * 550,
-        -7 - Math.random() * 5
-      );
-      wall.rotation.z = Math.random() * Math.PI * 2;
-      const s = 1.4 + Math.random() * 1.8;
-      wall.scale.set(s, s, s);
-      this.particlesGroup.add(wall);
-    }
   }
 
   /**
@@ -662,6 +638,11 @@ export class Stage0 {
       posAttr.needsUpdate = true;
     }
 
+    // 7.8. Actualización de la Atmósfera Spore (Macro-Organismos en DoF, Bio-Vesículas y Bokeh)
+    if (this.tissueArchitecture) {
+      this.tissueArchitecture.update(dt, time, this.baseCameraPos);
+    }
+
     // 8. Actualización en Tiempo Real del Mini-Mapa Radar Biológico
     if (this.minimap && this.player) {
       const pPos = this.player.body.translation();
@@ -740,6 +721,7 @@ export class Stage0 {
         biofilmHubs: hubBlips,
         biofilmChunks: chunkBlips,
         tissueWalls: this.tissueArchitecture ? this.tissueArchitecture.wallSegments : [],
+        bioVesicles: this.tissueArchitecture ? this.tissueArchitecture.vesiclesData : [],
       });
     }
 
