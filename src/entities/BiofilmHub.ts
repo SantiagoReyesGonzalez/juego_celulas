@@ -6,6 +6,23 @@ import { getToroidalDelta } from '../physics/WorldTopology';
 import { AtpOrb } from './Resources';
 import { BiofilmChunk } from './BiofilmChunk';
 import { Player } from './Player';
+import { createMembraneShaderMaterial } from '../shaders/MembraneShader';
+
+function createDiffuseBoundaryTexture(): THREE.Texture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(64, 64, 42, 64, 64, 63);
+  grad.addColorStop(0.0, 'rgba(6, 78, 59, 0)');
+  grad.addColorStop(0.45, 'rgba(16, 185, 129, 0.18)');
+  grad.addColorStop(0.82, 'rgba(5, 150, 105, 0.32)');
+  grad.addColorStop(1.0, 'rgba(6, 78, 59, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
 
 export interface HubUpdateResult {
   inField: boolean;
@@ -39,10 +56,11 @@ export class BiofilmHub {
   // Componentes Visuales
   private coreGroup: THREE.Group;
   private coreMesh: THREE.Mesh;
+  private membraneMaterial: THREE.ShaderMaterial;
   private coreSpikes: THREE.Mesh[] = [];
   private satellites: THREE.Mesh[] = [];
   private causticDome: THREE.Mesh;
-  private causticRing: THREE.Mesh;
+  private causticBoundary: THREE.Mesh;
   private particlesMesh: THREE.Points;
 
   // Barra / Indicadores de Salud sobre el núcleo
@@ -86,17 +104,19 @@ export class BiofilmHub {
     this.causticDome.position.z = -0.3;
     this.group.add(this.causticDome);
 
-    // Anillo perimétrico cáustico de advertencia
-    const ringGeo = new THREE.RingGeometry(fieldRadius * 0.96, fieldRadius, 64);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x10b981,
+    // Frontera membranosa difusa con gradiente orgánico suave (elimina anillo vectorizado plano)
+    const boundaryGeo = new THREE.PlaneGeometry(fieldRadius * 2, fieldRadius * 2);
+    const boundaryMat = new THREE.MeshBasicMaterial({
+      map: createDiffuseBoundaryTexture(),
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
-    this.causticRing = new THREE.Mesh(ringGeo, ringMat);
-    this.causticRing.position.z = -0.2;
-    this.group.add(this.causticRing);
+    this.causticBoundary = new THREE.Mesh(boundaryGeo, boundaryMat);
+    this.causticBoundary.position.z = -0.2;
+    this.group.add(this.causticBoundary);
 
     // Partículas ácidas flotantes dentro del campo cáustico
     const particleCount = 45;
@@ -123,17 +143,25 @@ export class BiofilmHub {
     // ================= 2. NÚCLEO CENTRAL BLINDADO (20 Impactos) =================
     this.coreGroup = new THREE.Group();
 
-    // Núcleo cristalizado mineralizado
-    const coreGeo = new THREE.DodecahedronGeometry(this.coreRadius, 1);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x047857,
-      emissive: 0x065f46,
-      emissiveIntensity: 1.5,
-      roughness: 0.2,
-      metalness: 0.25,
-    });
-    this.coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    // Macro-núcleo con shader de membrana translúcida orgánica gelatinosa
+    const coreGeo = new THREE.SphereGeometry(this.coreRadius, 32, 28);
+    this.membraneMaterial = createMembraneShaderMaterial(0x059669, 0x047857, 0.42, 0.95);
+    this.membraneMaterial.uniforms.uNoiseFreq.value = 0.85;
+    this.membraneMaterial.uniforms.uNoiseAmp.value = 0.16;
+    this.membraneMaterial.uniforms.uNoiseSpeed.value = 0.8;
+    this.membraneMaterial.uniforms.uFresnelIntensity.value = 2.4;
+    this.coreMesh = new THREE.Mesh(coreGeo, this.membraneMaterial);
     this.coreGroup.add(this.coreMesh);
+
+    // Núcleo interno bioluminiscente visible a través de la membrana
+    const innerGeo = new THREE.SphereGeometry(this.coreRadius * 0.52, 18, 18);
+    const innerMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const innerNucleus = new THREE.Mesh(innerGeo, innerMat);
+    this.coreGroup.add(innerNucleus);
 
     // Crestas / Espículas minerales defensivas sobre el núcleo
     const spikeGeo = new THREE.ConeGeometry(0.7, 1.8, 6);
@@ -195,9 +223,9 @@ export class BiofilmHub {
 
   public flashHit(): void {
     this.hitFlashTimer = 0.22;
-    (this.coreMesh.material as THREE.MeshStandardMaterial).color.setHex(0xffffff);
-    (this.coreMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xef4444);
-    (this.coreMesh.material as THREE.MeshStandardMaterial).emissiveIntensity = 3.0;
+    this.membraneMaterial.uniforms.uFresnelIntensity.value = 6.0;
+    (this.membraneMaterial.uniforms.uColor.value as THREE.Color).setHex(0xffffff);
+    (this.membraneMaterial.uniforms.uEmissive.value as THREE.Color).setHex(0xef4444);
     this.coreGroup.scale.set(1.22, 0.84, 1.22);
   }
 
@@ -348,6 +376,7 @@ export class BiofilmHub {
     // 1. Animaciones Orgánicas
     this.coreMesh.rotation.z += 0.009;
     this.coreMesh.rotation.y += 0.005;
+    this.membraneMaterial.uniforms.uTime.value = time;
 
     // Satélites orbitales
     this.satellites.forEach((sat, idx) => {
@@ -356,9 +385,9 @@ export class BiofilmHub {
       sat.position.set(Math.cos(ang) * r, Math.sin(ang) * r, 0.1);
     });
 
-    // Pulsación del campo cáustico exterior
-    const pulse = 1.0 + Math.sin(time * 2.4) * 0.035;
-    this.causticRing.scale.set(pulse, pulse, 1.0);
+    // Pulsación sutil de la frontera membranosa difusa
+    const pulse = 1.0 + Math.sin(time * 2.0) * 0.025;
+    this.causticBoundary.scale.set(pulse, pulse, 1.0);
 
     // Recuperación elástica tras impacto
     this.coreGroup.scale.lerp(new THREE.Vector3(1, 1, 1), dt * 7.0);
@@ -367,9 +396,9 @@ export class BiofilmHub {
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= dt;
       if (this.hitFlashTimer <= 0) {
-        (this.coreMesh.material as THREE.MeshStandardMaterial).color.setHex(0x047857);
-        (this.coreMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x065f46);
-        (this.coreMesh.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.5;
+        this.membraneMaterial.uniforms.uFresnelIntensity.value = 2.4;
+        (this.membraneMaterial.uniforms.uColor.value as THREE.Color).setHex(0x059669);
+        (this.membraneMaterial.uniforms.uEmissive.value as THREE.Color).setHex(0x047857);
       }
     }
 
@@ -399,5 +428,9 @@ export class BiofilmHub {
     scene.remove(this.group);
     physicsWorld.rawWorld.removeCollider(this.collider, false);
     physicsWorld.rawWorld.removeRigidBody(this.body);
+    this.coreMesh.geometry.dispose();
+    this.membraneMaterial.dispose();
+    this.causticBoundary.geometry.dispose();
+    (this.causticBoundary.material as THREE.Material).dispose();
   }
 }

@@ -601,7 +601,6 @@ export class OrganelleFactory {
  */
 export class VerletFlagellum {
   public group: THREE.Group;
-  private nodes: Array<{ x: number; y: number; prevX: number; prevY: number }> = [];
   private ribbonMesh: THREE.Mesh;
   private lineMesh: THREE.Line;
   private segments: number;
@@ -610,6 +609,7 @@ export class VerletFlagellum {
   public socketOffset: THREE.Vector2;
   public socketAngle: number;
   public phaseOffset: number;
+  private yPoints: Float32Array;
 
   constructor(
     parent: THREE.Group,
@@ -624,6 +624,8 @@ export class VerletFlagellum {
     phaseOffset = 0
   ) {
     this.group = new THREE.Group();
+    this.group.position.set(socketOffset.x, socketOffset.y, 0);
+    this.group.rotation.z = socketAngle;
     parent.add(this.group);
 
     this.socketOffset = socketOffset.clone();
@@ -632,20 +634,12 @@ export class VerletFlagellum {
     this.segments = segments;
     this.segmentLength = segmentLength;
     this.baseWidth = baseWidth;
+    this.yPoints = new Float32Array(segments);
 
-    // 1. Inicializar nodos Verlet en línea recta desde el socket
-    const startX = socketOffset.x;
-    const startY = socketOffset.y;
-    for (let i = 0; i < segments; i++) {
-      const px = startX + Math.cos(socketAngle) * (i * segmentLength);
-      const py = startY + Math.sin(socketAngle) * (i * segmentLength);
-      this.nodes.push({ x: px, y: py, prevX: px, prevY: py });
-    }
-
-    // 2. Anillo Motor Basal en la membrana
-    const motorGeo = new THREE.CylinderGeometry(baseWidth * 0.9, baseWidth * 0.9, 0.08, 12);
-    motorGeo.rotateZ(socketAngle);
-    motorGeo.translate(socketOffset.x, socketOffset.y, 0.05);
+    // 1. Anillo Motor Basal en la membrana (local en el origen del socket)
+    const motorGeo = new THREE.CylinderGeometry(baseWidth * 0.95, baseWidth * 0.95, 0.08, 12);
+    motorGeo.rotateZ(Math.PI / 2);
+    motorGeo.translate(0, 0, 0.05);
     const motorMat = new THREE.MeshBasicMaterial({
       color: colorBaseHex,
       transparent: true,
@@ -654,7 +648,7 @@ export class VerletFlagellum {
     const motor = new THREE.Mesh(motorGeo, motorMat);
     this.group.add(motor);
 
-    // 3. Malla Ribbon con Gradiente Cromático por Vértice (vertexColors)
+    // 2. Malla Ribbon con Gradiente Cromático por Vértice (vertexColors)
     const vertexCount = segments * 2;
     const positions = new Float32Array(vertexCount * 3);
     const colors = new Float32Array(vertexCount * 3);
@@ -667,7 +661,7 @@ export class VerletFlagellum {
     for (let i = 0; i < segments; i++) {
       const norm = i / (segments - 1);
 
-      // Interpolación suave del gradiente: Base (blanco/oro) -> Medio (neón) -> Punta (etéreo)
+      // Interpolación suave del gradiente: Base (blanco/oro) -> Medio (neón) -> Punta (etérea)
       const vertColor = new THREE.Color();
       if (norm < 0.4) {
         const t = norm / 0.4;
@@ -713,7 +707,7 @@ export class VerletFlagellum {
     this.ribbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
     this.group.add(this.ribbonMesh);
 
-    // 4. Filamento Axial Central de Alta Luminiscencia
+    // 3. Filamento Axial Central de Alta Luminiscencia
     const linePositions = new Float32Array(segments * 3);
     const lineColors = new Float32Array(segments * 3);
     for (let i = 0; i < segments; i++) {
@@ -742,8 +736,15 @@ export class VerletFlagellum {
     this.group.add(this.lineMesh);
   }
 
+  public setSocket(socketOffset: THREE.Vector2, socketAngle: number): void {
+    this.socketOffset.copy(socketOffset);
+    this.socketAngle = socketAngle;
+    this.group.position.set(socketOffset.x, socketOffset.y, 0);
+    this.group.rotation.z = socketAngle;
+  }
+
   /**
-   * Simulación física Verlet por tick de animación
+   * Actualiza la onda sinusoidal fluida sobre los vértices del Ribbon y Line
    */
   public update(
     _dt: number,
@@ -752,90 +753,45 @@ export class VerletFlagellum {
     isThrusting: boolean,
     angularVel = 0
   ): void {
-    const waveFreq = 10.0 + Math.min(speed * 2.4, 20.0);
-    const baseAmp = isThrusting ? 0.38 : 0.20;
+    const freq = 12.0 + Math.min(speed * 1.8, 18.0) * (isThrusting ? 1.3 : 1.0);
+    const baseAmp = isThrusting ? 0.42 : 0.24;
+    const waveLength = 5.2;
 
-    // 1. Nodo 0 fijado en el socket de la membrana
-    this.nodes[0].x = this.socketOffset.x;
-    this.nodes[0].y = this.socketOffset.y;
-
-    // 2. Nodo 1 accionado por el motor flagelar con desplazamiento ondulatorio
-    const motorWobble = Math.sin(time * waveFreq + this.phaseOffset) * baseAmp;
-    const motorAngle = this.socketAngle + motorWobble;
-    this.nodes[1].x = this.nodes[0].x + Math.cos(motorAngle) * this.segmentLength;
-    this.nodes[1].y = this.nodes[0].y + Math.sin(motorAngle) * this.segmentLength;
-
-    // 3. Integración Verlet en los nodos restantes con arrastre viscoso (0.91)
-    const damping = 0.91;
-    const lateralInertia = -angularVel * 0.08;
-
-    for (let i = 2; i < this.segments; i++) {
-      const node = this.nodes[i];
-      const vx = (node.x - node.prevX) * damping;
-      const vy = (node.y - node.prevY) * damping;
-
-      node.prevX = node.x;
-      node.prevY = node.y;
-
-      // Fuerza hidrodinámica transversal amortiguada
-      node.x += vx;
-      node.y += vy + lateralInertia * (i / this.segments);
+    // 1. Calcular oscilación ondulatoria con amplitud cero en la raíz (t=0)
+    for (let i = 0; i < this.segments; i++) {
+      const t = i / (this.segments - 1);
+      const amp = baseAmp * Math.pow(t, 1.2);
+      const wave = amp * Math.sin(time * freq - t * waveLength + this.phaseOffset);
+      const harmonic = wave + amp * 0.22 * Math.sin(time * freq * 1.85 - t * waveLength * 1.4 + this.phaseOffset);
+      const turnLag = -angularVel * 0.06 * Math.pow(t, 1.8);
+      this.yPoints[i] = harmonic + turnLag;
     }
 
-    // 4. Resolución de restricciones de distancia (4 iteraciones de relajación)
-    for (let iter = 0; iter < 4; iter++) {
-      for (let i = 1; i < this.segments; i++) {
-        const nA = this.nodes[i - 1];
-        const nB = this.nodes[i];
-
-        const dx = nB.x - nA.x;
-        const dy = nB.y - nA.y;
-        const dist = Math.hypot(dx, dy) || 0.0001;
-        const diff = (dist - this.segmentLength) / dist;
-
-        if (i === 1) {
-          // nA está fijo
-          nB.x -= dx * diff;
-          nB.y -= dy * diff;
-        } else {
-          nB.x -= dx * diff * 0.5;
-          nB.y -= dy * diff * 0.5;
-          nA.x += dx * diff * 0.5;
-          nA.y += dy * diff * 0.5;
-        }
-      }
-    }
-
-    // 5. Actualizar BufferGeometries de la cinta Ribbon y filamento Line
+    // 2. Actualizar geometrías de la cinta y del filamento axial
     const ribbonPos = this.ribbonMesh.geometry.attributes.position as THREE.BufferAttribute;
     const linePos = this.lineMesh.geometry.attributes.position as THREE.BufferAttribute;
 
     for (let i = 0; i < this.segments; i++) {
-      const node = this.nodes[i];
-      const norm = i / (this.segments - 1);
-      const halfW = this.baseWidth * (1.0 - 0.85 * norm) * 0.5;
+      const x = i * this.segmentLength;
+      const y = this.yPoints[i];
 
-      // Vector tangente para calcular la normal perpendicular
-      let tx = 0;
+      let tx = this.segmentLength;
       let ty = 0;
       if (i < this.segments - 1) {
-        tx = this.nodes[i + 1].x - node.x;
-        ty = this.nodes[i + 1].y - node.y;
+        ty = this.yPoints[i + 1] - y;
       } else {
-        tx = node.x - this.nodes[i - 1].x;
-        ty = node.y - this.nodes[i - 1].y;
+        ty = y - this.yPoints[i - 1];
       }
-      const len = Math.hypot(tx, ty) || 1;
+      const len = Math.hypot(tx, ty) || 1.0;
       const nx = -ty / len;
       const ny = tx / len;
 
-      // Asignar vértices superior e inferior
-      const v0 = i * 2;
-      const v1 = i * 2 + 1;
-      ribbonPos.setXYZ(v0, node.x + nx * halfW, node.y + ny * halfW, 0.05);
-      ribbonPos.setXYZ(v1, node.x - nx * halfW, node.y - ny * halfW, 0.05);
+      const t = i / (this.segments - 1);
+      const halfW = this.baseWidth * (1.0 - 0.80 * t) * 0.5;
 
-      linePos.setXYZ(i, node.x, node.y, 0.06);
+      ribbonPos.setXYZ(i * 2, x + nx * halfW, y + ny * halfW, 0.05);
+      ribbonPos.setXYZ(i * 2 + 1, x - nx * halfW, y - ny * halfW, 0.05);
+      linePos.setXYZ(i, x, y, 0.06);
     }
 
     ribbonPos.needsUpdate = true;

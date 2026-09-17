@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier2d';
 import { PhysicsWorld } from '../physics/World';
-import { WORLD_WIDTH, WORLD_HEIGHT, getToroidalDelta } from '../physics/WorldTopology';
+import { getToroidalDelta } from '../physics/WorldTopology';
 
 export interface WallSegment {
   x1: number;
@@ -40,16 +40,6 @@ interface ViscoelasticVesicle {
   pulseSpeed: number;
 }
 
-interface ForegroundBokehParticle {
-  mesh: THREE.Mesh;
-  baseX: number;
-  baseY: number;
-  driftVx: number;
-  driftVy: number;
-  scale: number;
-  phase: number;
-}
-
 /**
  * Spore-Style Primordial Organism Atmosphere & Depth Architecture:
  * 
@@ -60,8 +50,6 @@ interface ForegroundBokehParticle {
  * 2. Capa 2: Plano Jugable (Z = -2 a 0):
  *    Vesículas lipídicas y vacuolas esféricas viscoelásticas (Bio-Vesicles)
  *    con colisionadores Rapier2D tipo Ball (restitución 0.75 elástica y fricción mínima).
- * 3. Capa 3: Primer Plano de Lente (Z = +8 a +14):
- *    Partículas de bokeh translúcidas y cilios flotantes desenfocados frente al microscopio.
  * 
  * Elimina 100% de los polígonos angulares cortados y garantiza 60 FPS clavados.
  */
@@ -72,11 +60,9 @@ export class TissueArchitecture {
   // Colecciones de elementos por capas de profundidad
   private deepGroup = new THREE.Group();
   private vesicleGroup = new THREE.Group();
-  private foregroundBokehGroup = new THREE.Group();
 
   private deepEntities: DeepMacroEntity[] = [];
   private bioVesicles: ViscoelasticVesicle[] = [];
-  private foregroundParticles: ForegroundBokehParticle[] = [];
 
   // Datos públicos para el minimapa (sin polígonos angulares)
   public vesiclesData: BioVesicleData[] = [];
@@ -86,7 +72,6 @@ export class TissueArchitecture {
   private softAmoebaTexture!: THREE.CanvasTexture;
   private deepNucleusTexture!: THREE.CanvasTexture;
   private vesicleTexture!: THREE.CanvasTexture;
-  private bokehTexture!: THREE.CanvasTexture;
 
   constructor(scene: THREE.Scene, physicsWorld: PhysicsWorld) {
     this.scene = scene;
@@ -94,12 +79,10 @@ export class TissueArchitecture {
 
     this.scene.add(this.deepGroup);
     this.scene.add(this.vesicleGroup);
-    this.scene.add(this.foregroundBokehGroup);
 
     this.buildProceduralTextures();
     this.spawnDeepMacroOrganisms();
     this.spawnViscoelasticVesicles();
-    this.spawnForegroundBokeh();
   }
 
   /**
@@ -162,22 +145,6 @@ export class TissueArchitecture {
     ctxV.arc(128, 128, 116, -Math.PI * 0.45, -Math.PI * 0.05);
     ctxV.stroke();
     this.vesicleTexture = new THREE.CanvasTexture(canvasVes);
-
-    // 4. Textura de Bokeh de Lente de Microscopio (Primer Plano Cálido)
-    const canvasB = document.createElement('canvas');
-    canvasB.width = 128;
-    canvasB.height = 128;
-    const ctxB = canvasB.getContext('2d')!;
-    const gradB = ctxB.createRadialGradient(64, 64, 10, 64, 64, 60);
-    gradB.addColorStop(0.0, 'rgba(255, 250, 220, 0.20)');
-    gradB.addColorStop(0.65, 'rgba(254, 240, 138, 0.28)');
-    gradB.addColorStop(0.88, 'rgba(245, 158, 11, 0.45)'); // Borde brillante miel
-    gradB.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
-    ctxB.fillStyle = gradB;
-    ctxB.beginPath();
-    ctxB.arc(64, 64, 60, 0, Math.PI * 2);
-    ctxB.fill();
-    this.bokehTexture = new THREE.CanvasTexture(canvasB);
   }
 
   /**
@@ -341,45 +308,6 @@ export class TissueArchitecture {
   }
 
   /**
-   * Capa 3: Bokeh y Gotículas de Primer Plano en el Lente del Microscopio (Z = +8 a +14)
-   * Recrea el look icónico óptico de microscopía biológica de Spore
-   */
-  private spawnForegroundBokeh(): void {
-    const geo = new THREE.PlaneGeometry(1, 1);
-    const bokehCount = 28;
-
-    for (let i = 0; i < bokehCount; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        map: this.bokehTexture,
-        transparent: true,
-        opacity: 0.22 + Math.random() * 0.28,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      });
-
-      const mesh = new THREE.Mesh(geo, mat);
-      const scale = 14 + Math.random() * 26;
-      const x = (Math.random() - 0.5) * 500;
-      const y = (Math.random() - 0.5) * 500;
-      const z = 8 + Math.random() * 6;
-
-      mesh.position.set(x, y, z);
-      mesh.scale.set(scale, scale, 1);
-      this.foregroundBokehGroup.add(mesh);
-
-      this.foregroundParticles.push({
-        mesh,
-        baseX: x,
-        baseY: y,
-        driftVx: (Math.random() - 0.5) * 1.8,
-        driftVy: (Math.random() - 0.5) * 1.8,
-        scale,
-        phase: Math.random() * Math.PI * 2,
-      });
-    }
-  }
-
-  /**
    * Actualización visual y de paralaje en tiempo real (60 FPS clavados)
    */
   public update(dt: number, time: number, camPos?: THREE.Vector2 | THREE.Vector3): void {
@@ -411,24 +339,6 @@ export class TissueArchitecture {
       const d = ves.radius * 2 * pulse;
       ves.mesh.scale.set(d, d, 1);
     }
-
-    // 3. Deriva de Gotículas Bokeh en Primer Plano (Frente a la lente)
-    for (let i = 0; i < this.foregroundParticles.length; i++) {
-      const p = this.foregroundParticles[i];
-      p.baseX += p.driftVx * dt;
-      p.baseY += p.driftVy * dt;
-
-      // Envolvente suave frente a la cámara
-      const relX = (p.baseX - camX + WORLD_WIDTH * 1.5) % WORLD_WIDTH - WORLD_WIDTH * 0.5;
-      const relY = (p.baseY - camY + WORLD_HEIGHT * 1.5) % WORLD_HEIGHT - WORLD_HEIGHT * 0.5;
-
-      p.mesh.position.x = camX + relX * 0.55; // Se mueven ligeramente más rápido (efecto foreground)
-      p.mesh.position.y = camY + relY * 0.55;
-
-      // Modulación sutil de escala
-      const pulse = 1.0 + Math.sin(time * 1.2 + p.phase) * 0.08;
-      p.mesh.scale.set(p.scale * pulse, p.scale * pulse, 1);
-    }
   }
 
   public dispose(): void {
@@ -441,11 +351,9 @@ export class TissueArchitecture {
     // Limpiar geometrías y materiales
     this.scene.remove(this.deepGroup);
     this.scene.remove(this.vesicleGroup);
-    this.scene.remove(this.foregroundBokehGroup);
 
     this.softAmoebaTexture.dispose();
     this.deepNucleusTexture.dispose();
     this.vesicleTexture.dispose();
-    this.bokehTexture.dispose();
   }
 }

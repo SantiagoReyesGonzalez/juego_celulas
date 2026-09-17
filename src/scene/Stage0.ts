@@ -83,7 +83,6 @@ export class Stage0 {
   private erythrocyteGroup: THREE.Group;
   private deepVesicleGroup: THREE.Group;
   private sporeParticles?: THREE.Points;
-  private sporeLights: THREE.PointLight[] = [];
   private erythrocyteData: {
     mesh: THREE.Mesh;
     rotSpeedX: number;
@@ -122,13 +121,13 @@ export class Stage0 {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x2a080c, 1.0); // Fondo cálido ámbar profundo
+    this.renderer.setClearColor(0x120305, 1.0); // Fondo de campo oscuro negro vino (#120305)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
 
-    // 2. Escena y Niebla del Caldo Primigenio Cálido (#2a080c)
+    // 2. Escena y Niebla del Caldo Primigenio Oscuro (#120305)
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x2a080c, 48, 175);
+    this.scene.fog = new THREE.Fog(0x120305, 55, 185);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;
@@ -213,9 +212,9 @@ export class Stage0 {
 
     // 3. UnrealBloomPass: Difusión suave a 60 FPS con resolución half-res para el blur mip-chain
     const bloomRes = new THREE.Vector2(Math.floor(width / 2), Math.floor(height / 2));
-    const bloomStrength = 1.15;  // Intensidad del halo etéreo
-    const bloomRadius = 0.50;    // Radio de dispersión óptica suave
-    const bloomThreshold = 0.48; // Solo emiten bloom fuentes brillantes (> 0.48): orgánulos, Fresnel y esporas
+    const bloomStrength = 0.85;  // Fuerza contenida para no quemar la pantalla
+    const bloomRadius = 0.35;    // Radio contenido para preservar la nitidez celular
+    const bloomThreshold = 0.72; // Solo emiten bloom fuentes hiperbrillantes: núcleos, esporas doradas, Fresnel
 
     this.bloomPass = new UnrealBloomPass(bloomRes, bloomStrength, bloomRadius, bloomThreshold);
 
@@ -237,17 +236,17 @@ export class Stage0 {
   }
 
   /**
-   * Crea el plano de fondo orgánico con gradiente radial cálido estilo microscopía biológica.
-   * Utiliza una transición suave entre Miel (#b45309), Rojo Capilar (#781d10) y Ámbar Profundo (#2a080c)
-   * con ondulación de fluido microscópico vivo y viñeteado óptico.
+   * Crea el plano de fondo orgánico de microscopía en campo oscuro capilar.
+   * Utiliza una transición suave entre Ámbar Profundo (#4a1208), Rojo Sangre (#2b080c) y Bordes Negro Vino (#120305)
+   * con sutil ondulación de fluido microscópico vivo para garantizar alto contraste con los organismos.
    */
   private createWarmMicroscopeBackdrop(): void {
     const geo = new THREE.PlaneGeometry(1600, 1400);
     this.backgroundMat = new THREE.ShaderMaterial({
       uniforms: {
-        uColorCenter: { value: new THREE.Color(0xb45309) }, // Miel / Ámbar dorado (#b45309)
-        uColorMid: { value: new THREE.Color(0x781d10) },    // Rojo capilar (#781d10)
-        uColorEdge: { value: new THREE.Color(0x2a080c) },   // Ámbar profundo / vino (#2a080c)
+        uColorCenter: { value: new THREE.Color(0x4a1208) }, // Centro ámbar profundo (#4a1208)
+        uColorMid: { value: new THREE.Color(0x2b080c) },    // Medio rojo sangre (#2b080c)
+        uColorEdge: { value: new THREE.Color(0x120305) },   // Bordes negro vino (#120305)
         uTime: { value: 0 },
       },
       vertexShader: `
@@ -266,18 +265,18 @@ export class Stage0 {
 
         void main() {
           vec2 p = vUv - vec2(0.5);
-          // Distorsión fluida hidrodinámica (medio líquido microscópico vivo)
-          float wave1 = sin(p.x * 5.5 + uTime * 0.16) * cos(p.y * 5.5 + uTime * 0.12) * 0.05;
-          float wave2 = cos(p.x * 9.0 - uTime * 0.14) * sin(p.y * 9.0 + uTime * 0.18) * 0.03;
+          // Distorsión fluida hidrodinámica sutil
+          float wave1 = sin(p.x * 5.5 + uTime * 0.12) * cos(p.y * 5.5 + uTime * 0.10) * 0.035;
+          float wave2 = cos(p.x * 8.5 - uTime * 0.11) * sin(p.y * 8.5 + uTime * 0.14) * 0.025;
           float r = length(p + vec2(wave1, wave2)) * 1.85;
 
-          // Gradiente radial cálido tricromático: Miel -> Rojo Capilar -> Ámbar Profundo
-          vec3 col = mix(uColorCenter, uColorMid, smoothstep(0.08, 0.55, r));
-          col = mix(col, uColorEdge, smoothstep(0.46, 1.05, r));
+          // Gradiente radial de campo oscuro: Ámbar Profundo -> Rojo Sangre -> Negro Vino
+          vec3 col = mix(uColorCenter, uColorMid, smoothstep(0.06, 0.52, r));
+          col = mix(col, uColorEdge, smoothstep(0.44, 1.05, r));
 
-          // Bioluminiscencia suave pulsante del caldo
-          float pulse = sin(uTime * 0.45) * 0.035;
-          col += vec3(0.12, 0.06, 0.01) * pulse;
+          // Variación bioluminiscente sutil del caldo oscuro
+          float pulse = sin(uTime * 0.35) * 0.015;
+          col += vec3(0.04, 0.01, 0.005) * pulse;
 
           gl_FragColor = vec4(col, 1.0);
         }
@@ -291,24 +290,19 @@ export class Stage0 {
   }
 
   private setupLighting(): void {
-    // Luz ambiental profunda color vino capilar y miel cálida
-    const ambientLight = new THREE.AmbientLight(0x521518, 3.2);
+    // Luz ambiental de campo somático capilar oscuro (#1a0407) para alto contraste
+    const ambientLight = new THREE.AmbientLight(0x1a0407, 1.8);
     this.scene.add(ambientLight);
 
-    // Luz principal de microscopía en tono miel dorada cálida (#f59e0b)
-    const honeyLight = new THREE.DirectionalLight(0xf59e0b, 4.4);
+    // Luz principal direccional en tono miel dorada (#f59e0b) para dar volumen y relieve
+    const honeyLight = new THREE.DirectionalLight(0xf59e0b, 2.6);
     honeyLight.position.set(18, 26, 32);
     this.scene.add(honeyLight);
 
-    // Luz de acento y refracción celular cian/turquesa para alto contraste biológico
-    const rimLight = new THREE.DirectionalLight(0x06b6d4, 2.6);
+    // Luz de acento y refracción cian/turquesa (#06b6d4) para alto contraste biológico en los bordes
+    const rimLight = new THREE.DirectionalLight(0x06b6d4, 2.0);
     rimLight.position.set(-18, -22, 28);
     this.scene.add(rimLight);
-
-    // Luz de relleno cálida ámbar/naranja (#d97706)
-    const warmFill = new THREE.PointLight(0xd97706, 3.8, 160);
-    warmFill.position.set(-10, 14, 25);
-    this.scene.add(warmFill);
   }
 
   private initPhysics(): void {
@@ -449,7 +443,7 @@ export class Stage0 {
       depthWrite: false,
     });
 
-    const erythrocyteCount = 280;
+    const erythrocyteCount = 45;
     this.erythrocyteData = [];
 
     for (let i = 0; i < erythrocyteCount; i++) {
@@ -504,7 +498,7 @@ export class Stage0 {
 
     const vesGeo = new THREE.PlaneGeometry(1, 1);
     const vesicleColors = [0xf59e0b, 0xfbbf24, 0xf43f5e, 0x38bdf8, 0xf97316];
-    const vesicleCount = 120;
+    const vesicleCount = 25;
     this.deepVesicleData = [];
 
     for (let i = 0; i < vesicleCount; i++) {
@@ -575,19 +569,6 @@ export class Stage0 {
     });
     this.sporeParticles = new THREE.Points(sporeGeo, sporeMat);
     this.particlesGroup.add(this.sporeParticles);
-
-    // 4. Fuentes de Luz Activa de Esporas Bioluminiscentes (PointLights cálidas flotantes)
-    const lightColors = [0xf59e0b, 0xfbbf24, 0xd97706, 0xfef08a];
-    for (let i = 0; i < 4; i++) {
-      const pl = new THREE.PointLight(lightColors[i], 3.2, 130);
-      pl.position.set(
-        (Math.random() - 0.5) * 350,
-        (Math.random() - 0.5) * 300,
-        -5
-      );
-      this.scene.add(pl);
-      this.sporeLights.push(pl);
-    }
   }
 
   /**
@@ -911,16 +892,6 @@ export class Stage0 {
       posAttr.needsUpdate = true;
     }
 
-    // 7.6. Deriva orbital y parpadeo de fuentes de luz de esporas bioluminiscentes
-    for (let i = 0; i < this.sporeLights.length; i++) {
-      const light = this.sporeLights[i];
-      const angle = time * 0.22 + (i * Math.PI) / 2;
-      const rad = 135 + Math.sin(time * 0.35 + i) * 45;
-      light.position.x = this.baseCameraPos.x + Math.cos(angle) * rad;
-      light.position.y = this.baseCameraPos.y + Math.sin(angle) * rad;
-      light.intensity = 2.8 + Math.sin(time * 1.6 + i * 1.3) * 0.7;
-    }
-
     // 7.8. Actualización de la Atmósfera Spore (Macro-Organismos en DoF, Bio-Vesículas y Bokeh)
     if (this.tissueArchitecture) {
       this.tissueArchitecture.update(dt, time, this.baseCameraPos);
@@ -1036,9 +1007,9 @@ export class Stage0 {
 
     // Pulso biológico sutil de bloom reactivo a sprint y digestión
     if (this.bloomPass && this.player) {
-      const sprintBoost = this.player.isSprinting ? 0.35 : 0.0;
-      const feedBoost = (this.player.feedPulse - 1.0) * 0.85;
-      const targetStrength = 1.15 + sprintBoost + feedBoost;
+      const sprintBoost = this.player.isSprinting ? 0.20 : 0.0;
+      const feedBoost = (this.player.feedPulse - 1.0) * 0.45;
+      const targetStrength = 0.85 + sprintBoost + feedBoost;
       this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * Math.min(dt * 6.0, 1.0);
     }
 
