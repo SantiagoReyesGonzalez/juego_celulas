@@ -487,17 +487,12 @@ export class Stage0 {
           this.evolutionSystem.update(dt);
         }
 
-        // 3.5. Arquitectura Tisular del Macro-Organismo (Paredes Endoteliales y Resonancia)
+        // 3.5. Vaso Capilar Continuo ("Dark Capillary" - 60 FPS)
         const curPlayerPos = this.player.body.translation();
         const playerRadius = this.player.baseRadius * this.player.currentScale;
 
         if (this.tissueArchitecture) {
           this.tissueArchitecture.update(dt, time);
-          const wallProx = this.tissueArchitecture.checkWallProximity(curPlayerPos.x, curPlayerPos.y, playerRadius);
-          if (wallProx.hit && this.player.getSpeed() > 7.5) {
-            this.bioAudio.playImpactThud(0.5);
-            this.cameraShake.addTrauma(0.12, wallProx.nx, wallProx.ny);
-          }
         }
 
         // 3.6. Nódulos de Biopelícula Caústica (Mega-Alimento en 2 Capas y 60 Impactos - 3x Dificultad)
