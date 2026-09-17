@@ -106,16 +106,16 @@ export class TissueArchitecture {
    * Generación de texturas procedurales suaves (Falloff Gaussiano / DoF óptico)
    */
   private buildProceduralTextures(): void {
-    // 1. Textura de Macro-Organismo Ameboide Suave (Desenfoque DoF de Fondo)
+    // 1. Textura de Macro-Organismo Ameboide Suave (Desenfoque DoF de Fondo Cálido)
     const canvasAmoeba = document.createElement('canvas');
     canvasAmoeba.width = 256;
     canvasAmoeba.height = 256;
     const ctxA = canvasAmoeba.getContext('2d')!;
     const gradA = ctxA.createRadialGradient(128, 128, 10, 128, 128, 124);
-    gradA.addColorStop(0.0, 'rgba(230, 40, 75, 0.65)');
-    gradA.addColorStop(0.35, 'rgba(180, 25, 55, 0.45)');
-    gradA.addColorStop(0.70, 'rgba(120, 15, 40, 0.20)');
-    gradA.addColorStop(0.92, 'rgba(60, 8, 20, 0.06)');
+    gradA.addColorStop(0.0, 'rgba(180, 83, 9, 0.72)');   // Miel dorado (#b45309)
+    gradA.addColorStop(0.35, 'rgba(120, 29, 16, 0.52)'); // Rojo capilar visceral (#781d10)
+    gradA.addColorStop(0.70, 'rgba(42, 8, 12, 0.28)');   // Ámbar profundo (#2a080c)
+    gradA.addColorStop(0.92, 'rgba(42, 8, 12, 0.08)');
     gradA.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
     ctxA.fillStyle = gradA;
     ctxA.beginPath();
@@ -123,15 +123,15 @@ export class TissueArchitecture {
     ctxA.fill();
     this.softAmoebaTexture = new THREE.CanvasTexture(canvasAmoeba);
 
-    // 2. Textura de Núcleo Somático Luminiscente de Fondo
+    // 2. Textura de Núcleo Somático Luminiscente de Fondo (Oro Miel Cálido)
     const canvasNuc = document.createElement('canvas');
     canvasNuc.width = 128;
     canvasNuc.height = 128;
     const ctxN = canvasNuc.getContext('2d')!;
     const gradN = ctxN.createRadialGradient(64, 64, 4, 64, 64, 60);
-    gradN.addColorStop(0.0, 'rgba(255, 215, 120, 0.95)');
-    gradN.addColorStop(0.3, 'rgba(245, 158, 11, 0.60)');
-    gradN.addColorStop(0.65, 'rgba(225, 29, 72, 0.25)');
+    gradN.addColorStop(0.0, 'rgba(255, 245, 190, 0.98)');
+    gradN.addColorStop(0.28, 'rgba(245, 158, 11, 0.85)'); // Miel intensa
+    gradN.addColorStop(0.65, 'rgba(180, 83, 9, 0.38)');
     gradN.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
     ctxN.fillStyle = gradN;
     ctxN.beginPath();
@@ -144,34 +144,34 @@ export class TissueArchitecture {
     canvasVes.width = 256;
     canvasVes.height = 256;
     const ctxV = canvasVes.getContext('2d')!;
-    // Relleno interior translúcido
+    // Relleno interior translúcido miel y ámbar
     const gradVInt = ctxV.createRadialGradient(128, 128, 10, 128, 128, 122);
-    gradVInt.addColorStop(0.0, 'rgba(56, 189, 248, 0.12)');
-    gradVInt.addColorStop(0.7, 'rgba(14, 165, 233, 0.18)');
-    gradVInt.addColorStop(0.88, 'rgba(56, 189, 248, 0.35)');
-    gradVInt.addColorStop(0.96, 'rgba(244, 114, 182, 0.75)'); // Ribete lipídico iridiscente
-    gradVInt.addColorStop(1.0, 'rgba(244, 114, 182, 0.0)');
+    gradVInt.addColorStop(0.0, 'rgba(254, 240, 138, 0.14)');
+    gradVInt.addColorStop(0.65, 'rgba(245, 158, 11, 0.22)');
+    gradVInt.addColorStop(0.85, 'rgba(244, 63, 94, 0.38)');  // Reflejo capilar
+    gradVInt.addColorStop(0.96, 'rgba(255, 235, 170, 0.82)'); // Ribete lipídico iridiscente dorado
+    gradVInt.addColorStop(1.0, 'rgba(255, 235, 170, 0.0)');
     ctxV.fillStyle = gradVInt;
     ctxV.beginPath();
     ctxV.arc(128, 128, 124, 0, Math.PI * 2);
     ctxV.fill();
     // Destello de membrana interna
-    ctxV.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctxV.strokeStyle = 'rgba(255, 255, 220, 0.65)';
     ctxV.lineWidth = 3.5;
     ctxV.beginPath();
     ctxV.arc(128, 128, 116, -Math.PI * 0.45, -Math.PI * 0.05);
     ctxV.stroke();
     this.vesicleTexture = new THREE.CanvasTexture(canvasVes);
 
-    // 4. Textura de Bokeh de Lente de Microscopio (Primer Plano)
+    // 4. Textura de Bokeh de Lente de Microscopio (Primer Plano Cálido)
     const canvasB = document.createElement('canvas');
     canvasB.width = 128;
     canvasB.height = 128;
     const ctxB = canvasB.getContext('2d')!;
     const gradB = ctxB.createRadialGradient(64, 64, 10, 64, 64, 60);
-    gradB.addColorStop(0.0, 'rgba(255, 255, 255, 0.15)');
-    gradB.addColorStop(0.65, 'rgba(186, 230, 253, 0.22)');
-    gradB.addColorStop(0.88, 'rgba(224, 231, 255, 0.40)'); // Borde brillante de bokeh
+    gradB.addColorStop(0.0, 'rgba(255, 250, 220, 0.20)');
+    gradB.addColorStop(0.65, 'rgba(254, 240, 138, 0.28)');
+    gradB.addColorStop(0.88, 'rgba(245, 158, 11, 0.45)'); // Borde brillante miel
     gradB.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
     ctxB.fillStyle = gradB;
     ctxB.beginPath();
@@ -187,22 +187,22 @@ export class TissueArchitecture {
   private spawnDeepMacroOrganisms(): void {
     const geo = new THREE.PlaneGeometry(1, 1);
 
-    // Configuraciones de 14 colosos primordiales distribuidos por el caldo
+    // Configuraciones de 14 colosos primordiales en tonos miel, ámbar y capilar cálido
     const macroConfigs = [
-      { x: -180, y: 140, scale: 180, z: -55, color: 0xe11d48, parallax: 0.22, speed: 0.35 },
-      { x: 190, y: -160, scale: 220, z: -65, color: 0x9333ea, parallax: 0.18, speed: 0.28 },
-      { x: 260, y: 190, scale: 160, z: -48, color: 0x059669, parallax: 0.26, speed: 0.42 },
-      { x: -240, y: -210, scale: 240, z: -70, color: 0xd97706, parallax: 0.15, speed: 0.25 },
-      { x: 0, y: 260, scale: 190, z: -52, color: 0xbe123c, parallax: 0.24, speed: 0.38 },
-      { x: 40, y: -280, scale: 210, z: -60, color: 0x7c3aed, parallax: 0.20, speed: 0.31 },
-      { x: -320, y: 30, scale: 170, z: -50, color: 0x0284c7, parallax: 0.25, speed: 0.40 },
-      { x: 330, y: -40, scale: 185, z: -56, color: 0xe11d48, parallax: 0.21, speed: 0.33 },
-      { x: -110, y: -120, scale: 140, z: -45, color: 0xca8a04, parallax: 0.28, speed: 0.45 },
-      { x: 130, y: 110, scale: 155, z: -47, color: 0x10b981, parallax: 0.27, speed: 0.41 },
-      { x: -290, y: 270, scale: 200, z: -62, color: 0x4f46e5, parallax: 0.19, speed: 0.30 },
-      { x: 280, y: -290, scale: 215, z: -66, color: 0xc026d3, parallax: 0.17, speed: 0.27 },
-      { x: -70, y: 320, scale: 175, z: -54, color: 0xe11d48, parallax: 0.23, speed: 0.36 },
-      { x: 80, y: -340, scale: 195, z: -58, color: 0x059669, parallax: 0.20, speed: 0.32 },
+      { x: -180, y: 140, scale: 180, z: -55, color: 0xb45309, parallax: 0.22, speed: 0.35 },
+      { x: 190, y: -160, scale: 220, z: -65, color: 0x781d10, parallax: 0.18, speed: 0.28 },
+      { x: 260, y: 190, scale: 160, z: -48, color: 0xd97706, parallax: 0.26, speed: 0.42 },
+      { x: -240, y: -210, scale: 240, z: -70, color: 0x991b1b, parallax: 0.15, speed: 0.25 },
+      { x: 0, y: 260, scale: 190, z: -52, color: 0xb45309, parallax: 0.24, speed: 0.38 },
+      { x: 40, y: -280, scale: 210, z: -60, color: 0x781d10, parallax: 0.20, speed: 0.31 },
+      { x: -320, y: 30, scale: 170, z: -50, color: 0xca8a04, parallax: 0.25, speed: 0.40 },
+      { x: 330, y: -40, scale: 185, z: -56, color: 0xd97706, parallax: 0.21, speed: 0.33 },
+      { x: -110, y: -120, scale: 140, z: -45, color: 0xf59e0b, parallax: 0.28, speed: 0.45 },
+      { x: 130, y: 110, scale: 155, z: -47, color: 0x991b1b, parallax: 0.27, speed: 0.41 },
+      { x: -290, y: 270, scale: 200, z: -62, color: 0xb45309, parallax: 0.19, speed: 0.30 },
+      { x: 280, y: -290, scale: 215, z: -66, color: 0x781d10, parallax: 0.17, speed: 0.27 },
+      { x: -70, y: 320, scale: 175, z: -54, color: 0xd97706, parallax: 0.23, speed: 0.36 },
+      { x: 80, y: -340, scale: 195, z: -58, color: 0xca8a04, parallax: 0.20, speed: 0.32 },
     ];
 
     macroConfigs.forEach((cfg, idx) => {
@@ -262,22 +262,22 @@ export class TissueArchitecture {
 
     // Distribución orgánica de grandes vesículas y vacuolas celulares
     const vesicleConfigs = [
-      { x: -140, y: 70, radius: 24, color: '#38bdf8' },
-      { x: -90, y: 160, radius: 20, color: '#f472b6' },
-      { x: 120, y: 80, radius: 26, color: '#34d399' },
-      { x: 170, y: 150, radius: 18, color: '#a78bfa' },
+      { x: -140, y: 70, radius: 24, color: '#f59e0b' },
+      { x: -90, y: 160, radius: 20, color: '#f43f5e' },
+      { x: 120, y: 80, radius: 26, color: '#fbbf24' },
+      { x: 170, y: 150, radius: 18, color: '#f97316' },
       { x: 150, y: -110, radius: 28, color: '#38bdf8' },
-      { x: 90, y: -190, radius: 22, color: '#f472b6' },
+      { x: 90, y: -190, radius: 22, color: '#f43f5e' },
       { x: -130, y: -140, radius: 26, color: '#fbbf24' },
-      { x: -190, y: -80, radius: 19, color: '#34d399' },
+      { x: -190, y: -80, radius: 19, color: '#f59e0b' },
       { x: -240, y: 60, radius: 25, color: '#38bdf8' },
-      { x: 230, y: -50, radius: 24, color: '#f472b6' },
-      { x: -30, y: -240, radius: 22, color: '#a78bfa' },
-      { x: 40, y: 240, radius: 23, color: '#34d399' },
-      { x: -220, y: 220, radius: 27, color: '#fbbf24' },
+      { x: 230, y: -50, radius: 24, color: '#f43f5e' },
+      { x: -30, y: -240, radius: 22, color: '#f97316' },
+      { x: 40, y: 240, radius: 23, color: '#fbbf24' },
+      { x: -220, y: 220, radius: 27, color: '#f59e0b' },
       { x: 250, y: 230, radius: 21, color: '#38bdf8' },
-      { x: 260, y: -220, radius: 25, color: '#f472b6' },
-      { x: -250, y: -230, radius: 22, color: '#34d399' },
+      { x: 260, y: -220, radius: 25, color: '#f43f5e' },
+      { x: -250, y: -230, radius: 22, color: '#fbbf24' },
     ];
 
     vesicleConfigs.forEach((cfg, idx) => {

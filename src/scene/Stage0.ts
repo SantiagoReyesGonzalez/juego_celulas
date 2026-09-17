@@ -64,10 +64,28 @@ export class Stage0 {
   private sessionStartTime = performance.now();
   private peakMass = 1.0;
 
-  // Fondo Tisular y Entorno Biológico
+  // Fondo Tisular y Entorno Biológico de Microscopía Cálida
+  private backgroundMesh!: THREE.Mesh;
+  private backgroundMat!: THREE.ShaderMaterial;
   private particlesGroup: THREE.Group;
   private erythrocyteGroup: THREE.Group;
+  private deepVesicleGroup: THREE.Group;
   private sporeParticles?: THREE.Points;
+  private sporeLights: THREE.PointLight[] = [];
+  private erythrocyteData: {
+    mesh: THREE.Mesh;
+    rotSpeedX: number;
+    rotSpeedY: number;
+    rotSpeedZ: number;
+    driftPhase: number;
+    driftSpeed: number;
+  }[] = [];
+  private deepVesicleData: {
+    mesh: THREE.Mesh;
+    pulsePhase: number;
+    pulseSpeed: number;
+    baseScale: number;
+  }[] = [];
 
   // Interacción y Mouse
   private mouseScreen = new THREE.Vector2(0, 0);
@@ -92,11 +110,11 @@ export class Stage0 {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x0a040e, 1.0);
+    this.renderer.setClearColor(0x2a080c, 1.0); // Fondo cálido ámbar profundo
 
-    // 2. Escena y Niebla del Caldo Primigenio ("Spore Primordial Broth")
+    // 2. Escena y Niebla del Caldo Primigenio Cálido (#2a080c)
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x0a040e, 45, 160);
+    this.scene.fog = new THREE.Fog(0x2a080c, 48, 175);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;
@@ -111,14 +129,17 @@ export class Stage0 {
     this.camera.position.set(0, 0, 50);
     this.camera.lookAt(0, 0, 0);
 
-    // 4. Iluminación Biológica de Alto Contraste
+    // 4. Iluminación Biológica Cálida (Miel, Ámbar y Refracción Celular)
     this.setupLighting();
 
-    // 5. Entorno: Glóbulos Rojos y Nutrientes Flotantes
+    // 5. Entorno: Fondo Cálido, Glóbulos Rojos, Vesículas y Esporas Bioluminiscentes
     this.particlesGroup = new THREE.Group();
     this.erythrocyteGroup = new THREE.Group();
+    this.deepVesicleGroup = new THREE.Group();
+    this.scene.add(this.deepVesicleGroup);
     this.scene.add(this.erythrocyteGroup);
     this.scene.add(this.particlesGroup);
+    this.createWarmMicroscopeBackdrop();
     this.createBackgroundElements();
 
     // 6. Inicialización de Física e Hidrodinámica
@@ -155,24 +176,78 @@ export class Stage0 {
     });
   }
 
+  /**
+   * Crea el plano de fondo orgánico con gradiente radial cálido estilo microscopía biológica.
+   * Utiliza una transición suave entre Miel (#b45309), Rojo Capilar (#781d10) y Ámbar Profundo (#2a080c)
+   * con ondulación de fluido microscópico vivo y viñeteado óptico.
+   */
+  private createWarmMicroscopeBackdrop(): void {
+    const geo = new THREE.PlaneGeometry(1600, 1400);
+    this.backgroundMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColorCenter: { value: new THREE.Color(0xb45309) }, // Miel / Ámbar dorado (#b45309)
+        uColorMid: { value: new THREE.Color(0x781d10) },    // Rojo capilar (#781d10)
+        uColorEdge: { value: new THREE.Color(0x2a080c) },   // Ámbar profundo / vino (#2a080c)
+        uTime: { value: 0 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColorCenter;
+        uniform vec3 uColorMid;
+        uniform vec3 uColorEdge;
+        uniform float uTime;
+        varying vec2 vUv;
+
+        void main() {
+          vec2 p = vUv - vec2(0.5);
+          // Distorsión fluida hidrodinámica (medio líquido microscópico vivo)
+          float wave1 = sin(p.x * 5.5 + uTime * 0.16) * cos(p.y * 5.5 + uTime * 0.12) * 0.05;
+          float wave2 = cos(p.x * 9.0 - uTime * 0.14) * sin(p.y * 9.0 + uTime * 0.18) * 0.03;
+          float r = length(p + vec2(wave1, wave2)) * 1.85;
+
+          // Gradiente radial cálido tricromático: Miel -> Rojo Capilar -> Ámbar Profundo
+          vec3 col = mix(uColorCenter, uColorMid, smoothstep(0.08, 0.55, r));
+          col = mix(col, uColorEdge, smoothstep(0.46, 1.05, r));
+
+          // Bioluminiscencia suave pulsante del caldo
+          float pulse = sin(uTime * 0.45) * 0.035;
+          col += vec3(0.12, 0.06, 0.01) * pulse;
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+      depthWrite: false,
+    });
+
+    this.backgroundMesh = new THREE.Mesh(geo, this.backgroundMat);
+    this.backgroundMesh.position.set(0, 0, -78);
+    this.scene.add(this.backgroundMesh);
+  }
+
   private setupLighting(): void {
-    // Luz ambiental profunda color vino/capilar
-    const ambientLight = new THREE.AmbientLight(0x380b15, 2.8);
+    // Luz ambiental profunda color vino capilar y miel cálida
+    const ambientLight = new THREE.AmbientLight(0x521518, 3.2);
     this.scene.add(ambientLight);
 
-    // Realce cian eléctrico de alto contraste (rim light)
-    const rimLight = new THREE.DirectionalLight(0x00f0ff, 4.6);
-    rimLight.position.set(15, 25, 30);
+    // Luz principal de microscopía en tono miel dorada cálida (#f59e0b)
+    const honeyLight = new THREE.DirectionalLight(0xf59e0b, 4.4);
+    honeyLight.position.set(18, 26, 32);
+    this.scene.add(honeyLight);
+
+    // Luz de acento y refracción celular cian/turquesa para alto contraste biológico
+    const rimLight = new THREE.DirectionalLight(0x06b6d4, 2.6);
+    rimLight.position.set(-18, -22, 28);
     this.scene.add(rimLight);
 
-    // Acento verde esmeralda bioluminiscente
-    const bioLight = new THREE.DirectionalLight(0x10b981, 2.6);
-    bioLight.position.set(-15, -20, 25);
-    this.scene.add(bioLight);
-
-    // Luz de relleno cálida ámbar/naranja
-    const warmFill = new THREE.PointLight(0xff7700, 3.8, 150);
-    warmFill.position.set(-12, 16, 22);
+    // Luz de relleno cálida ámbar/naranja (#d97706)
+    const warmFill = new THREE.PointLight(0xd97706, 3.8, 160);
+    warmFill.position.set(-10, 14, 25);
     this.scene.add(warmFill);
   }
 
@@ -300,55 +375,159 @@ export class Stage0 {
   }
 
   private createBackgroundElements(): void {
-    // 1. Glóbulos Rojos (Eritrocitos Bicóncavos Biológicos Reales - Sin Agujero de Dona)
-    const rbcGeo = this.createBiconcaveErythrocyteGeometry(1.6);
+    // 1. Capa densa de fondo (Z entre -30 y -60) de Eritrocitos Bicóncavos
+    // Geometría fidedigna Evans & Fung (1972) con material translúcido y desenfoque simulado (DoF)
+    const rbcGeo = this.createBiconcaveErythrocyteGeometry(1.65);
     const rbcMat = new THREE.MeshStandardMaterial({
-      color: 0x9e1a22,
-      emissive: 0x42070e,
-      emissiveIntensity: 0.45,
-      roughness: 0.32,
-      metalness: 0.08,
+      color: 0x8a1c18,          // Rojo eritrocito cálido
+      emissive: 0x3d0b0d,       // Resplandor somático cálido
+      emissiveIntensity: 0.55,
+      roughness: 0.52,          // Superficie difusa para simular desenfoque óptico (DoF)
+      metalness: 0.04,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.80,           // Translúcido para ver el fluido y gradiente a través de ellos
+      depthWrite: false,
     });
 
-    for (let i = 0; i < 110; i++) {
+    const erythrocyteCount = 280;
+    this.erythrocyteData = [];
+
+    for (let i = 0; i < erythrocyteCount; i++) {
       const rbc = new THREE.Mesh(rbcGeo, rbcMat);
+      // Distribución densa en Z entre -30 y -60
+      const z = -30 - Math.random() * 30;
       rbc.position.set(
         (Math.random() - 0.5) * 750,
         (Math.random() - 0.5) * 650,
-        -6 - Math.random() * 12
+        z
       );
-      // Inclinación suave y natural para apreciar la concavidad central sin orificio
+
+      // Inclinación 3D natural y aleatoria para apreciar la curvatura bicóncava
       rbc.rotation.set(
-        0.35 + (Math.random() - 0.5) * 0.7,
-        (Math.random() - 0.5) * 0.7,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
         Math.random() * Math.PI * 2
       );
-      const scale = 0.7 + Math.random() * 0.5;
+
+      // Variación de escala orgánica (1.1x a 2.6x)
+      const scale = 1.1 + Math.random() * 1.5;
       rbc.scale.set(scale, scale, scale);
       this.erythrocyteGroup.add(rbc);
+
+      this.erythrocyteData.push({
+        mesh: rbc,
+        rotSpeedX: (Math.random() - 0.5) * 0.25,
+        rotSpeedY: (Math.random() - 0.5) * 0.30,
+        rotSpeedZ: (Math.random() - 0.5) * 0.20,
+        driftPhase: Math.random() * Math.PI * 2,
+        driftSpeed: 0.25 + Math.random() * 0.35,
+      });
     }
 
-    // 2. Polvo de Micro-Esporas Bioluminiscentes Doradas (estilo Imagen de Referencia 01)
-    const sporeCount = 320;
+    // 2. Capa densa de Vesículas Lipídicas y Vacuolas en Z entre -30 y -60
+    // Material translúcido con ribete lipídico y desenfoque simulado
+    const canvasVes = document.createElement('canvas');
+    canvasVes.width = 128;
+    canvasVes.height = 128;
+    const vctx = canvasVes.getContext('2d')!;
+    const vgrad = vctx.createRadialGradient(64, 64, 4, 64, 64, 60);
+    vgrad.addColorStop(0.0, 'rgba(254, 240, 138, 0.12)'); // Centro miel translúcido
+    vgrad.addColorStop(0.55, 'rgba(245, 158, 11, 0.25)'); // Manto ámbar
+    vgrad.addColorStop(0.85, 'rgba(244, 63, 94, 0.45)');  // Tinte capilar
+    vgrad.addColorStop(0.96, 'rgba(255, 235, 175, 0.85)'); // Ribete lipídico brillante
+    vgrad.addColorStop(1.0, 'rgba(255, 235, 175, 0.0)');
+    vctx.fillStyle = vgrad;
+    vctx.beginPath();
+    vctx.arc(64, 64, 60, 0, Math.PI * 2);
+    vctx.fill();
+    const vesTexture = new THREE.CanvasTexture(canvasVes);
+
+    const vesGeo = new THREE.PlaneGeometry(1, 1);
+    const vesicleColors = [0xf59e0b, 0xfbbf24, 0xf43f5e, 0x38bdf8, 0xf97316];
+    const vesicleCount = 120;
+    this.deepVesicleData = [];
+
+    for (let i = 0; i < vesicleCount; i++) {
+      const vMat = new THREE.MeshBasicMaterial({
+        map: vesTexture,
+        color: vesicleColors[i % vesicleColors.length],
+        transparent: true,
+        opacity: 0.60,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      const vMesh = new THREE.Mesh(vesGeo, vMat);
+      // Z entre -30 y -60
+      const z = -30 - Math.random() * 30;
+      vMesh.position.set(
+        (Math.random() - 0.5) * 750,
+        (Math.random() - 0.5) * 650,
+        z
+      );
+
+      const baseScale = 14 + Math.random() * 24;
+      vMesh.scale.set(baseScale, baseScale, 1);
+      this.deepVesicleGroup.add(vMesh);
+
+      this.deepVesicleData.push({
+        mesh: vMesh,
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulseSpeed: 0.5 + Math.random() * 0.6,
+        baseScale,
+      });
+    }
+
+    // 3. Partículas de Esporas Doradas Bioluminiscentes Flotantes que emiten luz en el medio
+    const sporeCanvas = document.createElement('canvas');
+    sporeCanvas.width = 64;
+    sporeCanvas.height = 64;
+    const sctx = sporeCanvas.getContext('2d')!;
+    const sgrad = sctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+    sgrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');  // Núcleo blanco radiante
+    sgrad.addColorStop(0.22, 'rgba(254, 240, 138, 0.95)'); // Corona oro claro
+    sgrad.addColorStop(0.60, 'rgba(245, 158, 11, 0.70)');  // Miel / Ámbar dorado
+    sgrad.addColorStop(1.0, 'rgba(180, 83, 9, 0.0)');      // Difuminado suave
+    sctx.fillStyle = sgrad;
+    sctx.beginPath();
+    sctx.arc(32, 32, 30, 0, Math.PI * 2);
+    sctx.fill();
+    const sporeTexture = new THREE.CanvasTexture(sporeCanvas);
+
+    const sporeCount = 520;
     const sporePositions = new Float32Array(sporeCount * 3);
     for (let i = 0; i < sporeCount; i++) {
       sporePositions[i * 3] = (Math.random() - 0.5) * 750;
       sporePositions[i * 3 + 1] = (Math.random() - 0.5) * 650;
-      sporePositions[i * 3 + 2] = -4 + Math.random() * 8;
+      sporePositions[i * 3 + 2] = -25 + Math.random() * 35; // Z de -25 a +10
     }
+
     const sporeGeo = new THREE.BufferGeometry();
     sporeGeo.setAttribute('position', new THREE.BufferAttribute(sporePositions, 3));
     const sporeMat = new THREE.PointsMaterial({
-      color: 0xfbbf24,
-      size: 0.45,
+      map: sporeTexture,
+      color: 0xffea75,
+      size: 1.6,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.92,
       blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
     this.sporeParticles = new THREE.Points(sporeGeo, sporeMat);
     this.particlesGroup.add(this.sporeParticles);
+
+    // 4. Fuentes de Luz Activa de Esporas Bioluminiscentes (PointLights cálidas flotantes)
+    const lightColors = [0xf59e0b, 0xfbbf24, 0xd97706, 0xfef08a];
+    for (let i = 0; i < 4; i++) {
+      const pl = new THREE.PointLight(lightColors[i], 3.2, 130);
+      pl.position.set(
+        (Math.random() - 0.5) * 350,
+        (Math.random() - 0.5) * 300,
+        -5
+      );
+      this.scene.add(pl);
+      this.sporeLights.push(pl);
+    }
   }
 
   /**
@@ -614,28 +793,64 @@ export class Stage0 {
       }
     }
 
-    // 7. Deriva y Envolvente Suave de Glóbulos Rojos de Fondo
-    this.erythrocyteGroup.children.forEach((rbc, idx) => {
-      rbc.position.x += Math.sin(time * 0.4 + idx) * 0.015;
-      rbc.rotation.x += 0.004;
-      rbc.rotation.y += 0.006;
-      if (isOutsideBounds(rbc.position.x, rbc.position.y, 10)) {
-        const wrapped = wrapPosition(rbc.position.x, rbc.position.y);
-        rbc.position.x = wrapped.x;
-        rbc.position.y = wrapped.y;
-      }
-    });
+    // 7. Actualización del Fondo Orgánico Cálido de Microscopía
+    if (this.backgroundMesh && this.backgroundMat) {
+      this.backgroundMesh.position.set(this.baseCameraPos.x, this.baseCameraPos.y, -78);
+      this.backgroundMat.uniforms.uTime.value = time;
+    }
 
-    // 7.5. Deriva suave de las micro-esporas bioluminiscentes doradas
+    // 7.2. Deriva y Tumbling 3D de la Capa Densa de Glóbulos Rojos (Z entre -30 y -60)
+    for (let i = 0; i < this.erythrocyteData.length; i++) {
+      const ed = this.erythrocyteData[i];
+      ed.mesh.rotation.x += ed.rotSpeedX * dt;
+      ed.mesh.rotation.y += ed.rotSpeedY * dt;
+      ed.mesh.rotation.z += ed.rotSpeedZ * dt;
+      ed.mesh.position.x += Math.sin(time * ed.driftSpeed + ed.driftPhase) * 0.03;
+      ed.mesh.position.y += Math.cos(time * ed.driftSpeed * 0.85 + ed.driftPhase) * 0.025;
+
+      if (isOutsideBounds(ed.mesh.position.x, ed.mesh.position.y, 25)) {
+        const wrapped = wrapPosition(ed.mesh.position.x, ed.mesh.position.y);
+        ed.mesh.position.x = wrapped.x;
+        ed.mesh.position.y = wrapped.y;
+      }
+    }
+
+    // 7.4. Pulsación Hidrodinámica y Deriva de Vesículas Densas de Fondo (Z entre -30 y -60)
+    for (let i = 0; i < this.deepVesicleData.length; i++) {
+      const vd = this.deepVesicleData[i];
+      const pulse = 1.0 + Math.sin(time * vd.pulseSpeed + vd.pulsePhase) * 0.045;
+      const s = vd.baseScale * pulse;
+      vd.mesh.scale.set(s, s, 1);
+      vd.mesh.position.x += Math.cos(time * 0.22 + vd.pulsePhase) * 0.02;
+      vd.mesh.position.y += Math.sin(time * 0.26 + vd.pulsePhase) * 0.018;
+
+      if (isOutsideBounds(vd.mesh.position.x, vd.mesh.position.y, 30)) {
+        const wrapped = wrapPosition(vd.mesh.position.x, vd.mesh.position.y);
+        vd.mesh.position.x = wrapped.x;
+        vd.mesh.position.y = wrapped.y;
+      }
+    }
+
+    // 7.5. Deriva fluida de las micro-esporas doradas bioluminiscentes
     if (this.sporeParticles) {
       const posAttr = this.sporeParticles.geometry.attributes.position as THREE.BufferAttribute;
       const count = posAttr.count;
       for (let i = 0; i < count; i++) {
-        let y = posAttr.getY(i) + Math.sin(time * 0.8 + i * 0.5) * 0.02;
-        let x = posAttr.getX(i) + Math.cos(time * 0.6 + i * 0.4) * 0.015;
+        let y = posAttr.getY(i) + Math.sin(time * 0.85 + i * 0.45) * 0.035;
+        let x = posAttr.getX(i) + Math.cos(time * 0.65 + i * 0.35) * 0.03;
         posAttr.setXY(i, x, y);
       }
       posAttr.needsUpdate = true;
+    }
+
+    // 7.6. Deriva orbital y parpadeo de fuentes de luz de esporas bioluminiscentes
+    for (let i = 0; i < this.sporeLights.length; i++) {
+      const light = this.sporeLights[i];
+      const angle = time * 0.22 + (i * Math.PI) / 2;
+      const rad = 135 + Math.sin(time * 0.35 + i) * 45;
+      light.position.x = this.baseCameraPos.x + Math.cos(angle) * rad;
+      light.position.y = this.baseCameraPos.y + Math.sin(angle) * rad;
+      light.intensity = 2.8 + Math.sin(time * 1.6 + i * 1.3) * 0.7;
     }
 
     // 7.8. Actualización de la Atmósfera Spore (Macro-Organismos en DoF, Bio-Vesículas y Bokeh)
