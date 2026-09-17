@@ -17,6 +17,10 @@ import { wrapPosition, isOutsideBounds, getToroidalDelta } from '../physics/Worl
 import { CameraShakeSystem } from '../systems/CameraShakeSystem';
 import { BioAudioSystem } from '../audio/BioAudioSystem';
 import { TissueArchitecture } from '../environment/TissueArchitecture';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 export interface TelemetryData {
   fps: number;
@@ -34,6 +38,14 @@ export class Stage0 {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
+
+  // Pipeline de Post-Procesado Óptico (Microscopía Confocal y Bloom Cálido a 60 FPS)
+  public composer!: EffectComposer;
+  private renderPass!: RenderPass;
+  public bloomPass!: UnrealBloomPass;
+  private outputPass!: OutputPass;
+  private lastWindowWidth = window.innerWidth;
+  private lastWindowHeight = window.innerHeight;
   
   // Módulos de Física, Economía e Hidrodinámica
   private physicsWorld!: PhysicsWorld;
@@ -111,6 +123,8 @@ export class Stage0 {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x2a080c, 1.0); // Fondo cálido ámbar profundo
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.08;
 
     // 2. Escena y Niebla del Caldo Primigenio Cálido (#2a080c)
     this.scene = new THREE.Scene();
@@ -141,6 +155,9 @@ export class Stage0 {
     this.scene.add(this.particlesGroup);
     this.createWarmMicroscopeBackdrop();
     this.createBackgroundElements();
+
+    // 5.5. Pipeline de Post-Procesado EffectComposer con UnrealBloomPass Cálido (60 FPS)
+    this.setupPostprocessing();
 
     // 6. Inicialización de Física e Hidrodinámica
     this.initPhysics();
@@ -174,6 +191,49 @@ export class Stage0 {
         }
       }
     });
+  }
+
+  /**
+   * Configura EffectComposer con UnrealBloomPass cálido optimizado a 60 FPS estables.
+   * Aplica un desenfoque suave gaussiano con gradiente térmico (miel, ámbar y rojo capilar)
+   * que envuelve en una atmósfera de microscopía las fuentes de luz celular y las esporas doradas.
+   */
+  private setupPostprocessing(): void {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // 1. Instanciar EffectComposer con buffer HalfFloatType para precisión HDR
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.composer.setSize(width, height);
+
+    // 2. Pase de Renderizado de Escena Primaria
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
+
+    // 3. UnrealBloomPass: Difusión suave a 60 FPS con resolución half-res para el blur mip-chain
+    const bloomRes = new THREE.Vector2(Math.floor(width / 2), Math.floor(height / 2));
+    const bloomStrength = 1.15;  // Intensidad del halo etéreo
+    const bloomRadius = 0.50;    // Radio de dispersión óptica suave
+    const bloomThreshold = 0.48; // Solo emiten bloom fuentes brillantes (> 0.48): orgánulos, Fresnel y esporas
+
+    this.bloomPass = new UnrealBloomPass(bloomRes, bloomStrength, bloomRadius, bloomThreshold);
+
+    // Gradiente térmico en los 5 niveles de dispersión (MIPs) de Unreal Engine:
+    // Miel dorada -> Ámbar cálido -> Naranja biológico -> Capilar visceral
+    this.bloomPass.bloomTintColors = [
+      new THREE.Vector3(1.0, 0.95, 0.82), // MIP 0: Raíz brillante blanco-dorada
+      new THREE.Vector3(1.0, 0.88, 0.70), // MIP 1: Miel dorada cálida
+      new THREE.Vector3(1.0, 0.80, 0.55), // MIP 2: Ámbar brillante
+      new THREE.Vector3(0.96, 0.68, 0.42), // MIP 3: Naranja biológico
+      new THREE.Vector3(0.90, 0.55, 0.32), // MIP 4: Difusión capilar suave
+    ];
+
+    this.composer.addPass(this.bloomPass);
+
+    // 4. OutputPass: Aplicación de ACESFilmicToneMapping y codificación sRGB precisa
+    this.outputPass = new OutputPass();
+    this.composer.addPass(this.outputPass);
   }
 
   /**
@@ -578,7 +638,15 @@ export class Stage0 {
     this.camera.top = this.frustumSize / 2;
     this.camera.bottom = -this.frustumSize / 2;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    if (window.innerWidth !== this.lastWindowWidth || window.innerHeight !== this.lastWindowHeight) {
+      this.lastWindowWidth = window.innerWidth;
+      this.lastWindowHeight = window.innerHeight;
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      if (this.composer) {
+        this.composer.setSize(window.innerWidth, window.innerHeight);
+      }
+    }
   }
 
   private onMouseMove(e: MouseEvent): void {
@@ -966,8 +1034,16 @@ export class Stage0 {
       }
     }
 
-    // 6. Renderizado de la Escena
-    this.renderer.render(this.scene, this.camera);
+    // Pulso biológico sutil de bloom reactivo a sprint y digestión
+    if (this.bloomPass && this.player) {
+      const sprintBoost = this.player.isSprinting ? 0.35 : 0.0;
+      const feedBoost = (this.player.feedPulse - 1.0) * 0.85;
+      const targetStrength = 1.15 + sprintBoost + feedBoost;
+      this.bloomPass.strength += (targetStrength - this.bloomPass.strength) * Math.min(dt * 6.0, 1.0);
+    }
+
+    // 6. Renderizado de la Escena con EffectComposer y UnrealBloomPass Cálido (60 FPS)
+    this.composer.render(dt);
   }
 
   private handlePlayerDeath(cause: string): void {
