@@ -123,7 +123,7 @@ export class OrganelleFactory {
       morphology === CellMorphology.VIBRIO ||
       morphology === CellMorphology.SPIRILLUM
     ) {
-      const halfLen = (bodyLength * 0.8) * 0.5 + bodyRadius;
+      const halfLen = (bodyLength * 0.85) * 0.5 + bodyRadius;
       rearDist = halfLen;
       frontDist = halfLen;
       lateralDist = bodyRadius;
@@ -186,15 +186,15 @@ export class OrganelleFactory {
           break;
 
         case SocketType.POSTERIOR_LEFT: {
-          const ang = Math.PI - 0.32;
+          const ang = Math.PI - 0.16;
           const offX =
             morphology === CellMorphology.COCCUS || morphology === CellMorphology.DIPLOCOCCUS
               ? -rearDist * Math.cos(0.32)
-              : -rearDist + 0.15;
+              : -rearDist + 0.08;
           const offY =
             morphology === CellMorphology.COCCUS || morphology === CellMorphology.DIPLOCOCCUS
               ? rearDist * Math.sin(0.32)
-              : lateralDist * 0.42;
+              : 0.28;
           sockets.push({
             type: st,
             offset: new THREE.Vector2(offX, offY),
@@ -205,15 +205,15 @@ export class OrganelleFactory {
         }
 
         case SocketType.POSTERIOR_RIGHT: {
-          const ang = Math.PI + 0.32;
+          const ang = Math.PI + 0.16;
           const offX =
             morphology === CellMorphology.COCCUS || morphology === CellMorphology.DIPLOCOCCUS
               ? -rearDist * Math.cos(0.32)
-              : -rearDist + 0.15;
+              : -rearDist + 0.08;
           const offY =
             morphology === CellMorphology.COCCUS || morphology === CellMorphology.DIPLOCOCCUS
               ? -rearDist * Math.sin(0.32)
-              : -lateralDist * 0.42;
+              : -0.28;
           sockets.push({
             type: st,
             offset: new THREE.Vector2(offX, offY),
@@ -235,9 +235,9 @@ export class OrganelleFactory {
   public static createFlagellumMesh(
     color: number,
     phaseOffset = 0,
-    segments = 24,
-    segmentLength = 0.20,
-    baseWidth = 0.15
+    segments = 32,
+    segmentLength = 0.22,
+    baseWidth = 0.13
   ): THREE.Group {
     const group = new THREE.Group();
 
@@ -445,15 +445,15 @@ export class OrganelleFactory {
         });
       }
     } else {
-      // 4. Bacilo, Vibrio y Espirilo: cápsula regular distribuida estrictamente por longitud de arco
-      const halfL = (length * 0.8) * 0.5;
+      // 4. Bacilo (Escherichia coli), Vibrio y Espirilo: cápsula regular con densa corona perítrica
+      const halfL = (length * 0.85) * 0.5;
       const arcCap = Math.PI * radius;
       const flatSide = halfL * 2;
       const totalPerimeter = 2 * arcCap + 2 * flatSide;
-      const totalCilia = 52;
+      const totalCilia = morphology === CellMorphology.BACILLUS ? 84 : 52;
 
-      const nCap = Math.max(12, Math.round(totalCilia * (arcCap / totalPerimeter)));
-      const nSide = Math.max(10, Math.round(totalCilia * (flatSide / totalPerimeter)));
+      const nCap = Math.max(16, Math.round(totalCilia * (arcCap / totalPerimeter)));
+      const nSide = Math.max(22, Math.round(totalCilia * (flatSide / totalPerimeter)));
 
       // Casquete frontal (+X)
       for (let i = 0; i < nCap; i++) {
@@ -501,14 +501,17 @@ export class OrganelleFactory {
     }
 
     const ciliaCount = contour.length;
+    const isBacillus = morphology === CellMorphology.BACILLUS;
 
     for (let i = 0; i < ciliaCount; i++) {
       const pt = contour[i];
-      // Pequeña variación orgánica de longitud y orientación biológica
+      // Variación orgánica de longitud y orientación (fiel al halo perítrico de E. coli)
       const lengthNoise = Math.sin(i * 3.7) * 0.5 + 0.5;
-      const cLen = 0.32 + lengthNoise * 0.18;
+      const cLen = isBacillus
+        ? 0.55 + lengthNoise * 0.75
+        : 0.32 + lengthNoise * 0.18;
 
-      const angleJitter = Math.sin(i * 5.9) * 0.08;
+      const angleJitter = isBacillus ? Math.sin(i * 4.3) * 0.18 : Math.sin(i * 5.9) * 0.08;
       const jnx = pt.nx * Math.cos(angleJitter) - pt.ny * Math.sin(angleJitter);
       const jny = pt.nx * Math.sin(angleJitter) + pt.ny * Math.cos(angleJitter);
 
@@ -519,7 +522,7 @@ export class OrganelleFactory {
       // Vértice base (en la membrana)
       vertices.push(pt.bx, pt.by, 0);
       // Vértice punta inicial
-      vertices.push(pt.bx + jnx * cLen, pt.by + jny * cLen, 0);
+      vertices.push(pt.bx + jnx * cLen, pt.by + jny * cLen, 0.04);
     }
 
     const geo = new THREE.BufferGeometry();
@@ -707,7 +710,10 @@ export class InternalOrganelleCluster {
 
     // 2. Vacuolas y Mitocondrias orbitales (de 1 a 4 orgánulos adicionales)
     const vacCount = count - 1;
-    const vacPalette = [secondaryColor, 0x38bdf8, 0xf43f5e, 0xfacc15];
+    const isGreenBacterium = ((primaryColor >> 8) & 0xff) > 0x80 && ((primaryColor >> 16) & 0xff) < 0x80;
+    const vacPalette = isGreenBacterium
+      ? [0x6ee7b7, 0x34d399, 0xa7f3d0, 0x059669]
+      : [secondaryColor, 0x38bdf8, 0xf43f5e, 0xfacc15];
 
     for (let i = 0; i < vacCount; i++) {
       const angle = (i * Math.PI * 2) / vacCount + 0.55;

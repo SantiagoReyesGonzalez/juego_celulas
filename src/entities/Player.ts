@@ -77,8 +77,8 @@ export class Player {
   public isDead = false;
   public invulnerabilityTimer = 0;
 
-  constructor(physicsWorld: PhysicsWorld, scene: THREE.Scene, initialSpeciesId = 'micrococcus') {
-    this.currentSpecies = SPECIES_CATALOG[initialSpeciesId] || SPECIES_CATALOG.micrococcus;
+  constructor(physicsWorld: PhysicsWorld, scene: THREE.Scene, initialSpeciesId = 'escherichia_coli') {
+    this.currentSpecies = SPECIES_CATALOG[initialSpeciesId] || SPECIES_CATALOG.escherichia_coli;
     this.baseMass = this.currentSpecies.mass;
     this.currentMass = this.baseMass;
 
@@ -138,9 +138,9 @@ export class Player {
         break;
       }
       case CellMorphology.BACILLUS: {
-        bodyRadius = 1.2;
-        bodyLength = 2.6;
-        this.collider = physicsWorld.createCapsuleCollider(bodyRadius, 1.2, this.body);
+        bodyRadius = 1.35;
+        bodyLength = 3.2;
+        this.collider = physicsWorld.createCapsuleCollider(bodyRadius, 1.0, this.body);
         this.hydroProps.morphology = Morphology.BACILLUS;
         this.hydroProps.projectedArea = 2.8;
         break;
@@ -243,21 +243,74 @@ export class Player {
 
       case CellMorphology.BACILLUS:
       default: {
-        const capGeo = new THREE.CapsuleGeometry(radius, length * 0.8, 18, 26);
+        // Cápsula exterior translúcida verde esmeralda con orientación horizontal
+        const capGeo = new THREE.CapsuleGeometry(radius, length * 0.85, 20, 32);
         const mesh = new THREE.Mesh(capGeo, membraneMat);
         mesh.rotation.z = Math.PI / 2;
         this.group.add(mesh);
+
+        // Vientre interior bioluminiscente menta/seafoam (glow volumétrico interno confocal)
+        const innerGeo = new THREE.CapsuleGeometry(radius * 0.78, (length * 0.85) * 0.75, 16, 24);
+        const innerMat = new THREE.MeshBasicMaterial({
+          color: 0x6ee7b7,
+          transparent: true,
+          opacity: 0.35,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+        innerMesh.rotation.z = Math.PI / 2;
+        innerMesh.position.set(0, 0, 0.02);
+        this.group.add(innerMesh);
+
+        // Pliegues y arrugas de envoltura celular biológica sobre la superficie del bacilo (estilo E. coli)
+        const wrinkleGeo = new THREE.BufferGeometry();
+        const wrinkleVerts: number[] = [];
+        const halfCyl = (length * 0.85) * 0.5;
+        const foldPositions = [
+          { x: -halfCyl * 0.75, ySpan: 0.9, yOff: 0.1, bend: 0.12 },
+          { x: -halfCyl * 0.45, ySpan: 1.1, yOff: -0.15, bend: -0.10 },
+          { x: -halfCyl * 0.15, ySpan: 1.15, yOff: 0.05, bend: 0.14 },
+          { x: halfCyl * 0.15, ySpan: 1.12, yOff: -0.1, bend: -0.13 },
+          { x: halfCyl * 0.48, ySpan: 1.05, yOff: 0.12, bend: 0.11 },
+          { x: halfCyl * 0.78, ySpan: 0.85, yOff: -0.05, bend: -0.12 },
+          { x: -halfCyl * 0.3, ySpan: 0.6, yOff: 0.45, bend: 0.22 },
+          { x: halfCyl * 0.35, ySpan: 0.65, yOff: -0.45, bend: -0.20 },
+        ];
+
+        foldPositions.forEach((fold) => {
+          const segs = 4;
+          for (let s = 0; s < segs; s++) {
+            const t0 = s / segs - 0.5;
+            const t1 = (s + 1) / segs - 0.5;
+            const y0 = fold.yOff + t0 * fold.ySpan;
+            const y1 = fold.yOff + t1 * fold.ySpan;
+            const curve0 = Math.sin((t0 + 0.5) * Math.PI) * fold.bend;
+            const curve1 = Math.sin((t1 + 0.5) * Math.PI) * fold.bend;
+            wrinkleVerts.push(fold.x + curve0, y0, 0.04);
+            wrinkleVerts.push(fold.x + curve1, y1, 0.04);
+          }
+        });
+
+        wrinkleGeo.setAttribute('position', new THREE.Float32BufferAttribute(wrinkleVerts, 3));
+        const wrinkleMat = new THREE.LineBasicMaterial({
+          color: 0x064e3b,
+          transparent: true,
+          opacity: 0.68,
+        });
+        const wrinkleMesh = new THREE.LineSegments(wrinkleGeo, wrinkleMat);
+        this.group.add(wrinkleMesh);
         break;
       }
     }
 
-    // 2. Clúster de Orgánulos Internos Bioluminiscentes (Macronúcleo y Vacuolas aditivas)
+    // 2. Clúster de Orgánulos Internos Bioluminiscentes (Macronúcleo/Nucleoide y Vacuolas aditivas)
     this.internalOrganelles = new InternalOrganelleCluster(
       this.group,
       radius,
       species.color,
-      species.emissive,
-      4 // 1 Macronúcleo + 3 Vacuolas/Mitocondrias
+      0x34d399,
+      4 // 1 Macronúcleo/Nucleoide + 3 Vacuolas/Ribosomas
     );
 
     // 3. Corona perimetral de micro-cilios radiantes
@@ -286,7 +339,7 @@ export class Player {
       species.morphology
     );
 
-    const FLAGELLA_PALETTE = [0x00f0ff, 0xf59e0b, 0x10b981, 0xc084fc, 0xec4899];
+    const FLAGELLA_PALETTE = [0x10b981, 0x059669, 0x34d399, 0x047857, 0x6ee7b7];
     let flagellumIdx = 0;
 
     this.sockets.forEach((socket) => {

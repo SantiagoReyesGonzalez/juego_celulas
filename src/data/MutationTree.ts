@@ -51,27 +51,58 @@ export interface BacteriaSpecies {
 }
 
 export const SPECIES_CATALOG: Record<string, BacteriaSpecies> = {
-  micrococcus: {
-    id: 'micrococcus',
-    name: 'Micrococcus Radiatus',
+  escherichia_coli: {
+    id: 'escherichia_coli',
+    name: 'Escherichia coli',
     tier: 1,
-    archetype: 'Microorganismo Base',
+    archetype: 'Bacilo Flagelado Perítrico',
     role: CellRole.INTERCEPTOR,
-    icon: '⚡',
-    description: 'Coco esférico de alta agilidad quimiotáctica. Gran equilibrio hidrodinámico y rápido viraje.',
-    morphology: CellMorphology.COCCUS,
-    mass: 1.0,
-    hp: 100,
-    shield: 50,
-    hpRegen: 2.0,
+    icon: '🦠',
+    description: 'Bacilo entérico gramnegativo con cápsula gelatinosa verde esmeralda, corona perítrica de fimbrias y penacho de flagelos polares propulsores.',
+    morphology: CellMorphology.BACILLUS,
+    mass: 1.25,
+    hp: 120,
+    shield: 60,
+    hpRegen: 2.5,
     shieldRegen: 5.0,
-    maxSpeed: 15.0,
-    acceleration: 28.0,
-    turnRate: 3.6,
-    vacuoleCapacity: 80,
-    color: 0x00ff88,
-    emissive: 0x059669,
-    sockets: [SocketType.POSTERIOR],
+    maxSpeed: 16.0,
+    acceleration: 30.0,
+    turnRate: 3.8,
+    vacuoleCapacity: 90,
+    color: 0x10b981,   // Verde esmeralda orgánico fiel a la imagen de referencia
+    emissive: 0x047857,
+    sockets: [
+      SocketType.POSTERIOR,
+      SocketType.POSTERIOR_LEFT,
+      SocketType.POSTERIOR_RIGHT,
+    ],
+    parentIds: [],
+  },
+  micrococcus: {
+    id: 'escherichia_coli',
+    name: 'Escherichia coli',
+    tier: 1,
+    archetype: 'Bacilo Flagelado Perítrico',
+    role: CellRole.INTERCEPTOR,
+    icon: '🦠',
+    description: 'Bacilo entérico gramnegativo con cápsula gelatinosa verde esmeralda, corona perítrica de fimbrias y penacho de flagelos polares propulsores.',
+    morphology: CellMorphology.BACILLUS,
+    mass: 1.25,
+    hp: 120,
+    shield: 60,
+    hpRegen: 2.5,
+    shieldRegen: 5.0,
+    maxSpeed: 16.0,
+    acceleration: 30.0,
+    turnRate: 3.8,
+    vacuoleCapacity: 90,
+    color: 0x10b981,
+    emissive: 0x047857,
+    sockets: [
+      SocketType.POSTERIOR,
+      SocketType.POSTERIOR_LEFT,
+      SocketType.POSTERIOR_RIGHT,
+    ],
     parentIds: [],
   },
 };
@@ -80,7 +111,7 @@ export class MutationTree {
   public static getSpecies(id: string): BacteriaSpecies {
     const sp = SPECIES_CATALOG[id];
     if (!sp) {
-      return SPECIES_CATALOG.micrococcus;
+      return SPECIES_CATALOG.escherichia_coli;
     }
     return sp;
   }
