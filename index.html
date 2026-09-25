@@ -1173,23 +1173,27 @@
       /* Barra de Instrucciones Superior al Dock (Minimalista Arcade) */
       #instructions {
         position: absolute;
-        bottom: 104px;
+        bottom: 34px;
         left: 50%;
         transform: translateX(-50%);
         color: #cbd5e1;
         font-size: 11px;
-        background: rgba(6, 11, 24, 0.85);
+        background: rgba(20, 5, 9, 0.78);
         backdrop-filter: blur(8px);
         padding: 4px 16px;
         border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(217, 119, 6, 0.25);
         pointer-events: none;
         white-space: nowrap;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         z-index: 40;
         display: flex;
         align-items: center;
         gap: 10px;
+        transition: bottom 0.45s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.3s ease;
+      }
+      body.dock-open #instructions {
+        bottom: 110px;
       }
       .inst-item {
         display: inline-flex;
@@ -1197,10 +1201,10 @@
         gap: 4px;
       }
       .inst-item b {
-        color: #38bdf8;
+        color: #fbbf24;
       }
       .inst-dot {
-        color: #475569;
+        color: rgba(217, 119, 6, 0.45);
         font-size: 8px;
       }
 
@@ -1222,25 +1226,87 @@
         pointer-events: auto;
       }
 
-      /* ================= DOCK INFERIOR DE 8 BIO-MEJORAS ================= */
+      /* ================= DOCK INFERIOR DE 8 BIO-MEJORAS (DESLIZABLE OFF-SCREEN) ================= */
       #bio-upgrades-dock {
-        position: absolute;
-        bottom: 8px;
+        position: fixed;
+        bottom: 0;
         left: 50%;
-        transform: translateX(-50%);
-        background: rgba(6, 11, 24, 0.92);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 14px;
-        padding: 6px 12px 7px 12px;
-        box-shadow: 0 8px 36px rgba(0, 0, 0, 0.85), 0 0 16px rgba(16, 185, 129, 0.15);
+        transform: translateX(-50%) translateY(100%);
+        transition: transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+        background: radial-gradient(
+          ellipse at center top,
+          rgba(36, 9, 15, 0.96) 0%,
+          rgba(20, 5, 9, 0.98) 70%,
+          rgba(10, 2, 4, 0.99) 100%
+        );
+        border: 1px solid rgba(217, 119, 6, 0.35);
+        border-bottom: none;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 14px 10px 14px;
+        box-shadow:
+          0 -6px 35px rgba(0, 0, 0, 0.95),
+          0 0 25px rgba(180, 83, 9, 0.15),
+          inset 0 1px 0 rgba(251, 191, 36, 0.25);
         z-index: 50;
         user-select: none;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 5px;
+        gap: 6px;
         pointer-events: auto;
+      }
+
+      #bio-upgrades-dock.open {
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* Pestaña Ovalada Discreta Centrada en el Borde Inferior */
+      .bio-upgrades-tab {
+        position: absolute;
+        top: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 14px;
+        border-radius: 20px;
+        background: rgba(24, 6, 10, 0.75);
+        border: 1px solid rgba(217, 119, 6, 0.35);
+        color: #fef3c7;
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        pointer-events: auto;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.7), 0 0 10px rgba(245, 158, 11, 0.12);
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        user-select: none;
+        outline: none;
+        white-space: nowrap;
+      }
+
+      .bio-upgrades-tab:hover {
+        background: rgba(45, 12, 20, 0.92);
+        border-color: rgba(245, 158, 11, 0.65);
+        color: #ffffff;
+        box-shadow: 0 -4px 16px rgba(245, 158, 11, 0.3);
+        transform: translateX(-50%) translateY(-2px);
+      }
+
+      .tab-icon {
+        font-size: 11px;
+      }
+
+      .tab-label {
+        font-size: 10px;
+      }
+
+      .tab-chevron {
+        font-size: 8px;
+        color: #fbbf24;
       }
 
       .dock-header {
@@ -1265,24 +1331,24 @@
         font-size: 10.5px;
         font-weight: 800;
         letter-spacing: 0.8px;
-        color: #10b981;
+        color: #fbbf24;
         text-transform: uppercase;
       }
 
       .dock-badge {
         font-size: 9px;
         font-weight: 700;
-        background: rgba(16, 185, 129, 0.2);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        color: #34d399;
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        color: #fef08a;
         padding: 1px 6px;
         border-radius: 8px;
         letter-spacing: 0.4px;
       }
 
       .dock-hint {
-        font-size: 10.5px;
-        color: #94a3b8;
+        font-size: 10px;
+        color: #d6d3d1;
       }
       .dock-hint b {
         color: #fbbf24;
@@ -1293,57 +1359,59 @@
         gap: 7px;
       }
 
+      /* Tarjeta de Mejora Orgánica */
       .dock-upgrade-card {
-        background: rgba(255, 255, 255, 0.035);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 11px;
+        background: linear-gradient(180deg, rgba(35, 10, 16, 0.75) 0%, rgba(20, 5, 9, 0.85) 100%);
+        border: 1px solid rgba(217, 119, 6, 0.22);
+        border-radius: 12px;
         padding: 5px 6px 6px 6px;
         width: 95px;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 3px;
-        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         cursor: pointer;
         position: relative;
         pointer-events: auto;
+        box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.08), 0 3px 8px rgba(0, 0, 0, 0.5);
       }
 
       .dock-upgrade-card:active {
-        transform: scale(0.95);
+        transform: scale(0.96);
       }
 
       .dock-upgrade-card.pending {
-        opacity: 0.65;
+        opacity: 0.68;
       }
 
       .dock-upgrade-card.pending:hover {
-        opacity: 0.85;
-        border-color: rgba(255, 255, 255, 0.22);
-        background: rgba(255, 255, 255, 0.05);
+        opacity: 0.88;
+        border-color: rgba(217, 119, 6, 0.4);
+        background: linear-gradient(180deg, rgba(42, 12, 19, 0.85) 0%, rgba(25, 7, 12, 0.92) 100%);
       }
 
       .dock-upgrade-card.affordable {
         opacity: 1;
         cursor: pointer;
-        border-color: rgba(16, 185, 129, 0.6);
-        background: rgba(16, 185, 129, 0.08);
-        box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+        border-color: rgba(245, 158, 11, 0.65);
+        background: linear-gradient(180deg, rgba(48, 14, 22, 0.9) 0%, rgba(26, 7, 12, 0.95) 100%);
+        box-shadow: 0 0 14px rgba(245, 158, 11, 0.25), inset 0 1px 0 rgba(254, 240, 138, 0.25);
       }
 
       .dock-upgrade-card.affordable:hover {
-        transform: translateY(-4px) scale(1.04);
-        border-color: #34d399;
-        background: rgba(16, 185, 129, 0.2);
-        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.55);
+        transform: translateY(-3px) scale(1.03);
+        border-color: #fbbf24;
+        background: linear-gradient(180deg, rgba(62, 18, 28, 0.95) 0%, rgba(36, 10, 17, 0.98) 100%);
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
       }
 
       .dock-upgrade-card.maxed {
         opacity: 0.95;
         cursor: default;
-        border-color: rgba(251, 191, 36, 0.6);
-        background: rgba(251, 191, 36, 0.06);
-        box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
+        border-color: rgba(251, 191, 36, 0.45);
+        background: linear-gradient(180deg, rgba(30, 14, 6, 0.85) 0%, rgba(18, 7, 3, 0.92) 100%);
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
       }
 
       .dock-card-top {
@@ -1355,11 +1423,11 @@
       }
 
       .dock-key-badge {
-        font-size: 9.5px;
+        font-size: 9px;
         font-weight: 800;
-        background: rgba(0, 0, 0, 0.5);
-        color: #fbbf24;
-        border: 1px solid rgba(251, 191, 36, 0.35);
+        background: rgba(14, 3, 6, 0.7);
+        color: #fef08a;
+        border: 1px solid rgba(217, 119, 6, 0.35);
         border-radius: 4px;
         padding: 1px 4px;
         font-family: monospace;
@@ -1368,7 +1436,7 @@
       .dock-lvl-badge {
         font-size: 9px;
         font-weight: 700;
-        color: #94a3b8;
+        color: #a8a29e;
       }
 
       .dock-lvl-badge.gold {
@@ -1385,8 +1453,8 @@
       }
 
       .dock-icon {
-        font-size: 21px;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+        font-size: 20px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.75));
         transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
@@ -1397,7 +1465,7 @@
       .dock-name {
         font-size: 10.5px;
         font-weight: 700;
-        color: #f1f5f9;
+        color: #fef3c7;
         white-space: nowrap;
         text-align: center;
         letter-spacing: 0.2px;
@@ -1412,22 +1480,23 @@
         margin: 1px 0;
       }
 
+      /* Pipetas Bioluminiscentes Verde Esmeralda */
       .dock-pip {
         width: 11px;
         height: 4px;
         border-radius: 2px;
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.12);
         transition: all 0.25s ease;
       }
 
       .dock-pip.active {
         background: #10b981;
-        box-shadow: 0 0 6px #10b981;
+        box-shadow: 0 0 6px rgba(16, 185, 129, 0.95), 0 0 10px rgba(16, 185, 129, 0.5);
       }
 
       .dock-pip.active.maxed {
         background: #fbbf24;
-        box-shadow: 0 0 6px #fbbf24;
+        box-shadow: 0 0 6px rgba(251, 191, 36, 0.95), 0 0 10px rgba(245, 158, 11, 0.5);
       }
 
       .dock-cost-btn {
@@ -1435,24 +1504,20 @@
         text-align: center;
         padding: 3px 0;
         border-radius: 5px;
-        font-size: 10.5px;
+        font-size: 10px;
         font-weight: 800;
-        background: rgba(0, 0, 0, 0.4);
-        color: #94a3b8;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(12, 3, 5, 0.6);
+        color: #a8a29e;
+        border: 1px solid rgba(217, 119, 6, 0.2);
         transition: all 0.2s ease;
       }
 
       .dock-cost-btn.can-buy {
-        background: linear-gradient(135deg, #059669, #10b981);
+        background: linear-gradient(135deg, #065f46, #059669);
         color: #ffffff;
         border: 1px solid #34d399;
         box-shadow: 0 2px 10px rgba(16, 185, 129, 0.5);
         animation: pulseBuyBtn 2.2s infinite alternate;
-      }
-      @keyframes pulseBuyBtn {
-        from { box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4); }
-        to { box-shadow: 0 3px 14px rgba(16, 185, 129, 0.85); }
       }
 
       .dock-cost-btn.can-buy:hover {
@@ -1460,20 +1525,19 @@
       }
 
       .dock-cost-btn.is-max {
-        background: rgba(251, 191, 36, 0.15);
+        background: rgba(245, 158, 11, 0.12);
         color: #fbbf24;
-        border: 1px solid rgba(251, 191, 36, 0.4);
+        border: 1px solid rgba(245, 158, 11, 0.35);
       }
 
-      /* Tooltip Flotante Arcade */
+      /* Tooltip Flotante Biológico */
       .dock-tooltip {
         position: absolute;
         bottom: calc(100% + 10px);
         left: 50%;
         transform: translateX(-50%) translateY(6px);
-        background: rgba(4, 8, 18, 0.96);
-        backdrop-filter: blur(14px);
-        border: 1px solid rgba(56, 189, 248, 0.35);
+        background: rgba(20, 5, 9, 0.97);
+        border: 1px solid rgba(217, 119, 6, 0.45);
         border-radius: 10px;
         padding: 9px 12px;
         width: 210px;
@@ -1482,10 +1546,11 @@
         opacity: 0;
         visibility: hidden;
         transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.2);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 18px rgba(180, 83, 9, 0.2);
         z-index: 100;
         text-align: left;
       }
+
       .dock-tooltip::after {
         content: '';
         position: absolute;
@@ -1493,28 +1558,32 @@
         left: 50%;
         transform: translateX(-50%);
         border: 6px solid transparent;
-        border-top-color: rgba(4, 8, 18, 0.96);
+        border-top-color: rgba(20, 5, 9, 0.97);
       }
+
       .dock-upgrade-card:hover .dock-tooltip {
         opacity: 1;
         visibility: visible;
         transform: translateX(-50%) translateY(0);
       }
+
       .tooltip-title {
         font-size: 11.5px;
         font-weight: 800;
-        color: #38bdf8;
+        color: #fbbf24;
         display: flex;
         align-items: center;
         gap: 6px;
         margin-bottom: 3px;
       }
+
       .tooltip-desc {
-        font-size: 10.5px;
-        color: #cbd5e1;
+        font-size: 10px;
+        color: #e7e5e4;
         line-height: 1.35;
         margin-bottom: 5px;
       }
+
       .tooltip-footer {
         display: flex;
         justify-content: space-between;
@@ -1522,8 +1591,9 @@
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         padding-top: 4px;
         font-size: 9.5px;
-        color: #94a3b8;
+        color: #a8a29e;
       }
+
       .tooltip-cost {
         color: #fbbf24;
         font-weight: 700;
@@ -1656,15 +1726,17 @@
 
     <!-- Barra de Instrucciones Arcade Minimalista -->
     <div id="instructions">
-      <span class="inst-item">🖱️ <b>Nadar:</b> W / Clic Der</span>
+      <span class="inst-item">🧬 <b>Mejoras:</b> [U]</span>
       <span class="inst-dot">•</span>
-      <span class="inst-item">⚡ <b>Sprint:</b> Espacio / Clic Izq</span>
-      <span class="inst-dot">•</span>
-      <span class="inst-item">🧬 <b>Mitosis:</b> [M]</span>
+      <span class="inst-item">⚡ <b>Comprar:</b> [1-8]</span>
       <span class="inst-dot">•</span>
       <span class="inst-item">📡 <b>Radar:</b> [TAB]</span>
       <span class="inst-dot">•</span>
-      <span class="inst-item">☣️ <b>Nódulo:</b> Golpea Núcleo</span>
+      <span class="inst-item">🧬 <b>Mitosis:</b> [M]</span>
+      <span class="inst-dot">•</span>
+      <span class="inst-item">🖱️ <b>Nadar:</b> W / Clic Der</span>
+      <span class="inst-dot">•</span>
+      <span class="inst-item">⚡ <b>Sprint:</b> Espacio / Clic Izq</span>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

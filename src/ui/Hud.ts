@@ -85,7 +85,11 @@ export class Hud {
   private sanctuaryTitle!: HTMLElement;
   private sanctuaryDesc!: HTMLSpanElement;
 
-  // Contenedor de Bio-Upgrades (8 Ranuras Canónicas)
+  // Contenedor de Bio-Upgrades (8 Ranuras Canónicas Deslizables)
+  private upgradesDock!: HTMLDivElement;
+  private dockTab!: HTMLButtonElement;
+  private dockTabChevron!: HTMLSpanElement;
+  public isDockOpen = false; // Plegado bajo la pantalla por defecto
   private upgradesList!: HTMLDivElement;
   private upgradeCards: Map<string, UpgradeCardRef> = new Map();
   private lastRenderedAtp = -1;
@@ -185,15 +189,22 @@ export class Hud {
         </div>
       </div>
 
-      <!-- 4. Dock Inferior de 8 Bio-Mejoras -->
+      <!-- 4. Dock Inferior Deslizable de 8 Bio-Mejoras (Off-Screen Dock) -->
       <div id="bio-upgrades-dock">
+        <!-- Pestaña Ovalada Discreta Centrada en el Borde Inferior -->
+        <button id="bio-upgrades-tab" class="bio-upgrades-tab" type="button" title="Alternar panel de Bio-Mejoras (Tecla U)">
+          <span class="tab-icon">🧬</span>
+          <span class="tab-label">Bio-Mejoras [U]</span>
+          <span id="dock-tab-chevron" class="tab-chevron">▲</span>
+        </button>
+
         <div class="dock-header">
           <div class="dock-title-group">
             <span class="dock-logo">🧬</span>
             <span class="dock-title">BIO-MEJORAS</span>
             <span class="dock-badge">5 NIVELES</span>
           </div>
-          <span class="dock-hint">Teclas <b>[1 - 8]</b> o Clic</span>
+          <span class="dock-hint">Teclas <b>[1 - 8]</b> o Clic • <b>[U]</b> Alternar</span>
         </div>
         <div id="upgrades-dock-list"></div>
       </div>
@@ -215,6 +226,9 @@ export class Hud {
     this.sanctuaryDesc = document.getElementById('sanctuary-desc') as HTMLSpanElement;
     this.mitosisBanner = document.getElementById('mitosis-alert') as HTMLDivElement;
 
+    this.upgradesDock = document.getElementById('bio-upgrades-dock') as HTMLDivElement;
+    this.dockTab = document.getElementById('bio-upgrades-tab') as HTMLButtonElement;
+    this.dockTabChevron = document.getElementById('dock-tab-chevron') as HTMLSpanElement;
     this.upgradesList = document.getElementById('upgrades-dock-list') as HTMLDivElement;
     this.popupsContainer = document.getElementById('floating-popups') as HTMLDivElement;
 
@@ -229,6 +243,24 @@ export class Hud {
     this.mitosisBanner.addEventListener('click', () => {
       if (this.onMitosisClick) {
         this.onMitosisClick();
+      }
+    });
+
+    // Clic en la pestaña ovalada inferior para alternar el dock deslizable
+    this.dockTab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.toggleDock();
+    });
+
+    // Tecla rápida 'U' para alternar la barra de mejoras
+    window.addEventListener('keydown', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'KeyU' || e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleDock();
       }
     });
 
@@ -434,6 +466,30 @@ export class Hud {
     this.lastRenderedLevels = {};
     this.lastRenderedAtp = -1;
     this.renderUpgrades(true);
+  }
+
+  /**
+   * Alterna la visibilidad del dock deslizable (Off-screen dock plegado bajo la pantalla)
+   */
+  public toggleDock(): boolean {
+    this.isDockOpen = !this.isDockOpen;
+    this.setDockOpen(this.isDockOpen);
+    return this.isDockOpen;
+  }
+
+  public setDockOpen(open: boolean): void {
+    this.isDockOpen = open;
+    if (this.upgradesDock) {
+      if (open) {
+        this.upgradesDock.classList.add('open');
+        document.body.classList.add('dock-open');
+        if (this.dockTabChevron) this.dockTabChevron.textContent = '▼';
+      } else {
+        this.upgradesDock.classList.remove('open');
+        document.body.classList.remove('dock-open');
+        if (this.dockTabChevron) this.dockTabChevron.textContent = '▲';
+      }
+    }
   }
 
   /**
