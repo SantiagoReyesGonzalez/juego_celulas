@@ -21,7 +21,6 @@ export class Adipocyte {
 
   private hitFlashTimer = 0;
   private originalColor = 0xd97706;
-  private originalEmissive = 0x78350f;
   private healthPipsGroup: THREE.Group;
   private healthPips: THREE.Mesh[] = [];
 
@@ -53,12 +52,8 @@ export class Adipocyte {
 
     // Membrana del adipocito (Amarillo-Ámbar bioluminiscente translúcido)
     const geo = new THREE.SphereGeometry(radius, 20, 20);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: this.originalColor,
-      emissive: this.originalEmissive,
-      emissiveIntensity: 0.6,
-      roughness: 0.25,
-      metalness: 0.05,
       transparent: true,
       opacity: 0.85,
     });
@@ -67,11 +62,8 @@ export class Adipocyte {
 
     // Gotículas de lípidos internas que dan sensación de profundidad celular
     const dropGeo = new THREE.SphereGeometry(radius * 0.35, 12, 12);
-    const dropMat = new THREE.MeshStandardMaterial({
+    const dropMat = new THREE.MeshBasicMaterial({
       color: 0xfef08a,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 0.8,
-      roughness: 0.2,
       transparent: true,
       opacity: 0.9,
     });
@@ -91,10 +83,8 @@ export class Adipocyte {
     this.healthPipsGroup = new THREE.Group();
     const pipGeo = new THREE.SphereGeometry(0.24, 10, 10);
     for (let i = 0; i < 3; i++) {
-      const pipMat = new THREE.MeshStandardMaterial({
+      const pipMat = new THREE.MeshBasicMaterial({
         color: 0x10b981,
-        emissive: 0x10b981,
-        emissiveIntensity: 1.8,
       });
       const pip = new THREE.Mesh(pipGeo, pipMat);
       pip.position.set((i - 1) * 0.72, radius + 0.6, 0.2);
@@ -108,16 +98,12 @@ export class Adipocyte {
 
   private updateHealthPips(): void {
     this.healthPips.forEach((pip, idx) => {
-      const mat = pip.material as THREE.MeshStandardMaterial;
+      const mat = pip.material as THREE.MeshBasicMaterial;
       if (idx < this.health) {
         mat.color.setHex(0x10b981);
-        mat.emissive.setHex(0x10b981);
-        mat.emissiveIntensity = 1.8;
         pip.scale.set(1, 1, 1);
       } else {
         mat.color.setHex(0xef4444);
-        mat.emissive.setHex(0x7f1d1d);
-        mat.emissiveIntensity = 0.3;
         pip.scale.set(0.45, 0.45, 0.45);
       }
     });
@@ -135,9 +121,7 @@ export class Adipocyte {
     this.updateHealthPips();
 
     // Efecto visual de destello blanco-rojizo
-    (this.outerMembrane.material as THREE.MeshStandardMaterial).color.setHex(0xffffff);
-    (this.outerMembrane.material as THREE.MeshStandardMaterial).emissive.setHex(0xef4444);
-    (this.outerMembrane.material as THREE.MeshStandardMaterial).emissiveIntensity = 2.5;
+    (this.outerMembrane.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
 
     // Deformación elástica reactiva al impacto de sprint
     this.mesh.scale.set(1.22, 0.82, 1.22);
@@ -170,9 +154,7 @@ export class Adipocyte {
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= dt;
       if (this.hitFlashTimer <= 0) {
-        (this.outerMembrane.material as THREE.MeshStandardMaterial).color.setHex(this.originalColor);
-        (this.outerMembrane.material as THREE.MeshStandardMaterial).emissive.setHex(this.originalEmissive);
-        (this.outerMembrane.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.6;
+        (this.outerMembrane.material as THREE.MeshBasicMaterial).color.setHex(this.originalColor);
       }
     }
 
@@ -214,12 +196,8 @@ export class GlycogenGranule {
     this.position = new THREE.Vector2(x, y);
 
     const geo = new THREE.DodecahedronGeometry(this.radius);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: 0xf59e0b,
-      emissive: 0xd97706,
-      emissiveIntensity: 1.2,
-      roughness: 0.15,
-      metalness: 0.1,
     });
 
     this.mesh = new THREE.Mesh(geo, mat);
@@ -262,12 +240,8 @@ export class AtpOrb {
 
     // Orbe bioluminiscente dorado con núcleo cian
     const geo = new THREE.SphereGeometry(0.35, 12, 12);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: 0xfacc15,
-      emissive: 0xeab308,
-      emissiveIntensity: 2.5,
-      roughness: 0.1,
-      metalness: 0.1,
       transparent: true,
       opacity: 0.95,
     });

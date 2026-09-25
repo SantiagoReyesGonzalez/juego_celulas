@@ -63,12 +63,8 @@ export class NeutrophilCell {
     const cytoGeo = new THREE.SphereGeometry(this.radius, 20, 20);
     this.basePositions = new Float32Array(cytoGeo.attributes.position.array);
 
-    const cytoMat = new THREE.MeshStandardMaterial({
+    const cytoMat = new THREE.MeshBasicMaterial({
       color: 0x93c5fd,
-      emissive: 0x3b82f6,
-      emissiveIntensity: 0.85,
-      roughness: 0.3,
-      metalness: 0.1,
       transparent: true,
       opacity: 0.82,
     });
@@ -249,10 +245,10 @@ export class NeutrophilCell {
 
     this.hp -= damage;
     // Parpadeo reactivo de daño
-    (this.cytoplasmMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xef4444);
+    (this.cytoplasmMesh.material as THREE.MeshBasicMaterial).color.setHex(0xef4444);
     setTimeout(() => {
       if (!this.isDead && this.cytoplasmMesh) {
-        (this.cytoplasmMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x3b82f6);
+        (this.cytoplasmMesh.material as THREE.MeshBasicMaterial).color.setHex(0x93c5fd);
       }
     }, 80);
 

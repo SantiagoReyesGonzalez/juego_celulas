@@ -51,12 +51,8 @@ export class MacrophageBoss {
     const geo = new THREE.SphereGeometry(this.radius, 28, 28);
     this.basePositions = new Float32Array(geo.attributes.position.array);
 
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: 0xf43f5e,
-      emissive: 0x881337,
-      emissiveIntensity: 0.95,
-      roughness: 0.35,
-      metalness: 0.1,
       transparent: true,
       opacity: 0.84,
     });
@@ -158,10 +154,10 @@ export class MacrophageBoss {
 
     this.hp -= amount;
     // Parpadeo reactivo
-    (this.mainMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xffffff);
+    (this.mainMesh.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
     setTimeout(() => {
       if (!this.isDead && this.mainMesh) {
-        (this.mainMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x881337);
+        (this.mainMesh.material as THREE.MeshBasicMaterial).color.setHex(0xf43f5e);
       }
     }, 90);
 

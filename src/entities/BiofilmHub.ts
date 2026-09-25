@@ -56,7 +56,7 @@ export class BiofilmHub {
   // Componentes Visuales
   private coreGroup: THREE.Group;
   private coreMesh: THREE.Mesh;
-  private membraneMaterial: THREE.MeshStandardMaterial;
+  private membraneMaterial: THREE.MeshBasicMaterial;
   private coreSpikes: THREE.Mesh[] = [];
   private satellites: THREE.Mesh[] = [];
   private causticDome: THREE.Mesh;
@@ -161,11 +161,10 @@ export class BiofilmHub {
 
     // Crestas / Espículas minerales defensivas sobre el núcleo
     const spikeGeo = new THREE.ConeGeometry(0.7, 1.8, 6);
-    const spikeMat = new THREE.MeshStandardMaterial({
+    const spikeMat = new THREE.MeshBasicMaterial({
       color: 0x10b981,
-      emissive: 0x047857,
-      emissiveIntensity: 1.8,
-      roughness: 0.15,
+      transparent: true,
+      opacity: 0.85,
     });
     for (let i = 0; i < 6; i++) {
       const spike = new THREE.Mesh(spikeGeo, spikeMat);
@@ -177,11 +176,10 @@ export class BiofilmHub {
     }
 
     // Satélites orbitales protectores
-    const satMat = new THREE.MeshStandardMaterial({
+    const satMat = new THREE.MeshBasicMaterial({
       color: 0x2dd4bf,
-      emissive: 0x0f766e,
-      emissiveIntensity: 1.6,
-      roughness: 0.2,
+      transparent: true,
+      opacity: 0.90,
     });
     for (let i = 0; i < 4; i++) {
       const sat = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 12), satMat);
@@ -220,8 +218,6 @@ export class BiofilmHub {
   public flashHit(): void {
     this.hitFlashTimer = 0.22;
     this.membraneMaterial.color.setHex(0xffffff);
-    this.membraneMaterial.emissive.setHex(0xef4444);
-    this.membraneMaterial.emissiveIntensity = 3.0;
     this.coreGroup.scale.set(1.22, 0.84, 1.22);
   }
 
@@ -392,8 +388,6 @@ export class BiofilmHub {
       this.hitFlashTimer -= dt;
       if (this.hitFlashTimer <= 0) {
         this.membraneMaterial.color.setHex(0x059669);
-        this.membraneMaterial.emissive.setHex(0x047857);
-        this.membraneMaterial.emissiveIntensity = 0.92;
       }
     }
 

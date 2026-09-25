@@ -16,7 +16,6 @@ export class BiofilmChunk {
   public atpValue = 16;    // Ganancia de ATP
 
   private originalColor = 0x14b8a6;
-  private originalEmissive = 0x0f766e;
 
   constructor(
     physicsWorld: PhysicsWorld,
@@ -40,12 +39,8 @@ export class BiofilmChunk {
 
     // 2. Malla Three.js: Dodecaedro cristalizado verdoso-turquesa
     const geo = new THREE.DodecahedronGeometry(radius, 1);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: this.originalColor,
-      emissive: this.originalEmissive,
-      emissiveIntensity: 1.2,
-      roughness: 0.25,
-      metalness: 0.2,
       transparent: true,
       opacity: 0.9,
     });

@@ -129,12 +129,10 @@ export class Stage0 {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(1.0);
     this.renderer.setClearColor(0x1c0407, 1.0); // Fondo cálido capilar tipo rojito-vino (#1c0407)
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMapping = THREE.NoToneMapping;
 
-    // 2. Escena y Niebla del Caldo Primigenio Cálido (#1c0407)
+    // 2. Escena del Caldo Primigenio Cálido (#1c0407) (Cero sobrecarga de shaders)
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x1c0407, 60, 220);
 
     // 3. Cámara Ortográfica 2.5D
     const aspect = window.innerWidth / window.innerHeight;

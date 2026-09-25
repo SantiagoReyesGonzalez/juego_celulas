@@ -118,27 +118,22 @@ export class SpecializedNutrient {
     this.mesh.position.set(x, y, 0);
 
     let color = 0x38bdf8;
-    let emissive = 0x0284c7;
     let geo: THREE.BufferGeometry = new THREE.OctahedronGeometry(0.48);
 
     if (type === SpecializedNutrientType.CALCIUM_SHARD) {
       color = 0x00f0ff;
-      emissive = 0x0284c7;
       geo = new THREE.ConeGeometry(0.38, 0.9, 5);
       this.radius = 0.5;
     } else if (type === SpecializedNutrientType.PEPTIDE_PEARL) {
       color = 0xe879f9;
-      emissive = 0xa855f7;
       geo = new THREE.DodecahedronGeometry(0.46);
       this.radius = 0.55;
     } else if (type === SpecializedNutrientType.ENDOSPORE) {
       color = 0x34d399;
-      emissive = 0x059669;
       geo = new THREE.IcosahedronGeometry(0.42);
       this.radius = 0.48;
     } else if (type === SpecializedNutrientType.MITO_COMPLEX) {
       color = 0xfb7185;
-      emissive = 0xe11d48;
       geo = new THREE.SphereGeometry(0.55, 12, 12);
       this.radius = 0.65;
     }
@@ -146,12 +141,8 @@ export class SpecializedNutrient {
     this.color = color;
 
     // Núcleo brillante
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color,
-      emissive,
-      emissiveIntensity: 2.2,
-      roughness: 0.15,
-      metalness: 0.1,
     });
     this.coreMesh = new THREE.Mesh(geo, mat);
     this.mesh.add(this.coreMesh);
@@ -314,12 +305,8 @@ export class BioStructure {
     this.mesh = new THREE.Group();
     this.mesh.position.set(x, y, 0);
 
-    const mainMat = new THREE.MeshStandardMaterial({
+    const mainMat = new THREE.MeshBasicMaterial({
       color: this.config.color,
-      emissive: this.config.emissive,
-      emissiveIntensity: 0.75,
-      roughness: type === BioStructureType.CALCIUM_CRYSTAL ? 0.12 : 0.35,
-      metalness: type === BioStructureType.CALCIUM_CRYSTAL ? 0.25 : 0.05,
       transparent: true,
       opacity: 0.88,
     });
@@ -332,11 +319,8 @@ export class BioStructure {
       this.mesh.add(this.coreMesh);
 
       const spireGeo = new THREE.ConeGeometry(this.radius * 0.28, this.radius * 0.95, 5);
-      const spireMat = new THREE.MeshStandardMaterial({
+      const spireMat = new THREE.MeshBasicMaterial({
         color: 0x38bdf8,
-        emissive: 0x00f0ff,
-        emissiveIntensity: 1.2,
-        roughness: 0.1,
       });
 
       // 6 prismas apuntando en diferentes direcciones
@@ -366,11 +350,8 @@ export class BioStructure {
       this.mesh.add(this.coreMesh);
 
       const subDropGeo = new THREE.SphereGeometry(this.radius * 0.38, 12, 12);
-      const subDropMat = new THREE.MeshStandardMaterial({
+      const subDropMat = new THREE.MeshBasicMaterial({
         color: 0xf0abfc,
-        emissive: 0xa855f7,
-        emissiveIntensity: 1.1,
-        roughness: 0.25,
         transparent: true,
         opacity: 0.92,
       });
@@ -391,10 +372,8 @@ export class BioStructure {
       this.mesh.add(this.coreMesh);
 
       const spikeGeo = new THREE.ConeGeometry(0.18, this.radius * 0.65, 4);
-      const spikeMat = new THREE.MeshStandardMaterial({
+      const spikeMat = new THREE.MeshBasicMaterial({
         color: 0x34d399,
-        emissive: 0x10b981,
-        emissiveIntensity: 1.8,
       });
 
       for (let i = 0; i < 8; i++) {
@@ -414,10 +393,8 @@ export class BioStructure {
 
       // Crestas internas luminosas de alta energía
       const cristaeGeo = new THREE.TorusGeometry(this.radius * 0.42, 0.12, 8, 16);
-      const cristaeMat = new THREE.MeshStandardMaterial({
+      const cristaeMat = new THREE.MeshBasicMaterial({
         color: 0xfda4af,
-        emissive: 0xf43f5e,
-        emissiveIntensity: 2.2,
       });
 
       for (let c = -1; c <= 1; c++) {
@@ -436,10 +413,8 @@ export class BioStructure {
     const startX = -((this.maxHealth - 1) * spacing) * 0.5;
 
     for (let i = 0; i < this.maxHealth; i++) {
-      const pipMat = new THREE.MeshStandardMaterial({
+      const pipMat = new THREE.MeshBasicMaterial({
         color: this.config.color,
-        emissive: this.config.emissive,
-        emissiveIntensity: 1.8,
       });
       const pip = new THREE.Mesh(pipGeo, pipMat);
       pip.position.set(startX + i * spacing, this.radius + 0.65, 0.2);
@@ -480,15 +455,11 @@ export class BioStructure {
     for (let i = 0; i < this.healthPips.length; i++) {
       const pip = this.healthPips[i];
       const isAlive = i < this.health;
-      const mat = pip.material as THREE.MeshStandardMaterial;
+      const mat = pip.material as THREE.MeshBasicMaterial;
       if (isAlive) {
         mat.color.setHex(this.config.color);
-        mat.emissive.setHex(this.config.emissive);
-        mat.emissiveIntensity = 1.8;
       } else {
         mat.color.setHex(0x334155);
-        mat.emissive.setHex(0x0f172a);
-        mat.emissiveIntensity = 0.2;
       }
     }
   }
@@ -556,12 +527,10 @@ export class BioStructure {
     // Flash cromático al ser golpeado
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= dt;
-      const mat = this.coreMesh.material as THREE.MeshStandardMaterial;
+      const mat = this.coreMesh.material as THREE.MeshBasicMaterial;
       if (this.hitFlashTimer > 0) {
-        mat.emissiveIntensity = 3.5;
         mat.color.setHex(0xffffff);
       } else {
-        mat.emissiveIntensity = 0.75;
         mat.color.setHex(this.config.color);
       }
     }

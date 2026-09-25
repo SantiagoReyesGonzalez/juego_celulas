@@ -12,7 +12,7 @@ export class Player {
   // Especie y Taxonomía Actual
   public currentSpecies: BacteriaSpecies;
   public sockets: OrganelleSocket[] = [];
-  public membraneMaterial?: THREE.MeshStandardMaterial;
+  public membraneMaterial?: THREE.MeshBasicMaterial;
 
   // Físicas Rapier2D
   public body: RAPIER.RigidBody;
@@ -551,11 +551,11 @@ export class Player {
     this.group.scale.set(sx, sy, sz);
     this.updateColliderScale();
 
-    // Resplandor bioluminiscente de membrana reactivo a la alimentación
+    // Reactividad translúcida de membrana a la alimentación
     if (this.membraneMaterial) {
-      const targetEmissive = 0.90 + (this.feedPulse - 1.0) * 1.8;
-      this.membraneMaterial.emissiveIntensity +=
-        (targetEmissive - this.membraneMaterial.emissiveIntensity) * Math.min(dt * 6.0, 1.0);
+      const targetOpacity = Math.min(0.98, 0.86 + (this.feedPulse - 1.0) * 0.4);
+      this.membraneMaterial.opacity +=
+        (targetOpacity - this.membraneMaterial.opacity) * Math.min(dt * 6.0, 1.0);
     }
 
     // Ondulación hidrodinámica de los flagelos y física de orgánulos
