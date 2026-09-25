@@ -77,9 +77,6 @@ export class Hud {
   private threatAlertTitle!: HTMLElement;
   private threatAlertDesc!: HTMLSpanElement;
 
-  // Banner de Mitosis
-  private mitosisBanner!: HTMLDivElement;
-
   // Banner de Zona Segura / Biopelícula
   private sanctuaryBanner!: HTMLDivElement;
   private sanctuaryTitle!: HTMLElement;
@@ -104,7 +101,6 @@ export class Hud {
   private lastShield = -1;
   private lastMaxShield = -1;
   private lastDisplayedAtp = -1;
-  private lastMitosis = false;
 
   constructor(vacuoleManager: VacuoleManager) {
     this.vacuoleManager = vacuoleManager;
@@ -161,16 +157,6 @@ export class Hud {
         </div>
       </div>
 
-      <!-- 2. Alerta de Mitosis Disponible -->
-      <div id="mitosis-alert" class="mitosis-alert hidden">
-        <div class="mitosis-glow"></div>
-        <span class="mitosis-icon">🧬</span>
-        <div class="mitosis-text">
-          <b>¡VACUOLA AL 100%!</b>
-          <span>Mitosis y Mutación de Tier Desbloqueadas</span>
-        </div>
-      </div>
-
       <!-- 3. Banner de Alerta Inmunológica -->
       <div id="threat-alert" class="threat-alert hidden">
         <span class="threat-alert-icon">⚠️</span>
@@ -224,7 +210,6 @@ export class Hud {
     this.sanctuaryBanner = document.getElementById('sanctuary-banner') as HTMLDivElement;
     this.sanctuaryTitle = document.getElementById('sanctuary-title') as HTMLElement;
     this.sanctuaryDesc = document.getElementById('sanctuary-desc') as HTMLSpanElement;
-    this.mitosisBanner = document.getElementById('mitosis-alert') as HTMLDivElement;
 
     this.upgradesDock = document.getElementById('bio-upgrades-dock') as HTMLDivElement;
     this.dockTab = document.getElementById('bio-upgrades-tab') as HTMLButtonElement;
@@ -235,17 +220,7 @@ export class Hud {
     this.initUpgradeCards();
   }
 
-  // Evento de clic en banner de mitosis
-  public onMitosisClick?: () => void;
-
   private bindEvents(): void {
-    // Clic en el banner de mitosis
-    this.mitosisBanner.addEventListener('click', () => {
-      if (this.onMitosisClick) {
-        this.onMitosisClick();
-      }
-    });
-
     // Clic en la pestaña ovalada inferior para alternar el dock deslizable
     this.dockTab.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -330,16 +305,6 @@ export class Hud {
       this.lastDisplayedAtp = currentAtpInt;
       if (this.atpDisplayVal) {
         this.atpDisplayVal.textContent = `${currentAtpInt}`;
-      }
-    }
-
-    // Estado de Mitosis
-    if (stats.isMitosisReady !== this.lastMitosis) {
-      this.lastMitosis = stats.isMitosisReady;
-      if (stats.isMitosisReady) {
-        this.mitosisBanner.classList.remove('hidden');
-      } else {
-        this.mitosisBanner.classList.add('hidden');
       }
     }
   }

@@ -5,8 +5,6 @@ import { Player } from '../entities/Player';
 import { PredationSystem } from '../systems/PredationSystem';
 import { VacuoleManager } from '../systems/VacuoleManager';
 import { Hud } from '../ui/Hud';
-import { EvolutionSystem } from '../systems/EvolutionSystem';
-import { MitosisModal } from '../ui/MitosisModal';
 import { ThreatDirector } from '../systems/ThreatDirector';
 import { Minimap, MinimapData } from '../ui/Minimap';
 import { BiofilmHub } from '../entities/BiofilmHub';
@@ -53,12 +51,10 @@ export class Stage0 {
   private baseCameraPos = new THREE.Vector2(0, 0);
   private wasSprintingLastFrame = false;
 
-  // Depredación Celular, Evolución, Sistema Inmunológico y UI
+  // Depredación Celular, Sistema Inmunológico y UI
   public vacuoleManager!: VacuoleManager;
   public predationSystem!: PredationSystem;
   public hud!: Hud;
-  public evolutionSystem!: EvolutionSystem;
-  public mitosisModal!: MitosisModal;
   public threatDirector!: ThreatDirector;
   public minimap!: Minimap;
   private minimapData: MinimapData = {
@@ -260,17 +256,6 @@ export class Stage0 {
       this.hud = new Hud(this.vacuoleManager);
       this.predationSystem = new PredationSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
 
-      this.evolutionSystem = new EvolutionSystem(this.physicsWorld, this.scene, this.player, this.vacuoleManager);
-      this.evolutionSystem.onEvolved = (species) => {
-        this.bioAudio.playMutateSound();
-        this.cameraShake.addTrauma(0.35);
-        this.hud.showCustomPopup(
-          `🧬 ¡MUTACIÓN A TIER ${species.tier}: ${species.name.toUpperCase()}! Bio-Mejoras renovadas`,
-          '#38bdf8'
-        );
-      };
-      this.mitosisModal = new MitosisModal(this.evolutionSystem, this.player);
-
       // Inicialización del Sistema Inmunológico y Director de Amenazas (Etapa 5)
       this.threatDirector = new ThreatDirector(this.physicsWorld, this.scene);
       this.threatDirector.onThreatChanged = (threat) => {
@@ -316,14 +301,6 @@ export class Stage0 {
         } else if (text.includes('Sobrecarga')) {
           this.bioAudio.playSprintWoosh();
         }
-      };
-
-      this.hud.onMitosisClick = () => {
-        this.mitosisModal.open();
-      };
-
-      this.mitosisModal.onMitosisNotReady = (current, cap) => {
-        this.hud.showCustomPopup(`⚠️ Mitosis bloqueada: ${current} / ${cap} ATP necesarios`, '#f59e0b');
       };
 
       this.vacuoleManager.addStatsListener((stats) => {
@@ -646,11 +623,6 @@ export class Stage0 {
         }
         if (this.predationSystem) {
           this.predationSystem.update(dt, time);
-        }
-
-        // 3. Actualización de Evolución Celular y Mitosis
-        if (this.evolutionSystem) {
-          this.evolutionSystem.update(dt);
         }
 
         // 3.5. Vaso Capilar Continuo ("Dark Capillary" - 60 FPS)
@@ -978,7 +950,6 @@ export class Stage0 {
   private handlePlayerRespawn(): void {
     this.player.respawn(0, 0);
     this.vacuoleManager.resetForRespawn();
-    this.evolutionSystem.resetToBaseSpecies();
     this.sessionStartTime = performance.now();
     this.peakMass = 1.0;
     this.camera.position.set(0, 0, 50);

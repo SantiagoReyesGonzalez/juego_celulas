@@ -9,7 +9,6 @@ function init(): void {
   }
 
   // Elementos HUD Arcade e Insignia de Jugador
-  const tierEl = document.getElementById('tier-val');
   const massEl = document.getElementById('mass-val');
   const fpsEl = document.getElementById('fps-val');
 
@@ -54,9 +53,6 @@ function init(): void {
       if (fpsEl) fpsEl.textContent = `${data.fps} FPS`;
       if (massEl && data.cellMass !== undefined) {
         massEl.textContent = `${data.cellMass.toFixed(2)} μg`;
-      }
-      if (tierEl && data.cellTier !== undefined) {
-        tierEl.textContent = `Tier ${data.cellTier}`;
       }
 
       // 2. Datos de Telemetría Detallada (Solo visibles si se abre con F3 o botón)
